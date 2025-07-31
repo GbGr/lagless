@@ -1,0 +1,4 @@
+components:
+  PhysicsRefs:
+    bodyRef: float64
+    colliderRef: float64

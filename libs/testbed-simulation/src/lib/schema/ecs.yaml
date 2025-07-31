@@ -1,0 +1,54 @@
+components:
+  Position:
+    x: float32
+    y: float32
+  Velocity:
+    dx: float32
+    dy: float32
+  Player:
+    slot: uint8 # Player slot (0-255)
+singletons:
+  WorldSettings:
+    resources: uint8[16]
+    resourcesLeft: uint32
+filters:
+  TestOnlyPositionFilter:
+    include:
+      - Position
+    exclude:
+      - Velocity
+  TestOnlyVelocityFilter:
+    include:
+      - Velocity
+    exclude:
+      - Position
+  TestPositionAndVelocityFilter:
+    include:
+      - Position
+      - Velocity
+  PositionFilter:
+    include:
+      - Position
+  MovableFilter:
+    include:
+      - Position
+      - Velocity
+  StaticFilter:
+    include:
+      - Position
+    exclude:
+      - Velocity
+playerResources:
+  PlayerResource:
+    id: uint8[16] # UUID
+    slot: uint8 # Player slot (0-255)
+    entityRef: uint32 # Entity ID of the player
+inputs:
+  Move:
+    dx: float32
+    dy: float32
+  MultipleMove:
+    dx: float32
+    dy: float32
+    entities: uint32[32]
+    entitiesLength: uint8

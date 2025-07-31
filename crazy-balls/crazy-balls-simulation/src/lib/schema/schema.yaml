@@ -1,0 +1,11 @@
+components:
+  Transform2d:
+    positionX: float32
+    positionY: float32
+    rotation: float32
+    prevPositionX: float32
+    prevPositionY: float32
+    prevRotation: float32
+  PhysicsRefs:
+    colliderRef: float64
+    rigidBodyRef: float64

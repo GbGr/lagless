@@ -1,0 +1,28 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "files": [],
+  "include": [],
+  "references": [
+    {
+      "path": "../vite-transformers"
+    },
+    {
+      "path": "../di"
+    },
+    {
+      "path": "../misc"
+    },
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../types"
+    },
+    {
+      "path": "./tsconfig.lib.json"
+    },
+    {
+      "path": "./tsconfig.spec.json"
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compileOnSave": false,
+  "files": [],
+  "references": [
+    {
+      "path": "./apps/testbed"
+    },
+    {
+      "path": "./libs/core"
+    },
+    {
+      "path": "./libs/di"
+    },
+    {
+      "path": "./libs/math"
+    },
+    {
+      "path": "./libs/misc"
+    },
+    {
+      "path": "./libs/physics2d"
+    },
+    {
+      "path": "./libs/types"
+    },
+    {
+      "path": "./libs/testbed-simulation"
+    },
+    {
+      "path": "./libs/vite-transformers"
+    },
+    {
+      "path": "./codegen"
+    },
+    {
+      "path": "./crazy-balls/crazy-balls-simulation"
+    },
+    {
+      "path": "./crazy-balls/crazy-balls-bench"
+    },
+    {
+      "path": "./crazy-balls/crazy-balls-frontends"
+    }
+  ]
+}
