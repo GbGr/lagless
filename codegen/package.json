@@ -1,6 +1,7 @@
 {
   "name": "@lagless/codegen",
-  "version": "1.0.0",
+  "version": "1.0.1",
+  "private": false,
   "description": "ECS code generator with NX integration and CLI",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -20,14 +21,16 @@
     "yaml": "^2.3.4",
     "ejs": "^3.1.9",
     "commander": "^14.0.0",
-    "@nx/devkit": "21.3.10",
-    "@lagless/types": "*",
-    "@lagless/core": "*",
-    "@lagless/misc": "*"
+    "@nx/devkit": "21.3.10"
   },
   "devDependencies": {
     "typescript": "^5.0.0",
     "@types/node": "^20.0.0",
     "@types/ejs": "^3.1.5"
+  },
+  "peerDependencies": {
+    "@lagless/types": "*",
+    "@lagless/core": "*",
+    "@lagless/misc": "*"
   }
 }
