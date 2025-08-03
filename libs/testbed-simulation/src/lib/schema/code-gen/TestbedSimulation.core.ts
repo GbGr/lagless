@@ -15,7 +15,7 @@ import { StaticFilter } from './StaticFilter.js';
 import { Move } from './Move.js';
 import { MultipleMove } from './MultipleMove.js';
 
-export const TestbedSimulationECSCore: ECSDeps = {
+export const TestbedSimulationCore: ECSDeps = {
   components: [Position, Velocity, Player],
   singletons: [WorldSettings],
   playerResources: [PlayerResource],

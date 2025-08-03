@@ -5,38 +5,41 @@ export class Transform2d {
   public static readonly name = 'Transform2d';
   public static readonly ID = 1;
   public static readonly schema = {
+  
     positionX: Float32Array,
-
+  
     positionY: Float32Array,
-
+  
     rotation: Float32Array,
-
+  
     prevPositionX: Float32Array,
-
+  
     prevPositionY: Float32Array,
-
+  
     prevRotation: Float32Array,
+  
   };
 
   public readonly unsafe = {} as {
+  
     positionX: Float32Array;
-
+  
     positionY: Float32Array;
-
+  
     rotation: Float32Array;
-
+  
     prevPositionX: Float32Array;
-
+  
     prevPositionY: Float32Array;
-
+  
     prevRotation: Float32Array;
+  
   };
 
   constructor(maxEntities: number, buffer: ArrayBuffer, memTracker: MemoryTracker) {
     for (const [fieldName, TypedArrayConstructor] of Object.entries(Transform2d.schema)) {
       const typedArray = new TypedArrayConstructor(buffer, memTracker.ptr, maxEntities);
-      this.unsafe[fieldName as keyof typeof Transform2d.schema] =
-        typedArray as Transform2d['unsafe'][keyof Transform2d['unsafe']];
+      this.unsafe[fieldName as keyof typeof Transform2d.schema] = typedArray as Transform2d['unsafe'][keyof Transform2d['unsafe']];
       memTracker.add(typedArray.byteLength);
     }
   }

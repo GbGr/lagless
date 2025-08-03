@@ -28,6 +28,7 @@ function simulate(seed: number) {
   const config = new Physics2dConfig({
     gravity: { x: 0, y: -9.81 },
     seed,
+    snapshotRate: 0,
   });
   const runner = new CrazyBallsRunner(config);
   runner.start();

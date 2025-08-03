@@ -1,13 +1,12 @@
 import { ECSConfig, ECSSimulation, InputRegistry, LocalInputProvider, Mem, Prefab } from '@lagless/core';
 import { toFP } from '@lagless/misc';
 import {
-  TestbedSimulationECSCore,
   Position,
   Velocity,
   WorldSettings,
   Move,
   TestbedSimulationRunner,
-  TestbedSimulationInputRegistry,
+  TestbedSimulationInputRegistry, TestbedSimulationCore
 } from './schema/code-gen/index.js';
 import { PositionFilter } from './schema/code-gen/PositionFilter.js';
 import { MovableFilter } from './schema/code-gen/MovableFilter.js';
@@ -26,7 +25,7 @@ const ecsConfig = new ECSConfig({
 describe('testbedSimulation', () => {
   describe('ECS Mem', () => {
     it('Raw tests', () => {
-      const mem = new Mem(ecsConfig, TestbedSimulationECSCore);
+      const mem = new Mem(ecsConfig, TestbedSimulationCore);
       const position = mem.componentsManager.get(Position);
       expect(position).toBeDefined();
       const velocity = mem.componentsManager.get(Velocity);
@@ -78,7 +77,7 @@ describe('testbedSimulation', () => {
 
       worldSettings.unsafe.resourcesLeft[0] = 2;
 
-      const newMem = new Mem(ecsConfig, TestbedSimulationECSCore);
+      const newMem = new Mem(ecsConfig, TestbedSimulationCore);
 
       // check newPosition and newVelocity is empty
       const newPosition = newMem.componentsManager.get(Position);
@@ -113,7 +112,7 @@ describe('testbedSimulation', () => {
   });
   describe('ECS Core', () => {
     it('PlayerResources', () => {
-      const mem = new Mem(ecsConfig, TestbedSimulationECSCore);
+      const mem = new Mem(ecsConfig, TestbedSimulationCore);
 
       for (let i = 0; i < ecsConfig.maxPlayers; i++) {
         const playerResource = mem.playerResourcesManager.get(PlayerResource, i);
@@ -141,7 +140,7 @@ describe('testbedSimulation', () => {
         playerResource.unsafe.entityRef[0] = 0;
       }
 
-      const newMem = new Mem(ecsConfig, TestbedSimulationECSCore);
+      const newMem = new Mem(ecsConfig, TestbedSimulationCore);
       // check newPlayerResource is empty
       for (let i = 0; i < ecsConfig.maxPlayers; i++) {
         const playerResource = newMem.playerResourcesManager.get(PlayerResource, i);
@@ -161,7 +160,7 @@ describe('testbedSimulation', () => {
       }
     });
     it('should correctly manage entities, components, and filters', () => {
-      const mem = new Mem(ecsConfig, TestbedSimulationECSCore);
+      const mem = new Mem(ecsConfig, TestbedSimulationCore);
       const position = mem.componentsManager.get(Position);
       const velocity = mem.componentsManager.get(Velocity);
 
@@ -283,7 +282,7 @@ describe('testbedSimulation', () => {
       expect(staticEntities.size).toBe(entities.filter((e) => e.hasPosition && !e.hasVelocity).length);
 
       const snapshot = mem.exportSnapshot();
-      const newMem = new Mem(ecsConfig, TestbedSimulationECSCore);
+      const newMem = new Mem(ecsConfig, TestbedSimulationCore);
       newMem.applySnapshot(snapshot);
 
       const newPosition = newMem.componentsManager.get(Position);
@@ -340,9 +339,9 @@ describe('testbedSimulation', () => {
   describe('ECS Simulation', () => {
     it('Should works', () => {
       const diContainer = new Container();
-      const inputRegistry = new InputRegistry(TestbedSimulationECSCore.inputs);
+      const inputRegistry = new InputRegistry(TestbedSimulationCore.inputs);
       const localInputProvider = new LocalInputProvider(ecsConfig, inputRegistry);
-      const simulation = new ECSSimulation(ecsConfig, TestbedSimulationECSCore, localInputProvider);
+      const simulation = new ECSSimulation(ecsConfig, TestbedSimulationCore, localInputProvider);
       localInputProvider.init(simulation);
       diContainer.register(ECSConfig, ecsConfig);
       diContainer.register(Position, simulation.mem.componentsManager.get(Position));
@@ -383,9 +382,9 @@ describe('testbedSimulation', () => {
 
   describe('ECS Input', () => {
     it('should work basic input', () => {
-      const inputRegistry = new InputRegistry(TestbedSimulationECSCore.inputs);
+      const inputRegistry = new InputRegistry(TestbedSimulationCore.inputs);
       const localInputProvider = new LocalInputProvider(ecsConfig, inputRegistry);
-      const simulation = new ECSSimulation(ecsConfig, TestbedSimulationECSCore, localInputProvider);
+      const simulation = new ECSSimulation(ecsConfig, TestbedSimulationCore, localInputProvider);
       localInputProvider.init(simulation);
 
       localInputProvider.drainInputs((addRpc) => {

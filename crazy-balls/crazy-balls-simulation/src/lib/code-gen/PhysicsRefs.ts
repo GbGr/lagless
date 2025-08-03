@@ -5,22 +5,25 @@ export class PhysicsRefs {
   public static readonly name = 'PhysicsRefs';
   public static readonly ID = 2;
   public static readonly schema = {
+  
     colliderRef: Float64Array,
-
+  
     rigidBodyRef: Float64Array,
+  
   };
 
   public readonly unsafe = {} as {
+  
     colliderRef: Float64Array;
-
+  
     rigidBodyRef: Float64Array;
+  
   };
 
   constructor(maxEntities: number, buffer: ArrayBuffer, memTracker: MemoryTracker) {
     for (const [fieldName, TypedArrayConstructor] of Object.entries(PhysicsRefs.schema)) {
       const typedArray = new TypedArrayConstructor(buffer, memTracker.ptr, maxEntities);
-      this.unsafe[fieldName as keyof typeof PhysicsRefs.schema] =
-        typedArray as PhysicsRefs['unsafe'][keyof PhysicsRefs['unsafe']];
+      this.unsafe[fieldName as keyof typeof PhysicsRefs.schema] = typedArray as PhysicsRefs['unsafe'][keyof PhysicsRefs['unsafe']];
       memTracker.add(typedArray.byteLength);
     }
   }

@@ -3,5 +3,5 @@
 export * from './Transform2d.js';
 export * from './PhysicsRefs.js';
 export * from './CrazyBallsSimulationInputRegistry.js';
-export * from './ECSCore.js';
-export * from './ECSRunner.js';
+export * from './CrazyBallsSimulation.core.js';
+export * from './CrazyBallsSimulation.runner.js';

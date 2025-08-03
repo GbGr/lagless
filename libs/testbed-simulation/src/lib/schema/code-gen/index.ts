@@ -14,5 +14,5 @@ export * from './StaticFilter.js';
 export * from './Move.js';
 export * from './MultipleMove.js';
 export * from './TestbedSimulationInputRegistry.js';
-export * from './ECSCore.js';
-export * from './ECSRunner.js';
+export * from './TestbedSimulation.core.js';
+export * from './TestbedSimulation.runner.js';

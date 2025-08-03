@@ -1,7 +1,0 @@
-{
-  "type": "object",
-  "properties": {
-    "configPath": { "type": "string", "description": "Path to your ecs.yaml" }
-  },
-  "required": ["configPath"]
-}

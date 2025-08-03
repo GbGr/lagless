@@ -2,14 +2,14 @@
 import { AbstractInputProvider, ECSConfig, ECSRunner } from '@lagless/core';
 import { IECSSystemConstructor } from '@lagless/types';
 
-import { TestbedSimulationECSCore } from './ECSCore.js';
+import { CrazyBallsSimulationCore } from './CrazyBallsSimulation.core.js';
 
-export class TestbedSimulationRunner extends ECSRunner {
+export class CrazyBallsSimulationRunner extends ECSRunner {
   constructor(
     Config: ECSConfig,
     InputProviderInstance: AbstractInputProvider,
-    Systems: Array<IECSSystemConstructor>
+    Systems: Array<IECSSystemConstructor>,
   ) {
-    super(Config, InputProviderInstance, Systems, TestbedSimulationECSCore);
+    super(Config, InputProviderInstance, Systems, CrazyBallsSimulationCore);
   }
 }

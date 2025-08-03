@@ -2,7 +2,7 @@
 import { AbstractInputProvider, ECSConfig, ECSRunner } from '@lagless/core';
 import { IECSSystemConstructor } from '@lagless/types';
 
-import { <%= projectName %>ECSCore } from './ECSCore.js';
+import { <%= projectName %>Core } from './<%= projectName %>.core.js';
 
 export class <%= projectName %>Runner extends ECSRunner {
   constructor(
@@ -10,6 +10,6 @@ export class <%= projectName %>Runner extends ECSRunner {
     InputProviderInstance: AbstractInputProvider,
     Systems: Array<IECSSystemConstructor>,
   ) {
-    super(Config, InputProviderInstance, Systems, <%= projectName %>ECSCore);
+    super(Config, InputProviderInstance, Systems, <%= projectName %>Core);
   }
 }

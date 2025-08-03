@@ -2,9 +2,9 @@ import { ECSSystem } from '@lagless/di';
 import { IECSSystem } from '@lagless/types';
 import { Physics2DWorld } from '@lagless/physics2d';
 import { EntitiesManager, Prefab, PRNG } from '@lagless/core';
-import { PhysicsRefs, Transform2d } from '../schema/code-gen/index.js';
 import { MathOps } from '@lagless/math';
 import Rapier from '@dimforge/rapier2d-deterministic-compat';
+import { PhysicsRefs, Transform2d } from '../code-gen/index.js';
 
 export class FinishError extends Error {
   constructor(message: string, public readonly entity: number) {

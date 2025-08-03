@@ -1,8 +1,8 @@
 {
   "generators": {
     "ecs": {
-      "factory": "./src/generators/ecs/index.ts",
-      "schema": "./src/generators/ecs/schema.json",
+      "factory": "./src/nx-generator.ts",
+      "schema": "./schema.json",
       "description": "Generate ECS entities from YAML"
     }
   }

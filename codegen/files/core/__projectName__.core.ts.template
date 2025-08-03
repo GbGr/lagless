@@ -7,7 +7,7 @@ import { ECSDeps } from '@lagless/types';
 <% for (const filter of schema.filters) { %>import { <%= filter.name %> } from './<%= filter.name %>.js';<% } %>
 <% for (const input of schema.inputs) { %>import { <%= input.name %> } from './<%= input.name %>.js';<% } %>
 
-export const <%= projectName %>ECSCore: ECSDeps = {
+export const <%= projectName %>Core: ECSDeps = {
   components: [ <%= schema.components.map(({ name }) => name).join(', ') %> ],
   singletons: [ <%= schema.singletons.map(({ name }) => name).join(', ') %> ],
   playerResources: [ <%= schema.playerResources.map(({ name }) => name).join(', ') %> ],
