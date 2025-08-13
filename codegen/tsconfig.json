@@ -7,10 +7,16 @@
       "path": "../libs/misc"
     },
     {
+      "path": "../libs/math"
+    },
+    {
       "path": "../libs/core"
     },
     {
       "path": "../libs/types"
+    },
+    {
+      "path": "../libs/di"
     },
     {
       "path": "./tsconfig.lib.json"

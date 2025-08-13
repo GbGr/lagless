@@ -19,9 +19,6 @@
       "path": "../../libs/types"
     },
     {
-      "path": "../../libs/core"
-    },
-    {
       "path": "../../libs/physics2d"
     },
     {

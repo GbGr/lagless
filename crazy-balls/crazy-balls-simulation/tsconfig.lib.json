@@ -29,9 +29,6 @@
       "path": "../../libs/types/tsconfig.lib.json"
     },
     {
-      "path": "../../libs/core/tsconfig.lib.json"
-    },
-    {
       "path": "../../libs/physics2d/tsconfig.lib.json"
     }
   ],

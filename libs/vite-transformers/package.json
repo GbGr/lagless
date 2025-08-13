@@ -1,6 +1,6 @@
 {
   "name": "@lagless/vite-transformers",
-  "version": "0.0.1",
+  "version": "0.0.4",
   "private": false,
   "type": "module",
   "main": "./dist/index.js",
@@ -15,6 +15,10 @@
       "default": "./dist/index.js"
     }
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "dependencies": {
     "tslib": "^2.3.0"
   }

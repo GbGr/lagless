@@ -7,13 +7,10 @@
       "path": "../misc"
     },
     {
-      "path": "../types"
-    },
-    {
       "path": "../di"
     },
     {
-      "path": "../core"
+      "path": "../types"
     },
     {
       "path": "./tsconfig.lib.json"
