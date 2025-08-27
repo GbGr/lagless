@@ -2,23 +2,25 @@ import { AbstractInputProvider, ECSSimulation } from '@lagless/core';
 import { ECSDeps } from '@lagless/types';
 import { Physics2dConfig } from './physics2d-config.js';
 import { SnapshotHistory } from '@lagless/misc';
-import type Rapier from '@dimforge/rapier2d';
+import type RapierBase from '@dimforge/rapier2d';
 
-export class Physics2dSimulation extends ECSSimulation {
-  public static Rapier2d: typeof Rapier;
+type RAPIER2D = typeof RapierBase;
 
-  public static async init(initRapier: () => Promise<typeof Rapier>) {
+export class Physics2dSimulation<TRapier extends { EventQueue: any, World: any }> extends ECSSimulation {
+  public static Rapier2d: unknown;
+
+  public static async init<TRapier>(initRapier: () => Promise<TRapier>) {
     if (this.Rapier2d) return;
     this.Rapier2d = await initRapier();
   }
 
   private readonly _substeps: number;
-  private readonly _physicsEventQueue: Rapier.EventQueue;
+  private readonly _physicsEventQueue: TRapier['EventQueue'];
   private readonly _initialPhysicsSnapshot: ArrayBuffer;
-  private _physicsWorld: Rapier.World;
+  private _physicsWorld: TRapier['World'];
   private _physicsSnapshotHistory: SnapshotHistory<ArrayBuffer>;
 
-  public get physicsWorld(): Rapier.World {
+  public get physicsWorld(): TRapier['World'] {
     return this._physicsWorld;
   }
 
@@ -30,9 +32,9 @@ export class Physics2dSimulation extends ECSSimulation {
     super(Physics2dConfig, ECSDeps, inputProvider);
 
     this._substeps = Physics2dConfig.substeps;
-    this._physicsWorld = new Physics2dSimulation.Rapier2d.World(Physics2dConfig.gravity);
+    this._physicsWorld = new (Physics2dSimulation.Rapier2d as RAPIER2D).World(Physics2dConfig.gravity);
     this._physicsWorld.timestep = Physics2dConfig.frameLength / this._substeps / 1000;
-    this._physicsEventQueue = new Physics2dSimulation.Rapier2d.EventQueue(false);
+    this._physicsEventQueue = new (Physics2dSimulation.Rapier2d as RAPIER2D).EventQueue(false);
     this._initialPhysicsSnapshot = this._physicsWorld.takeSnapshot().buffer;
     this._physicsSnapshotHistory = new SnapshotHistory(Physics2dConfig.snapshotHistorySize);
   }
@@ -62,6 +64,6 @@ export class Physics2dSimulation extends ECSSimulation {
       physicsSnapshot = this._initialPhysicsSnapshot;
     }
 
-    this._physicsWorld = Physics2dSimulation.Rapier2d.World.restoreSnapshot(new Uint8Array(physicsSnapshot));
+    this._physicsWorld = (Physics2dSimulation.Rapier2d as RAPIER2D).World.restoreSnapshot(new Uint8Array(physicsSnapshot));
   }
 }
