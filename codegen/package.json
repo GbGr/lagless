@@ -1,6 +1,6 @@
 {
   "name": "@lagless/codegen",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "private": false,
   "description": "ECS code generator with NX integration and CLI",
   "main": "dist/index.js",
