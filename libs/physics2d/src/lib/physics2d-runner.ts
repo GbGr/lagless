@@ -6,7 +6,7 @@ import { Physics2dSimulation } from './physics2d-simulation.js';
 
 export class Physics2dRunner {
   public readonly DIContainer: Container;
-  public readonly Physics2dSimulation: Physics2dSimulation;
+  public readonly Physics2dSimulation: Physics2dSimulation<never>;
 
   constructor(
     public readonly Config: Physics2dConfig,
