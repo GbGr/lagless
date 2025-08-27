@@ -13,9 +13,10 @@ export class Physics2dSimulation extends ECSSimulation {
     this.Rapier2d = Rapier;
   }
 
+  private readonly _substeps: number;
+  private readonly _physicsEventQueue: Rapier.EventQueue;
+  private readonly _initialPhysicsSnapshot: ArrayBuffer;
   private _physicsWorld: Rapier.World;
-  private _physicsEventQueue: Rapier.EventQueue;
-  private _initialPhysicsSnapshot: ArrayBuffer;
   private _physicsSnapshotHistory: SnapshotHistory<ArrayBuffer>;
 
   public get physicsWorld(): Rapier.World {
@@ -29,8 +30,9 @@ export class Physics2dSimulation extends ECSSimulation {
   ) {
     super(Physics2dConfig, ECSDeps, inputProvider);
 
-    this._physicsWorld = new Rapier.World(Physics2dConfig.gravity);
-    this._physicsWorld.timestep = Physics2dConfig.frameLength / 1000;
+    this._substeps = Physics2dConfig.substeps;
+    this._physicsWorld = new Physics2dSimulation.Rapier2d.World(Physics2dConfig.gravity);
+    this._physicsWorld.timestep = Physics2dConfig.frameLength / this._substeps / 1000;
     this._physicsEventQueue = new Rapier.EventQueue(false);
     this._initialPhysicsSnapshot = this._physicsWorld.takeSnapshot().buffer;
     this._physicsSnapshotHistory = new SnapshotHistory(Physics2dConfig.snapshotHistorySize);
@@ -42,7 +44,9 @@ export class Physics2dSimulation extends ECSSimulation {
   }
 
   protected override simulate(tick: number) {
-    this._physicsWorld.step(this._physicsEventQueue);
+    for (let i = 0; i < this._substeps; i++) {
+      this._physicsWorld.step(this._physicsEventQueue);
+    }
 
     super.simulate(tick);
   }

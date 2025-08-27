@@ -1,26 +1,32 @@
 #!/usr/bin/env bash
 set -euo pipefail
+trap 'echo "❌ Error at line $LINENO"; exit 1' ERR
 
-# -------------------------------
+# =========================================
 # Config & CLI
-# -------------------------------
-BUMP="patch"        # patch | minor | major | prerelease | prepatch | preminor | premajor
+# =========================================
+BUMP="patch"          # patch | minor | major | prerelease | prepatch | preminor | premajor
 NPM_TAG="latest"
 DRY_RUN=0
 OTP=""
+FILTER=""             # comma-separated list of package names, e.g. @lagless/core,@lagless/types
+VERBOSE=0
 SCOPE_PREFIX="@lagless/"
-BUILD_TARGET="build"  # change if your nx target differs
+BUILD_TARGET="build"
 ROOT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [--bump patch|minor|major|...] [--tag TAG] [--otp CODE] [--dry-run]
+Usage: $(basename "$0") [options]
 
 Options:
-  --bump <type>   npm version bump type (default: patch)
-  --tag <tag>     npm dist-tag (default: latest)
-  --otp <code>    npm two-factor code if required
-  --dry-run       run everything except the final npm publish
+  --bump <type>    npm version bump type (default: patch)
+  --tag <tag>      npm dist-tag (default: latest)
+  --otp <code>     npm two-factor code for publish
+  --dry-run        run all steps except npm publish
+  --filter <list>  comma-separated package names to process (e.g. @lagless/core,@lagless/types)
+  --verbose        enable bash tracing
+  -h, --help       show help
 EOF
 }
 
@@ -30,37 +36,41 @@ while [[ $# -gt 0 ]]; do
     --tag)  NPM_TAG="${2:-}"; shift 2 ;;
     --otp)  OTP="${2:-}"; shift 2 ;;
     --dry-run) DRY_RUN=1; shift ;;
+    --filter) FILTER="${2:-}"; shift 2 ;;
+    --verbose) VERBOSE=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown arg: $1"; usage; exit 1 ;;
   esac
 done
 
-# -------------------------------
+[[ $VERBOSE -eq 1 ]] && set -x
+
+# =========================================
 # Preconditions
-# -------------------------------
+# =========================================
 command -v jq >/dev/null || { echo "jq is required"; exit 1; }
 command -v npm >/dev/null || { echo "npm is required"; exit 1; }
-command -v nx >/dev/null || { echo "nx is required"; exit 1; }
+command -v nx  >/dev/null || { echo "nx is required";  exit 1; }
 
-# Ensure clean git working tree (so version bumps are visible)
+# Clean git tree (чтобы видеть бампы версий)
 if [[ $DRY_RUN -eq 0 ]]; then
   if ! git diff --quiet || ! git diff --cached --quiet; then
-    echo "Your git working tree is not clean. Commit/stash before publishing."
+    echo "Git working tree не чистый. Сначала commit/stash."
     exit 1
   fi
 fi
 
-# -------------------------------
-# Helper functions
-# -------------------------------
+# =========================================
+# Helpers
+# =========================================
 
-# find all package.json files that define @lagless/* and are not in node_modules/dist
+# Собираем все package.json с name=@lagless/* и private!=true
 find_lagless_packages() {
-  # Use git ls-files when available to avoid untracked junk; fallback to find
   if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     git ls-files "**/package.json" \
       | grep -Ev '(^|/)node_modules/|(^|/)dist/' \
       | while read -r pkg; do
+          local name private
           name=$(jq -r '.name // empty' "$pkg")
           private=$(jq -r '(.private // false)|tostring' "$pkg")
           if [[ "$name" == ${SCOPE_PREFIX}* && "$private" != "true" ]]; then
@@ -80,10 +90,26 @@ find_lagless_packages() {
   fi
 }
 
-# get Nx project name for a package.json path
+# Фильтрация по --filter (список имён)
+filter_pkgs() {
+  local pkg_list=("$@")
+  [[ -z "$FILTER" ]] && { printf "%s\n" "${pkg_list[@]}"; return; }
+
+  IFS=',' read -r -a allow <<< "$FILTER"
+  for p in "${pkg_list[@]}"; do
+    local name; name=$(jq -r '.name' "$p")
+    for a in "${allow[@]}"; do
+      if [[ "$name" == "$a" ]]; then
+        echo "$p"
+        break
+      fi
+    done
+  done
+}
+
+# Получить Nx project name по пути package.json
 nx_project_from_pkgjson() {
   local pkgjson="$1"
-  # Try heuristic: walk up to the directory that contains project.json or nx.json "projects" mapping
   local dir; dir="$(dirname "$pkgjson")"
   while [[ "$dir" != "/" && "$dir" != "." ]]; do
     if [[ -f "$dir/project.json" ]]; then
@@ -92,80 +118,77 @@ nx_project_from_pkgjson() {
     fi
     dir="$(dirname "$dir")"
   done
-  # fallback: extract folder name
+  # запасной вариант — имя папки
   basename "$(dirname "$pkgjson")"
 }
 
-# bump version IN-PLACE in the real package.json
+# Бамп версии в ОРИГИНАЛЬНОМ пакете
 bump_version() {
   local dir="$1"
   (cd "$dir" && npm version "$BUMP" --no-git-tag-version >/dev/null)
 }
 
-# build via Nx (assumes target "build")
+# Nx build
 nx_build() {
   local project="$1"
   if [[ -n "$project" && "$project" != "null" ]]; then
     nx run "$project:$BUILD_TARGET"
   else
-    # If project name couldn't be resolved, try nx build with inferred name
     nx build "$project"
   fi
 }
 
-# make a temp publish folder that mirrors dist + patched package.json
+# Поиск выходной папки билда (несколько популярных layout'ов Nx)
+detect_out_dir() {
+  local pkgjson="$1"
+  local pkg_dir; pkg_dir="$(dirname "$pkgjson")"
+  local base; base="$(basename "$pkg_dir")"
+
+  local candidates=(
+    "$pkg_dir/dist"
+    "dist/$base"
+    "dist/libs/$base"
+    "dist/packages/$base"
+    "dist/libs/${base}/"*
+    "dist/packages/${base}/"*
+  )
+
+  for p in "${candidates[@]}"; do
+    for q in $p; do
+      [[ -d "$q" ]] && { echo "$q"; return 0; }
+    done
+  done
+
+  return 1
+}
+
+# Подготовка временной директории публикации (копия dist + пропатченный package.json)
 prepare_publish_dir() {
   local pkgjson="$1"
   local pkg_dir; pkg_dir="$(dirname "$pkgjson")"
-  local name; name="$(jq -r '.name' "$pkgjson")"
-  local out_dir="dist/$(basename "$pkg_dir")"  # adjust if your dist path differs
-
-  # If your Nx puts builds elsewhere, update this detection:
-  if [[ ! -d "$out_dir" ]]; then
-    # try common Nx layout: dist/libs/<libname>
-    local base; base="$(basename "$pkg_dir")"
-    if [[ -d "dist/libs/$base" ]]; then
-      out_dir="dist/libs/$base"
-    elif [[ -d "dist/packages/$base" ]]; then
-      out_dir="dist/packages/$base"
-    fi
-  fi
-
-  if [[ ! -d "$out_dir" ]]; then
-    echo "❌ Could not find dist for $name (looked in $out_dir). Check your Nx output path."
+  local out_dir
+  out_dir="$(detect_out_dir "$pkgjson")" || {
+    echo "❌ dist не найден для $(jq -r '.name' "$pkgjson"). Проверь outputPath в project.json"
     return 1
-  fi
+  }
 
-  local tmpdir
-  tmpdir="$(mktemp -d)"
-  rsync -a "$out_dir/." "$tmpdir/"
+  local tmpdir; tmpdir="$(mktemp -d)"
 
-  # bring along README/LICENSE from source if present
+  # 1) Создаём dist в temp и КОПИРУЕМ В НЕГО (сохраняем путь 'dist/')
+  mkdir -p "$tmpdir/dist"
+  rsync -a "$out_dir/" "$tmpdir/dist/"
+
+  # 2) Кладём package.json/README/LICENSE
+  cp "$pkg_dir/package.json" "$tmpdir/package.json"
   [[ -f "$pkg_dir/README.md" ]] && cp "$pkg_dir/README.md" "$tmpdir/README.md"
   [[ -f "$ROOT_DIR/LICENSE" ]] && cp "$ROOT_DIR/LICENSE" "$tmpdir/LICENSE"
 
-  # Patch package.json in the tmpdir:
-  if [[ -f "$tmpdir/package.json" ]]; then
-    # Remove exports["."].development only in the temp copy
-    jq 'if .exports and (."."|tostring|length) >= 0
-        then .exports |=
-             ( . as $e
-               | if $e["."] and $e["."]["development"] then
-                   .["."] |= (del(.development))
-                 else .
-                 end
-             )
-        else .
-        end' "$tmpdir/package.json" > "$tmpdir/package.json.tmp"
-
-    mv "$tmpdir/package.json.tmp" "$tmpdir/package.json"
-  else
-    # Some builds copy the root package.json; if not, copy and patch it
-    jq 'if .exports and .exports["."] and .exports["."]["development"]
-        then .exports["."] |= (del(.development))
-        else .
-        end' "$pkgjson" > "$tmpdir/package.json"
-  fi
+  # 3) Патчим только temp package.json: удаляем exports["."].development
+  jq 'if has("exports") and (.exports|has(".")) and (.exports["."]|has("development"))
+      then .exports["."] |= del(.development)
+      else .
+      end' "$tmpdir/package.json" > "$tmpdir/package.json.tmp" \
+      && mv "$tmpdir/package.json.tmp" "$tmpdir/package.json"
 
   echo "$tmpdir"
 }
@@ -178,11 +201,8 @@ npm_publish_from_dir() {
   local version; version="$(jq -r '.version' "$dir/package.json")"
 
   echo "🛫 Publishing $name@$version (tag: $tag)"
-
   local publish_cmd=(npm publish --access public --tag "$tag")
-  if [[ -n "$otp" ]]; then
-    publish_cmd+=(--otp "$otp")
-  fi
+  [[ -n "$otp" ]] && publish_cmd+=(--otp "$otp")
 
   if [[ $DRY_RUN -eq 1 ]]; then
     echo "DRY RUN: (${publish_cmd[*]}) in $dir"
@@ -191,21 +211,22 @@ npm_publish_from_dir() {
   fi
 }
 
-# -------------------------------
+# =========================================
 # Main
-# -------------------------------
-PKGS=()
-while IFS= read -r pkg; do PKGS+=("$pkg"); done < <(find_lagless_packages)
+# =========================================
+# 0) Собираем список пакетов
+mapfile -t ALL_PKGS < <(find_lagless_packages)
+mapfile -t PKGS < <(filter_pkgs "${ALL_PKGS[@]}")
 
 if [[ ${#PKGS[@]} -eq 0 ]]; then
-  echo "No publishable ${SCOPE_PREFIX} packages found."
+  echo "Нет подходящих ${SCOPE_PREFIX} пакетов."
   exit 0
 fi
 
 echo "Found ${#PKGS[@]} ${SCOPE_PREFIX} packages to process:"
 printf ' - %s\n' "${PKGS[@]}"
 
-# 1) bump versions in-source
+# 1) Бамп версий
 for pkgjson in "${PKGS[@]}"; do
   dir="$(dirname "$pkgjson")"
   name="$(jq -r '.name' "$pkgjson")"
@@ -213,13 +234,13 @@ for pkgjson in "${PKGS[@]}"; do
   bump_version "$dir"
 done
 
-# Commit version bumps (optional but recommended)
+# Коммитим бампы (можно убрать при желании)
 if [[ $DRY_RUN -eq 0 ]]; then
   git add .
   git commit -m "chore(release): bump ${SCOPE_PREFIX} packages (${BUMP})" || true
 fi
 
-# 2) build + 3) prep temp publish dir + 4) publish
+# 2) Билд + 3) Подготовка temp dir + 4) Публикация
 for pkgjson in "${PKGS[@]}"; do
   name="$(jq -r '.name' "$pkgjson")"
   project="$(nx_project_from_pkgjson "$pkgjson")"
@@ -230,13 +251,11 @@ for pkgjson in "${PKGS[@]}"; do
   echo "📦 preparing temp publish dir for $name"
   tmpdir="$(prepare_publish_dir "$pkgjson")"
 
-  # show the exports section after patch (for visibility)
   echo "exports after patch:"
   jq '.exports // empty' "$tmpdir/package.json" || true
 
   npm_publish_from_dir "$tmpdir" "$NPM_TAG" "$OTP"
 
-  # cleanup
   rm -rf "$tmpdir"
 done
 

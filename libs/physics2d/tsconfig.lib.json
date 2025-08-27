@@ -20,6 +20,9 @@
       "path": "../di/tsconfig.lib.json"
     },
     {
+      "path": "../core/tsconfig.lib.json"
+    },
+    {
       "path": "../types/tsconfig.lib.json"
     }
   ],

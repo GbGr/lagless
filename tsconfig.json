@@ -32,15 +32,6 @@
     },
     {
       "path": "./codegen"
-    },
-    {
-      "path": "./crazy-balls/crazy-balls-simulation"
-    },
-    {
-      "path": "./crazy-balls/crazy-balls-bench"
-    },
-    {
-      "path": "./crazy-balls/crazy-balls-frontends"
     }
   ]
 }
