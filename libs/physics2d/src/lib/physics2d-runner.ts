@@ -3,7 +3,6 @@ import { ECSDeps, IECSSystemConstructor } from '@lagless/types';
 import { Physics2dConfig } from './physics2d-config.js';
 import { AbstractInputProvider, EntitiesManager, InputProvider, PlayerResources, PRNG } from '@lagless/core';
 import { Physics2dSimulation } from './physics2d-simulation.js';
-import { Physics2DWorld } from './physics2d-world.js';
 
 export class Physics2dRunner {
   public readonly DIContainer: Container;
@@ -24,7 +23,6 @@ export class Physics2dRunner {
     this.DIContainer.register(Physics2dConfig, this.Config);
     this.DIContainer.register(InputProvider, this.InputProviderInstance);
     this.DIContainer.register(Physics2dSimulation, this.Physics2dSimulation);
-    this.DIContainer.register(Physics2DWorld, this.Physics2dSimulation.physicsWorld);
     this.DIContainer.register(EntitiesManager, mem.entitiesManager);
     this.DIContainer.register(PRNG, mem.prngManager.prng);
 

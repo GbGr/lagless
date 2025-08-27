@@ -1,6 +1,6 @@
 import { IFilterInstance } from '@lagless/types';
 import { IPhysicsRefsComponent } from '../types.js';
-import Rapier from '@dimforge/rapier2d-deterministic-compat';
+import type Rapier from '@dimforge/rapier2d';
 
 export class PhysicsRefsRegistry {
   private readonly _colliderToEntity = new Map<number, number>();
