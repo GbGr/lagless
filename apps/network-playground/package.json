@@ -1,0 +1,9 @@
+{
+  "name": "@lagless/network-playground",
+  "version": "0.0.1",
+  "private": true,
+  "dependencies": {
+    "@lagless/core": "workspace:*",
+    "@lagless/testbed": "workspace:*"
+  }
+}

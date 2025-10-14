@@ -1,0 +1,28 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compileOnSave": false,
+  "files": [],
+  "references": [
+    {
+      "path": "./apps/network-playground"
+    },
+    {
+      "path": "./libs/binary"
+    },
+    {
+      "path": "./tools/codegen"
+    },
+    {
+      "path": "./libs/misc"
+    },
+    {
+      "path": "./libs/math"
+    },
+    {
+      "path": "./libs/core"
+    },
+    {
+      "path": "./libs/testbed"
+    }
+  ]
+}

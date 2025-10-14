@@ -1,0 +1,26 @@
+components:
+  Transform2d:
+    positionX: float32
+    positionY: float32
+    rotation: float32
+    prevPositionX: float32
+    prevPositionY: float32
+    prevRotation: float32
+  Projectile:
+    speed: float32
+    directionX: float32
+    directionY: float32
+singletons:
+  GameState:
+    score: int32
+    level: int32
+filters:
+  MovingProjectiles:
+    include:
+      - Transform2d
+      - Projectile
+playerResources:
+  PlayerResource:
+    health: int32
+    mana: int32
+    stamina: int32

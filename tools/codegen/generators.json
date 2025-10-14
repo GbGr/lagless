@@ -1,0 +1,9 @@
+{
+  "generators": {
+    "ecs": {
+      "factory": "./dist/nx-generator.js",
+      "schema": "./schema.json",
+      "description": "Generate ECS entities from YAML"
+    }
+  }
+}

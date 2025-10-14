@@ -1,0 +1,55 @@
+{
+  "name": "@lagless/codegen",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@lagless/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "generators": "./generators.json",
+  "files": [
+    "dist",
+    "files",
+    "generators.json",
+    "schema.json"
+  ],
+  "nx": {
+    "sourceRoot": "tools/codegen/src",
+    "targets": {
+      "build": {
+        "executor": "@nx/js:swc",
+        "outputs": [
+          "{options.outputPath}"
+        ],
+        "options": {
+          "outputPath": "tools/codegen/dist",
+          "main": "tools/codegen/src/index.ts",
+          "tsConfig": "tools/codegen/tsconfig.lib.json",
+          "skipTypeCheck": true,
+          "stripLeadingPaths": true
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "tslib": "^2.3.0",
+    "commander": "^14.0.1",
+    "yaml": "^2.8.1",
+    "ejs": "^3.1.10",
+    "@lagless/binary": "workspace:*",
+    "@lagless/core": "workspace:*",
+    "@swc/helpers": "~0.5.11"
+  },
+  "devDependencies": {
+    "@types/ejs": "^3.1.5"
+  }
+}

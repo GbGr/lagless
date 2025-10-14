@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/schema",
+  "type": "object",
+  "properties": {
+    "configPath": {
+      "type": "string",
+      "description": "Path to YAML configuration file",
+      "x-prompt": "What is the path to your YAML configuration file?"
+    }
+  },
+  "required": ["configPath"]
+}
