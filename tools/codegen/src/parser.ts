@@ -1,5 +1,4 @@
 import {
-  align8,
   getTypeSizeBytes,
   InputFieldDefinition,
   typeStringToFieldType,
@@ -32,7 +31,7 @@ export function parseInputFieldType(fieldName: string, fieldType: string): Input
     name: fieldName,
     ...res,
     type: typeStringToFieldType[res.type],
-    byteLength: align8(res.isArray ? getTypeSizeBytes(res.type) * res.arrayLength! : getTypeSizeBytes(res.type)),
+    byteLength: res.isArray && res.arrayLength ? getTypeSizeBytes(res.type) * res.arrayLength : getTypeSizeBytes(res.type),
   };
 }
 

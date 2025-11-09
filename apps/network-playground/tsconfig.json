@@ -3,6 +3,18 @@
   "include": [],
   "references": [
     {
+      "path": "../../libs/relay-input-provider"
+    },
+    {
+      "path": "../../libs/net-wire"
+    },
+    {
+      "path": "../../libs/binary"
+    },
+    {
+      "path": "../../libs/misc"
+    },
+    {
       "path": "../../libs/testbed"
     },
     {

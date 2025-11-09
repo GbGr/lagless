@@ -101,13 +101,13 @@ export interface IAbstractInputConstructor {
 export interface IAbstractInput {
   readonly id: number;
   readonly byteLength: number;
-  readonly fields: Array<InputFieldDefinition>;
+  readonly fields: ReadonlyArray<InputFieldDefinition>;
   readonly schema: Record<string, TypedArray | number>;
 }
 
 export type InputMeta = {
   tick: number;
-  ts: number;
+  ordinal: number;
   playerSlot: number;
 };
 

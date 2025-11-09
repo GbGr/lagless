@@ -146,6 +146,20 @@ export class PRNGManager implements IAbstractMemory {
   }
 }
 
+const SEED_2x64_TYPED_ARRAY = new Float64Array(2);
+export const seedFrom2x64 = (seed0: number, seed1: number): RawSeed => {
+  const seed = new Uint8Array(16);
+  SEED_2x64_TYPED_ARRAY[0] = seed0;
+  SEED_2x64_TYPED_ARRAY[1] = seed1;
+  const seedBytes = new Uint8Array(SEED_2x64_TYPED_ARRAY.buffer);
+  seed.set(seedBytes);
+  return seed as unknown as RawSeed;
+}
+
+export const generate2x64Seed = (): [ number, number ] => {
+  return [ Math.random(), Math.random() ];
+};
+
 // ---------- Helper functions (pure, inlineable) ----------
 
 /** 32-bit left rotate. */

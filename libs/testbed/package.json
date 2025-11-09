@@ -35,6 +35,7 @@
   },
   "dependencies": {
     "@swc/helpers": "~0.5.11",
-    "@lagless/core": "workspace:*"
+    "@lagless/core": "workspace:*",
+    "@lagless/binary": "workspace:*"
   }
 }

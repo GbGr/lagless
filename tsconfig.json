@@ -23,6 +23,18 @@
     },
     {
       "path": "./libs/testbed"
+    },
+    {
+      "path": "./libs/net-wire"
+    },
+    {
+      "path": "./libs/relay-input-provider"
+    },
+    {
+      "path": "./libs/relay-colyseus-room"
+    },
+    {
+      "path": "./apps/network-playground-server"
     }
   ]
 }

@@ -2,9 +2,6 @@
 import { MemoryTracker } from '@lagless/binary';
 
 export class Transform2d {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  public static readonly name = 'Transform2d';
   public static readonly ID = 1;
   public static readonly schema = {
     positionX: Float32Array,
@@ -49,3 +46,5 @@ export class Transform2d {
     }
   }
 }
+
+Object.defineProperty(Transform2d, 'name', { value: 'Transform2d' });

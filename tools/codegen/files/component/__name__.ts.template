@@ -2,9 +2,6 @@
 import { MemoryTracker } from '@lagless/binary';
 
 export class <%= component.name %> {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  public static readonly name = '<%= component.name %>';
   public static readonly ID = <%= component.id %>;
   public static readonly schema = {
   <% for (const [fieldName, field] of Object.entries(fields)) { %>
@@ -32,3 +29,5 @@ export class <%= component.name %> {
     }
   }
 }
+
+Object.defineProperty(<%= component.name %>, 'name', { value: '<%= component.name %>' });

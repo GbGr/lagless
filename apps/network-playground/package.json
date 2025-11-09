@@ -4,6 +4,10 @@
   "private": true,
   "dependencies": {
     "@lagless/core": "workspace:*",
-    "@lagless/testbed": "workspace:*"
+    "@lagless/testbed": "workspace:*",
+    "@lagless/misc": "workspace:*",
+    "@lagless/binary": "workspace:*",
+    "@lagless/net-wire": "workspace:*",
+    "@lagless/relay-input-provider": "workspace:*"
   }
 }

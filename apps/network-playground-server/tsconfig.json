@@ -1,0 +1,25 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "files": [],
+  "include": [],
+  "references": [
+    {
+      "path": "../../libs/relay-colyseus-room"
+    },
+    {
+      "path": "../../libs/net-wire"
+    },
+    {
+      "path": "../../libs/binary"
+    },
+    {
+      "path": "../../libs/misc"
+    },
+    {
+      "path": "../../libs/core"
+    },
+    {
+      "path": "./tsconfig.app.json"
+    }
+  ]
+}

@@ -57,4 +57,9 @@ export abstract class ECSRunner {
   public update(dt: number): void {
     this.Simulation.update(dt);
   }
+
+  public dispose(): void {
+    console.log('ECSRunner disposed');
+    this.InputProviderInstance.dispose();
+  }
 }

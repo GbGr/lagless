@@ -7,7 +7,7 @@ import { AbstractInputProvider } from './input/index.js';
 
 export class ECSSimulation {
   public readonly mem: Mem;
-  public readonly clock = new SimulationClock();
+  public readonly clock: SimulationClock;
   private readonly _frameLength: number;
   private readonly _snapshotRate: number;
   private readonly _initialSnapshot!: ArrayBuffer;
@@ -34,6 +34,7 @@ export class ECSSimulation {
     this._snapshotRate = this._ECSConfig.snapshotRate;
     this._snapshotHistory = new SnapshotHistory<ArrayBuffer>(this._ECSConfig.snapshotHistorySize);
     this._initialSnapshot = this.mem.exportSnapshot();
+    this.clock = new SimulationClock(_ECSConfig.frameLength, _ECSConfig.maxNudgePerFrame);
   }
 
   public registerSystems(systems: IECSSystem[]): void {
@@ -91,6 +92,7 @@ export class ECSSimulation {
 
     try {
       snapshot = this._snapshotHistory.getNearest(tick);
+      console.warn(`Rollback to tick ${tick} succeeded`);
     } catch {
       snapshot = this._initialSnapshot;
       console.warn(`Rollback to tick ${tick} failed, using initial snapshot`);

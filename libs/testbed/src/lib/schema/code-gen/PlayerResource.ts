@@ -2,9 +2,6 @@
 import { MemoryTracker } from '@lagless/binary';
 
 export class PlayerResource {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  public static readonly name = 'PlayerResource';
   public static readonly schema = {
     health: Int32Array,
 
@@ -46,3 +43,5 @@ export class PlayerResource {
     memTracker.add(Int32Array.BYTES_PER_ELEMENT * 1);
   }
 }
+
+Object.defineProperty(PlayerResource, 'name', { value: 'PlayerResource' });

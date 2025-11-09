@@ -3,12 +3,11 @@ import { AbstractFilter, IComponentConstructor } from '@lagless/core';
 <% for (const importComponent of componentsImports ) { %>import { <%= importComponent %> } from './<%= importComponent %>.js';<% } %>
 
 export class <%= filter.name %> extends AbstractFilter {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  public static readonly override name = '<%= filter.name %>';
   public static readonly include: Array<IComponentConstructor> = [<%= filter.include.map(({ name }) => name).join(',') %>];
   public static readonly exclude: Array<IComponentConstructor> = [<%= filter.exclude.map(({ name }) => name).join(',') %>];
 
   public readonly includeMask: number = <%= includeMask %>;
   public readonly excludeMask: number = <%= excludeMask %>;
 }
+
+Object.defineProperty(<%= filter.name %>, 'name', { value: '<%= filter.name %>' });

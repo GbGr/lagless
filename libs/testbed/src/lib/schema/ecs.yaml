@@ -24,3 +24,12 @@ playerResources:
     health: int32
     mana: int32
     stamina: int32
+inputs:
+  MoveInput:
+    direction: float32
+    speed: float32
+  MoveMultipleInput:
+    direction: float32
+    speed: float32
+    entities: uint32[32]
+    entitiesLength: uint32

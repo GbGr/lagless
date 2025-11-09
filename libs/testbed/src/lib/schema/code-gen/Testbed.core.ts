@@ -6,11 +6,13 @@ import { Projectile } from './Projectile.js';
 import { GameState } from './GameState.js';
 import { PlayerResource } from './PlayerResource.js';
 import { MovingProjectiles } from './MovingProjectiles.js';
+import { MoveInput } from './MoveInput.js';
+import { MoveMultipleInput } from './MoveMultipleInput.js';
 
-export const ToolsCore: ECSDeps = {
+export const TestbedCore: ECSDeps = {
   components: [Transform2d, Projectile],
   singletons: [GameState],
   playerResources: [PlayerResource],
   filters: [MovingProjectiles],
-  inputs: [],
+  inputs: [MoveInput, MoveMultipleInput],
 };

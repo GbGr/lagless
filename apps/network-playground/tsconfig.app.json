@@ -32,6 +32,18 @@
   "include": ["src/**/*.js", "src/**/*.jsx", "src/**/*.ts", "src/**/*.tsx"],
   "references": [
     {
+      "path": "../../libs/relay-input-provider/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/net-wire/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/binary/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/misc/tsconfig.lib.json"
+    },
+    {
       "path": "../../libs/testbed/tsconfig.lib.json"
     },
     {

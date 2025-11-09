@@ -4,12 +4,11 @@ import { Transform2d } from './Transform2d.js';
 import { Projectile } from './Projectile.js';
 
 export class MovingProjectiles extends AbstractFilter {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  public static override readonly name = 'MovingProjectiles';
   public static readonly include: Array<IComponentConstructor> = [Transform2d, Projectile];
   public static readonly exclude: Array<IComponentConstructor> = [];
 
   public readonly includeMask: number = 3;
   public readonly excludeMask: number = 0;
 }
+
+Object.defineProperty(MovingProjectiles, 'name', { value: 'MovingProjectiles' });

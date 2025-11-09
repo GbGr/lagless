@@ -17,6 +17,7 @@ export class ECSConfig {
   public readonly frameLength: number;
   public readonly snapshotRate: number;
   public readonly snapshotHistorySize: number;
+  public readonly maxNudgePerFrame: number;
 
   constructor(options?: Partial<ECSConfig>) {
     this.seed = options?.seed ?? ZERO_SEED;
@@ -27,5 +28,6 @@ export class ECSConfig {
     this.frameLength = 1000 / this.fps;
     this.snapshotRate = options?.snapshotRate ?? 1;
     this.snapshotHistorySize = options?.snapshotHistorySize ?? 100;
+    this.maxNudgePerFrame = options?.maxNudgePerFrame ?? this.frameLength / 4;
   }
 }

@@ -1,0 +1,44 @@
+{
+  "name": "@lagless/relay-colyseus-room",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@lagless/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "nx": {
+    "sourceRoot": "libs/relay-colyseus-room/src",
+    "targets": {
+      "build": {
+        "executor": "@nx/js:swc",
+        "outputs": [
+          "{options.outputPath}"
+        ],
+        "options": {
+          "outputPath": "libs/relay-colyseus-room/dist",
+          "main": "libs/relay-colyseus-room/src/index.ts",
+          "tsConfig": "libs/relay-colyseus-room/tsconfig.lib.json",
+          "skipTypeCheck": true,
+          "stripLeadingPaths": true
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "@swc/helpers": "~0.5.11",
+    "colyseus": "^0.16.5",
+    "@lagless/core": "workspace:*",
+    "@lagless/misc": "workspace:*",
+    "@lagless/binary": "workspace:*",
+    "@lagless/net-wire": "workspace:*"
+  }
+}

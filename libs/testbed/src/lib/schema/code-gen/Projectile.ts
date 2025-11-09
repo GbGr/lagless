@@ -2,9 +2,6 @@
 import { MemoryTracker } from '@lagless/binary';
 
 export class Projectile {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  public static readonly name = 'Projectile';
   public static readonly ID = 2;
   public static readonly schema = {
     speed: Float32Array,
@@ -37,3 +34,5 @@ export class Projectile {
     }
   }
 }
+
+Object.defineProperty(Projectile, 'name', { value: 'Projectile' });

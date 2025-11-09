@@ -2,9 +2,6 @@
 import { MemoryTracker } from '@lagless/binary';
 
 export class GameState {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  public static readonly name = 'GameState';
   public static readonly schema = {
     score: Int32Array,
 
@@ -35,3 +32,5 @@ export class GameState {
     memTracker.add(Int32Array.BYTES_PER_ELEMENT * 1);
   }
 }
+
+Object.defineProperty(GameState, 'name', { value: 'GameState' });

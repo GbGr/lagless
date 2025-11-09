@@ -2,9 +2,6 @@
 import { MemoryTracker } from '@lagless/binary';
 
 export class <%= singleton.name %> {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  public static readonly name = '<%= singleton.name %>';
   public static readonly schema = {
   <% for (const [fieldName, field] of Object.entries(fields)) { %>
     <%= fieldName %>: <%= typeToArrayConstructor[field.type].name %>,
@@ -32,3 +29,5 @@ export class <%= singleton.name %> {
     <% } %>
   }
 }
+
+Object.defineProperty(<%= singleton.name %>, 'name', { value: '<%= singleton.name %>' });
