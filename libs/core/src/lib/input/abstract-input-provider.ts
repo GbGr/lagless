@@ -52,7 +52,7 @@ export abstract class AbstractInputProvider {
     const rpc = new RPC(InputCtor.id, newRPCMeta, data);
     this._frameRPCBuffer.push(rpc);
     this._rpcHistory.addRPC(rpc);
-    console.log(`Added RPC for tick ${newRPCMeta.tick}, slot ${newRPCMeta.playerSlot}, inputId ${InputCtor.id}`);
+    console.log(`Added RPC for tick ${newRPCMeta.tick} (${this._currentInputDelay}), slot ${newRPCMeta.playerSlot}, inputId ${InputCtor.id}`);
   };
 
   public drainInputs(fn: InputDrainerFn): () => void {

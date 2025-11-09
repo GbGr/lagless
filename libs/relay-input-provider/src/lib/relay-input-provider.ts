@@ -12,31 +12,47 @@ import {
   ServerHelloStruct,
   TickInputFanoutStruct,
   TickInputStruct,
+  CancelInputStruct, // <-- ensure this exists
   WireVersion,
 } from '@lagless/net-wire';
 import {
   BinarySchemaPackPipeline,
   BinarySchemaUnpackPipeline,
   InferBinarySchemaValues,
-  InputBinarySchema, unpackBatchBuffers
+  InputBinarySchema,
+  unpackBatchBuffers,
 } from '@lagless/binary';
+import { RelayTelemetry, RelayTelemetrySnapshot } from './relay-telemetry.js'; // <-- new
 
 export class RelayInputProvider extends AbstractInputProvider {
   private readonly PING_INTERVAL_MS = 1000 / 4;
   private readonly BURST_PING_COUNT = 5;
 
+  private readonly _safetyMs: number = 3;
+  private readonly _kJitter = 2;
+  private readonly _extraTicks = 1;
+
   public override playerSlot: number;
   private _tickToRollback: number | undefined;
   private _nowFn!: () => number;
   private _pingIntervalId!: NodeJS.Timeout;
+
   private readonly _clockSync = new ClockSync();
   private readonly _inputDelayController = new InputDelayController();
-  public _lastServerTickHint = 0;
+
+  private _lastServerTickHint = 0;
+
+  private readonly _telemetry = new RelayTelemetry();
 
   public override getInvalidateRollbackTick(): void | number {
     const tick = this._tickToRollback;
     this._tickToRollback = undefined;
+    if (tick !== undefined) this._telemetry.onRollback();
     return tick;
+  }
+
+  public getTelemetrySnapshot(): Readonly<RelayTelemetrySnapshot> {
+    return this._telemetry.snapshot();
   }
 
   public static async connect(
@@ -58,16 +74,11 @@ export class RelayInputProvider extends AbstractInputProvider {
         const buffer = uint8.buffer.slice(uint8.byteOffset, uint8.byteOffset + uint8.byteLength) as ArrayBuffer;
         const pipeline = new BinarySchemaUnpackPipeline(buffer);
         const header = pipeline.unpack(HeaderStruct);
-        // console.log(`Received message type ${header.type}`);
-
         if (header.type === MsgType.ServerHello) {
           const serverHello = pipeline.unpack(ServerHelloStruct);
-
           clearTimeout(timeoutId);
           onMessageSubscribe();
           resolve(serverHello);
-
-          // console.log(`Connected to relay server ${relayServerUrl}`, serverHello);
         } else {
           roomMessagesBuffer.push(uint8);
         }
@@ -82,12 +93,12 @@ export class RelayInputProvider extends AbstractInputProvider {
     return new RelayInputProvider(serverHello.playerSlot, config, inputRegistry, room, roomMessagesBuffer);
   }
 
-  constructor(
+  public constructor(
     playerSlot: number,
     _ecsConfig: ECSConfig,
     _inputRegistry: InputRegistry,
-    private _room: Room<unknown>,
-    initialMessagesBuffer: Array<Uint8Array>,
+    private readonly _room: Room<unknown>,
+    initialMessagesBuffer: Array<Uint8Array>
   ) {
     super(_ecsConfig, _inputRegistry);
     this.playerSlot = playerSlot;
@@ -112,6 +123,12 @@ export class RelayInputProvider extends AbstractInputProvider {
   public override update(): void {
     super.update();
 
+    const localTick = this._simulation.tick;
+    const delta = this._currentInputDelay;
+    const targetTick = this._computeTargetTick(localTick, delta);
+
+    this._telemetry.onState(localTick, this._lastServerTickHint || null, targetTick);
+
     if (this._frameRPCBuffer.length === 0) {
       return;
     }
@@ -127,18 +144,18 @@ export class RelayInputProvider extends AbstractInputProvider {
 
     const packPipeline = new BinarySchemaPackPipeline();
     packPipeline.pack(HeaderStruct, { version: WireVersion.V1, type: MsgType.TickInput });
-    packPipeline.pack(TickInputStruct, { tick: this._simulation.tick + this._currentInputDelay, playerSlot: this.playerSlot });
+    packPipeline.pack(TickInputStruct, { tick: targetTick, playerSlot: this.playerSlot });
     packPipeline.appendBuffer(packedInputs);
-    const uint8 = packPipeline.toUint8Array();
-    this._room.send(RELAY_BYTES_CHANNEL, uint8);
+    this._room.send(RELAY_BYTES_CHANNEL, packPipeline.toUint8Array());
+
+    this._telemetry.onSend('input');
   }
 
   private sendPing(): void {
     const packPipeline = new BinarySchemaPackPipeline();
     packPipeline.pack(HeaderStruct, { version: WireVersion.V1, type: MsgType.Ping });
     packPipeline.pack(PingStruct, { cSend: this._nowFn() });
-    const uint8 = packPipeline.toUint8Array();
-    this._room.send(RELAY_BYTES_CHANNEL, uint8);
+    this._room.send(RELAY_BYTES_CHANNEL, packPipeline.toUint8Array());
   }
 
   private _internalOnBytesMessage = (uint8: Uint8Array) => {
@@ -162,42 +179,71 @@ export class RelayInputProvider extends AbstractInputProvider {
     }
   };
 
+  private _arrivalBufTicks(): number {
+    const halfRttMs = 0.5 * this._clockSync.rttEwmaMs;
+    const guardMs = this._kJitter * this._clockSync.jitterEwmaMs + this._safetyMs;
+    return Math.ceil((halfRttMs + guardMs) / this._frameLength) + this._extraTicks;
+  }
+
+  private _computeTargetTick(localTick: number, delta: number): number {
+    const buf = this._arrivalBufTicks();
+    const byLocal = localTick + Math.max(delta, buf);
+    const byHint  = this._lastServerTickHint ? (this._lastServerTickHint + buf) : Number.NEGATIVE_INFINITY;
+
+    return Math.max(byLocal, byHint) + 1;
+  }
+
   private onPongMessage(pipeline: BinarySchemaUnpackPipeline): void {
     const nowMs = this._nowFn();
-    const pongData = pipeline.unpack(PongStruct);
-    this._clockSync.updateFromPong(nowMs, pongData);
+    const pong = pipeline.unpack(PongStruct);
+
+    this._clockSync.updateFromPong(nowMs, pong);
     this._inputDelayController.recompute(
       this._frameLength,
       this._clockSync.rttEwmaMs,
       this._clockSync.jitterEwmaMs,
     );
     this._currentInputDelay = this._inputDelayController.deltaTicks;
-    const restoredServerTick = Math.floor(pongData.sTick + Math.round(this._clockSync.rttEwmaMs * 0.5 / this._frameLength));
-    this._simulation.clock.phaseNudger.onServerTickHint(restoredServerTick, this._simulation.tick);
-    // TODO: remove
-    this._lastServerTickHint = restoredServerTick;
+
+    const serverNow = this._clockSync.serverNowMs(nowMs);
+    const advTicksTheta = Math.max(0, Math.floor((serverNow - pong.sSend) / this._frameLength));
+    const hintTheta = pong.sTick + advTicksTheta;
+
+    const halfRttTicks = Math.max(0, Math.floor((this._clockSync.rttEwmaMs * 0.5) / this._frameLength));
+    const hintHalfRtt = pong.sTick + halfRttTicks;
+
+    const wanted = Math.max(hintTheta, hintHalfRtt);
+    const prev = this._lastServerTickHint | 0;
+    const hinted = Math.max(prev, wanted); // monotonic non-decreasing
+
+    this._simulation.clock.phaseNudger.onServerTickHint(hinted, this._simulation.tick);
+    this._lastServerTickHint = hinted;
+
+    this._telemetry.onPong(this._clockSync.rttEwmaMs, this._clockSync.jitterEwmaMs);
+    this._telemetry.onDelta(this._currentInputDelay);
   }
 
   private onTickInputFanoutMessage(pipeline: BinarySchemaUnpackPipeline): void {
-    const tickInputFanout = pipeline.unpack(TickInputFanoutStruct);
+    pipeline.unpack(TickInputFanoutStruct);
+
     const inputsBuffer = pipeline.sliceRemaining();
     const unpackedBuffers = unpackBatchBuffers(inputsBuffer);
 
-    console.log(`[recv] TickInputFanout from serverTick ${tickInputFanout.serverTick}, unpackedBuffers count: ${unpackedBuffers.length}`);
+    this._telemetry.onFanout(unpackedBuffers.length);
 
-    const allRpcs = new Array<RPC>();
+    const allRpcs: RPC[] = [];
     let minTick = Number.MAX_SAFE_INTEGER;
 
-    for (const unpackedBuffer of unpackedBuffers) {
-      const pipeline = new BinarySchemaUnpackPipeline(unpackedBuffer);
-      const tickInput = pipeline.unpack(TickInputStruct);
-      if (tickInput.playerSlot === this.playerSlot) continue;
-      if (tickInput.tick < minTick) minTick = tickInput.tick;
-      const inputBuffer = pipeline.sliceRemaining();
-      // console.log(`TickInput for tick ${tickInput.tick}, playerSlot ${tickInput.playerSlot}`);
-      const rawRPCs = InputBinarySchema.unpackBatch(this._inputRegistry, inputBuffer);
-      for (const rawRPC of rawRPCs) {
-        const rpc = new RPC(rawRPC.inputId, { tick: tickInput.tick, playerSlot: tickInput.playerSlot, ordinal: 0 }, rawRPC.values);
+    for (const buf of unpackedBuffers) {
+      const p2 = new BinarySchemaUnpackPipeline(buf);
+      const ti = p2.unpack(TickInputStruct);
+      if (ti.playerSlot === this.playerSlot) continue;
+      if (ti.tick < minTick) minTick = ti.tick;
+
+      const payload = p2.sliceRemaining();
+      const rawRPCs = InputBinarySchema.unpackBatch(this._inputRegistry, payload);
+      for (const r of rawRPCs) {
+        const rpc = new RPC(r.inputId, { tick: ti.tick, playerSlot: ti.playerSlot, ordinal: 0 }, r.values);
         allRpcs.push(rpc);
       }
     }
@@ -205,13 +251,15 @@ export class RelayInputProvider extends AbstractInputProvider {
     this._rpcHistory.addBatch(allRpcs);
     if (minTick < Number.MAX_SAFE_INTEGER) {
       this._tickToRollback = minTick;
+      this._telemetry.onRollback();
     }
   }
 
   private onCancelInputMessage(pipeline: BinarySchemaUnpackPipeline): void {
-    const cancelInput = pipeline.unpack(TickInputStruct);
+    const cancelInput = pipeline.unpack(CancelInputStruct);
     console.log(`Received CancelInput for tick ${cancelInput.tick}, playerSlot ${cancelInput.playerSlot}`);
     this._rpcHistory.removePlayerInputsAtTick(cancelInput.playerSlot, cancelInput.tick);
     this._tickToRollback = cancelInput.tick;
+    this._telemetry.onCancel();
   }
 }

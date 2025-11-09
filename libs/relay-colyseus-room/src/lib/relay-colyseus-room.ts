@@ -18,15 +18,13 @@ import {
 import { now } from '@lagless/misc';
 import { generate2x64Seed } from '@lagless/core';
 
-const SIMULATE_LATENCY_MS = 150;
-const DEBUG_CANCEL_RATE = 0.05;
+const SIMULATE_LATENCY_MS = 120;
+// const DEBUG_CANCEL_RATE = 0.05;
 
 export class RelayColyseusRoom extends Room {
   private _frameLength = 0;
   private _roomStartedAt = 0;
-
   private _nextPlayerSlot = 0;
-
   private _intervalId: NodeJS.Timeout | null = null;
 
   private readonly _batchInputBuffer = new Array<Uint8Array>();
@@ -90,7 +88,7 @@ export class RelayColyseusRoom extends Room {
         return;
       }
 
-      console.log(`Received message type ${header.type} from client ${client.sessionId}`);
+      // console.log(`Received message type ${header.type} from client ${client.sessionId}`);
 
       switch (header.type) {
         case MsgType.Ping:
@@ -120,17 +118,16 @@ export class RelayColyseusRoom extends Room {
     setTimeout(() => {
       client.send(RELAY_BYTES_CHANNEL, pongPipeline.toUint8Array());
     }, SIMULATE_LATENCY_MS / 2);
-    console.log(`Responded with Pong to client ${client.sessionId}`);
   }
 
   private onTickInputMessage(client: Client, pipeline: BinarySchemaUnpackPipeline): void {
     const buffer = pipeline.sliceRemaining();
     const tickInput = pipeline.unpack(TickInputStruct);
 
-    if (Math.random() < DEBUG_CANCEL_RATE) {
-      setTimeout(() => this.cancelInput(client, tickInput), SIMULATE_LATENCY_MS);
-      return;
-    }
+    // if (Math.random() < DEBUG_CANCEL_RATE) {
+    //   setTimeout(() => this.cancelInput(client, tickInput), SIMULATE_LATENCY_MS);
+    //   return;
+    // }
 
     if (tickInput.tick <= this._serverTick(now())) {
       this.cancelInput(client, tickInput);
@@ -138,10 +135,16 @@ export class RelayColyseusRoom extends Room {
     }
 
     this._batchInputBuffer.push(new Uint8Array(buffer));
+
+    console.log(`Received TickInput for Tick ${tickInput.tick} at ServerTick ${this._serverTick(now())}`);
   }
 
   private cancelInput(client: Client, tickInput: InferBinarySchemaValues<typeof TickInputStruct>): void {
-    console.log(`Cancelling input ${tickInput.tick - this._serverTick(now())}`);
+    console.warn('Cancel', {
+      ti: tickInput.tick,
+      sNow: this._serverTick(now()),
+      diffToNow: tickInput.tick - this._serverTick(now()),
+    });
     const pipeline = new BinarySchemaPackPipeline();
     pipeline.pack(HeaderStruct, { version: WireVersion.V1, type: MsgType.CancelInput });
     pipeline.pack(CancelInputStruct, { tick: tickInput.tick, playerSlot: tickInput.playerSlot });
