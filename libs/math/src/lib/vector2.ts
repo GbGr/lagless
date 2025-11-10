@@ -187,7 +187,7 @@ export class Vector2 {
   }
 
   public length(): number {
-    return Math.sqrt(this.lengthSquared());
+    return MathOps.sqrt(this.lengthSquared());
   }
 
   public distanceSquaredTo(other: Vector2): number {
@@ -197,7 +197,7 @@ export class Vector2 {
   }
 
   public distanceTo(other: Vector2): number {
-    return Math.hypot(this.x - other.x, this.y - other.y);
+    return MathOps.sqrt(this.distanceSquaredTo(other));
   }
 
   // ---- Dot/Cross ----
@@ -214,7 +214,7 @@ export class Vector2 {
   public normalizeToRef(ref: Vector2): Vector2 {
     const lsq = this.lengthSquared();
     if (lsq > Vector2.EPSILON) {
-      const invLen = 1 / Math.sqrt(lsq);
+      const invLen = 1 / MathOps.sqrt(lsq);
       ref.x = this.x * invLen;
       ref.y = this.y * invLen;
       return ref;
@@ -282,11 +282,7 @@ export class Vector2 {
     return this;
   }
 
-  public rotateAroundToRef(
-    pivot: Vector2,
-    angle: number,
-    ref: Vector2
-  ): Vector2 {
+  public rotateAroundToRef(pivot: Vector2, angle: number, ref: Vector2): Vector2 {
     const px = this.x - pivot.x,
       py = this.y - pivot.y;
     const c = MathOps.cos(angle),
@@ -418,24 +414,20 @@ export class Vector2 {
   public clampLengthInPlace(minLen: number, maxLen: number): Vector2 {
     const lenSq = this.lengthSquared();
     if (lenSq < minLen * minLen) {
-      const len = Math.sqrt(lenSq);
+      const len = MathOps.sqrt(lenSq);
       if (len > Vector2.EPSILON) {
         this.scaleInPlace(minLen / len);
       } else {
         this.setInPlace(minLen, 0);
       }
     } else if (lenSq > maxLen * maxLen) {
-      const len = Math.sqrt(lenSq);
+      const len = MathOps.sqrt(lenSq);
       this.scaleInPlace(maxLen / (len > Vector2.EPSILON ? len : 1));
     }
     return this;
   }
 
-  public clampLengthToRef(
-    minLen: number,
-    maxLen: number,
-    ref: Vector2
-  ): Vector2 {
+  public clampLengthToRef(minLen: number, maxLen: number, ref: Vector2): Vector2 {
     ref.copyFrom(this);
     return ref.clampLengthInPlace(minLen, maxLen);
   }
@@ -450,9 +442,7 @@ export class Vector2 {
   }
 
   public approxEquals(other: Vector2, eps = Vector2.EPSILON): boolean {
-    return (
-      Math.abs(this.x - other.x) <= eps && Math.abs(this.y - other.y) <= eps
-    );
+    return Math.abs(this.x - other.x) <= eps && Math.abs(this.y - other.y) <= eps;
   }
 
   // ---- Serialization ----
@@ -466,11 +456,7 @@ export class Vector2 {
     return new Vector2(arr[offset], arr[offset + 1]);
   }
 
-  public static fromArrayToRef(
-    arr: ArrayLike<number>,
-    ref: Vector2,
-    offset = 0
-  ): Vector2 {
+  public static fromArrayToRef(arr: ArrayLike<number>, ref: Vector2, offset = 0): Vector2 {
     ref.x = arr[offset];
     ref.y = arr[offset + 1];
     return ref;
@@ -478,17 +464,10 @@ export class Vector2 {
 
   // ---- Construction helpers ----
   public static fromAngle(angle: number, length = 1): Vector2 {
-    return new Vector2(
-      MathOps.cos(angle) * length,
-      MathOps.sin(angle) * length
-    );
+    return new Vector2(MathOps.cos(angle) * length, MathOps.sin(angle) * length);
   }
 
-  public static fromAngleToRef(
-    angle: number,
-    ref: Vector2,
-    length = 1
-  ): Vector2 {
+  public static fromAngleToRef(angle: number, ref: Vector2, length = 1): Vector2 {
     ref.x = MathOps.cos(angle) * length;
     ref.y = MathOps.sin(angle) * length;
     return ref;

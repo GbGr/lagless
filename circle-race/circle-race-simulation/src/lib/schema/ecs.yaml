@@ -1,0 +1,31 @@
+components:
+  Transform2d:
+    positionX: float32
+    positionY: float32
+    rotation: float32
+    prevPositionX: float32
+    prevPositionY: float32
+    prevRotation: float32
+  Velocity2d:
+    velocityX: float32
+    velocityY: float32
+playerResources:
+  PlayerResource:
+    id: uint8[16]
+    entity: uint32
+inputs:
+  PlayerJoined:
+    playerId: uint8[16]
+  PlayerLeft:
+    reason: uint8
+  Move:
+    direction: float32
+    speed: float32
+filters:
+  Transform2dFilter:
+    include:
+      - Transform2d
+  MovableFilter:
+    include:
+      - Transform2d
+      - Velocity2d

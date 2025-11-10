@@ -1,7 +1,4 @@
-import cos from '@stdlib/math-base-special-cos';
-import sin from '@stdlib/math-base-special-sin';
-import atan2 from '@stdlib/math-base-special-atan2';
-import acos from '@stdlib/math-base-special-acos';
+import { initMath, dm_sin, dm_cos, dm_atan2, dm_sqrt } from '@lagless/deterministic-math';
 
 export class MathOps {
   public static PI = 3.141592653589793;
@@ -9,6 +6,10 @@ export class MathOps {
   public static PI_HALF = 1.5707963267948966;
   public static Deg2Rad = 3.141592653589793 / 180;
   public static Rad2Deg = 180 / 3.141592653589793;
+
+  public static async init() {
+    await initMath();
+  }
 
   public static clamp(value: number, min: number, max: number) {
     return Math.min(max, Math.max(min, value));
@@ -18,20 +19,20 @@ export class MathOps {
     return Math.min(1, Math.max(0, value));
   }
 
+  public static sqrt(value: number): number {
+    return dm_sqrt(value);
+  }
+
   public static cos(angle: number): number {
-    return cos(angle);
+    return dm_cos(angle);
   }
 
   public static sin(angle: number): number {
-    return sin(angle);
+    return dm_sin(angle);
   }
 
   public static atan2(y: number, x: number): number {
-    return atan2(y, x);
-  }
-
-  public static acos(value: number): number {
-    return acos(value);
+    return dm_atan2(y, x);
   }
 
   public static lerp(a: number, b: number, t: number): number {
@@ -54,12 +55,7 @@ export class MathOps {
     return ((angle + this.PI) % (2 * this.PI)) - this.PI;
   }
 
-  public static smoothRotate(
-    rotation: number,
-    targetRotation: number,
-    rotationSpeed: number,
-  ): number {
-
+  public static smoothRotate(rotation: number, targetRotation: number, rotationSpeed: number): number {
     const current = this.normalizeAngle(rotation);
     const target = this.normalizeAngle(targetRotation);
 

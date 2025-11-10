@@ -17,10 +17,6 @@
   },
   "dependencies": {
     "tslib": "^2.3.0",
-    "@stdlib/array-base-zeros": "^0.2.2",
-    "@stdlib/math-base-special-cos": "^0.3.0",
-    "@stdlib/math-base-special-sin": "^0.3.0",
-    "@stdlib/math-base-special-atan2": "^0.3.0",
-    "@stdlib/math-base-special-acos": "^0.2.3"
+    "@lagless/deterministic-math": "^0.1.8"
   }
 }

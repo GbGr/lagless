@@ -73,4 +73,13 @@ export class Mem {
 
     return tracker.ptr;
   }
+
+  public getHash(): number {
+    let hash = 0;
+    const dataView = new DataView(this._arrayBuffer);
+    for (let i = 0; i < this._arrayBuffer.byteLength; i++) {
+      hash = (hash * 31 + dataView.getUint8(i)) >>> 0;
+    }
+    return hash;
+  }
 }

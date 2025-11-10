@@ -57,32 +57,42 @@ export class ECSSimulation {
 
   public update(dt: number) {
     this.clock.update(dt);
-    const currentTick = this.mem.tickManager.tick;
-    const toTick = Math.floor(this.clock.accumulatedTime / this._frameLength);
 
-    this.checkAndRollback(currentTick);
-    this.simulationTicks(currentTick, toTick);
+    let currentTick = this.mem.tickManager.tick;
+    const targetTick = Math.floor(this.clock.accumulatedTime / this._frameLength);
 
-    this._interpolationFactor = MathOps.clamp01((this.clock.accumulatedTime % this._frameLength) / this._frameLength);
+    const hasRollerBack = this.checkAndRollback(currentTick);
+
+    currentTick = this.mem.tickManager.tick;
+
+    this.simulationTicks(currentTick, targetTick, hasRollerBack);
+
+    const simTick = this.mem.tickManager.tick;
+    const tickTime = simTick * this._frameLength;
+    const leftover = this.clock.accumulatedTime - tickTime;
+
+    this._interpolationFactor = MathOps.clamp01(leftover / this._frameLength);
   }
 
-  private checkAndRollback(currentTick: number): void {
+  private checkAndRollback(currentTick: number) {
     const rollbackTick = this._inputProvider.getInvalidateRollbackTick();
 
-    if (rollbackTick === undefined || rollbackTick > currentTick) return;
+    if (rollbackTick === undefined || rollbackTick > currentTick) return false;
 
     this.rollback(rollbackTick);
+
+    return true;
   }
 
-  private simulationTicks(currentTick: number, toTick: number): void {
+  private simulationTicks(currentTick: number, toTick: number, hasRolledBack: boolean): void {
     if (toTick - currentTick > 1) {
-      // console.warn(`Simulation ticks: ${currentTick} -> ${toTick} (simulate ${toTick - currentTick})`);
+      console.warn(`Simulation ticks: ${currentTick} -> ${toTick} (simulate ${toTick - currentTick})`);
     }
 
     while (currentTick < toTick) {
       this.mem.tickManager.setTick(++currentTick);
       this.simulate(currentTick);
-      this._inputProvider.update();
+      if (!hasRolledBack) this._inputProvider.update();
       this.storeSnapshotIfNeeded(currentTick);
     }
   }
@@ -99,6 +109,7 @@ export class ECSSimulation {
     }
 
     this.mem.applySnapshot(snapshot);
+    this._snapshotHistory.rollback(tick);
   }
 
   protected simulate(tick: number): void {
@@ -110,6 +121,10 @@ export class ECSSimulation {
 
     if (tick % this._snapshotRate === 0) {
       this.saveSnapshot(tick);
+    }
+
+    if (tick % 200 === 0) {
+      console.log(`Mem Hash at tick ${tick}: ${this.mem.getHash()}`);
     }
   }
 

@@ -15,12 +15,44 @@ export class <%= component.name %> {
   <% } %>
   };
 
+  private _cursorIndex = 0;
+  private readonly _cursor: {
+    readonly entity: number;
+    <% for (const [fieldName, field] of Object.entries(fields)) { %>
+    readonly <%= fieldName %>: number;
+    <% } %>
+  };
+
+  public getCursor(index: number) {
+    this._cursorIndex = index;
+    return this._cursor;
+  }
+
   constructor(maxEntities: number, buffer: ArrayBuffer, memTracker: MemoryTracker) {
     for (const [fieldName, TypedArrayConstructor] of Object.entries(<%= component.name %>.schema)) {
       const typedArray = new TypedArrayConstructor(buffer, memTracker.ptr, maxEntities);
       this.unsafe[fieldName as keyof typeof <%= component.name %>.schema] = typedArray as <%= component.name %>['unsafe'][keyof <%= component.name %>['unsafe']];
       memTracker.add(typedArray.byteLength);
     }
+
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const self = this;
+
+    this._cursor = {
+      get entity(): number {
+        return self._cursorIndex;
+      },
+
+      <% for (const [fieldName, field] of Object.entries(fields)) { %>
+        get <%= fieldName %>(): number {
+          return self.unsafe.<%= fieldName %>[self._cursorIndex];
+        },
+
+        set <%= fieldName %>(value: number) {
+          self.unsafe.<%= fieldName %>[self._cursorIndex] = value;
+        },
+      <% } %>
+    };
   }
 
   public static calculateSize(maxEntities: number, memTracker: MemoryTracker): void {

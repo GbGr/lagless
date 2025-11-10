@@ -25,7 +25,7 @@ export class InputDelayController {
   ): number {
     const prevDelta = this._deltaTicks;
     const needMs = rttEwmaMs * 0.5 + k * jitterEwmaMs + safetyMs;
-    const want = Math.ceil(needMs / tickMs) + 1;
+    const want = Math.ceil(needMs / tickMs);
 
     // Hysteresis: up - fast, down - slow (minus 1 per step)
     if (want > this._deltaTicks) this._deltaTicks = want;

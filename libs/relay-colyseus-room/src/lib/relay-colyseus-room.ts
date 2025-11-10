@@ -27,6 +27,8 @@ export class RelayColyseusRoom extends Room {
   private _nextPlayerSlot = 0;
   private _intervalId: NodeJS.Timeout | null = null;
 
+  protected _sessionIdToPlayerSlot = new Map<string, number>();
+
   private readonly _batchInputBuffer = new Array<Uint8Array>();
 
   public override onCreate(options: ColyseusRelayRoomOptions): void {
@@ -38,17 +40,27 @@ export class RelayColyseusRoom extends Room {
     this._intervalId = setInterval(() => this._tick(), this._frameLength);
   }
 
+  public sendServerInputFanout(inputBuffers: Uint8Array[]): void {
+    const pipeline = new BinarySchemaPackPipeline();
+    pipeline.pack(HeaderStruct, { version: WireVersion.V1, type: MsgType.TickInputFanout });
+    pipeline.pack(TickInputFanoutStruct, { serverTick: this._serverTick(now()) });
+    pipeline.appendBuffer(packBatchBuffers(inputBuffers));
+    this.broadcast(RELAY_BYTES_CHANNEL, pipeline.toUint8Array());
+  }
+
   public override onJoin(client: Client): void {
     console.log(`Client ${client.sessionId} joined`);
     const pipeline = new BinarySchemaPackPipeline();
     pipeline.pack(HeaderStruct, { version: WireVersion.V1, type: MsgType.ServerHello });
     const [ seed0, seed1 ] = generate2x64Seed();
+    const playerSlot = this._nextPlayerSlot++;
     pipeline.pack(ServerHelloStruct, {
       seed0,
       seed1,
-      playerSlot: this._nextPlayerSlot++,
+      playerSlot,
     });
     client.send(RELAY_BYTES_CHANNEL, pipeline.toUint8Array());
+    this._sessionIdToPlayerSlot.set(client.sessionId, playerSlot);
   }
 
   public override onDispose(): void {
@@ -58,7 +70,7 @@ export class RelayColyseusRoom extends Room {
     }
   }
 
-  private _serverTick(nowMs: number): number {
+  protected _serverTick(nowMs: number): number {
     return Math.ceil((nowMs - this._roomStartedAt) / this._frameLength);
   }
 
@@ -124,10 +136,10 @@ export class RelayColyseusRoom extends Room {
     const buffer = pipeline.sliceRemaining();
     const tickInput = pipeline.unpack(TickInputStruct);
 
-    // if (Math.random() < DEBUG_CANCEL_RATE) {
-    //   setTimeout(() => this.cancelInput(client, tickInput), SIMULATE_LATENCY_MS);
-    //   return;
-    // }
+    if (Math.random() <= 0.5) {
+      this.cancelInput(client, tickInput);
+      return;
+    }
 
     if (tickInput.tick <= this._serverTick(now())) {
       this.cancelInput(client, tickInput);
@@ -136,21 +148,24 @@ export class RelayColyseusRoom extends Room {
 
     this._batchInputBuffer.push(new Uint8Array(buffer));
 
-    console.log(`Received TickInput for Tick ${tickInput.tick} at ServerTick ${this._serverTick(now())}`);
+    console.log(`Received TickInput Δ = ${this._serverTick(now()) - tickInput.tick} for Tick ${tickInput.tick} at ServerTick ${this._serverTick(now())}`);
   }
 
-  private cancelInput(client: Client, tickInput: InferBinarySchemaValues<typeof TickInputStruct>): void {
+  private cancelInput(
+    client: Client,
+    tickInput: InferBinarySchemaValues<typeof TickInputStruct>,
+  ): void {
     console.warn('Cancel', {
       ti: tickInput.tick,
       sNow: this._serverTick(now()),
       diffToNow: tickInput.tick - this._serverTick(now()),
     });
-    const pipeline = new BinarySchemaPackPipeline();
-    pipeline.pack(HeaderStruct, { version: WireVersion.V1, type: MsgType.CancelInput });
-    pipeline.pack(CancelInputStruct, { tick: tickInput.tick, playerSlot: tickInput.playerSlot });
+    const packPipeline = new BinarySchemaPackPipeline();
+    packPipeline.pack(HeaderStruct, { version: WireVersion.V1, type: MsgType.CancelInput });
+    packPipeline.pack(CancelInputStruct, { tick: tickInput.tick, playerSlot: tickInput.playerSlot, seq: tickInput.seq });
 
     setTimeout(() => {
-      client.send(RELAY_BYTES_CHANNEL, pipeline.toUint8Array());
+      client.send(RELAY_BYTES_CHANNEL, packPipeline.toUint8Array());
     }, SIMULATE_LATENCY_MS / 2);
   }
 }

@@ -70,7 +70,7 @@ export class RPCHistory {
     }
   }
 
-  public removePlayerInputsAtTick(playerSlot: number, tick: number): void {
+  public removePlayerInputsAtTick(playerSlot: number, tick: number, seq: number): void {
     const tickRPCs = this._history.get(tick);
     if (!tickRPCs || tickRPCs.length === 0) return;
 
@@ -80,7 +80,7 @@ export class RPCHistory {
       const rpc = tickRPCs[readIndex];
 
       // Keep only RPCs that do not belong to this playerSlot
-      if (rpc.meta.playerSlot !== playerSlot) {
+      if (!(rpc.meta.playerSlot === playerSlot && rpc.meta.ordinal === seq)) {
         tickRPCs[writeIndex++] = rpc;
       }
     }

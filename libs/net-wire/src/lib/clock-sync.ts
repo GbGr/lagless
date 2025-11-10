@@ -46,11 +46,11 @@ export class ClockSync {
 
     this._thetaMs = thetaMs; // snap; if you later want smoothing, move toward target in a slewStep
 
-    console.log(`[ClockSync]
-Pong RTT(ntp)=${rttMs.toFixed(2)}ms
-JitterEWMA=${this._jitterEwmaMs.toFixed(2)}ms
-Theta=${thetaMs.toFixed(2)}ms (serverProc=${serverProcMs.toFixed(2)}ms)
-`
-    );
+//     console.log(`[ClockSync]
+// Pong RTT(ntp)=${rttMs.toFixed(2)}ms
+// JitterEWMA=${this._jitterEwmaMs.toFixed(2)}ms
+// Theta=${thetaMs.toFixed(2)}ms (serverProc=${serverProcMs.toFixed(2)}ms)
+// `
+//     );
   }
 }

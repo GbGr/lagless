@@ -1,0 +1,109 @@
+{
+  "name": "@lagless/circle-race-server",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "targets": {
+      "build": {
+        "executor": "@nx/esbuild:esbuild",
+        "outputs": [
+          "{options.outputPath}"
+        ],
+        "defaultConfiguration": "production",
+        "options": {
+          "platform": "node",
+          "outputPath": "circle-race/circle-race-server/dist",
+          "format": [
+            "cjs"
+          ],
+          "bundle": false,
+          "main": "circle-race/circle-race-server/src/main.ts",
+          "tsConfig": "circle-race/circle-race-server/tsconfig.app.json",
+          "assets": [
+            "circle-race/circle-race-server/src/assets"
+          ],
+          "esbuildOptions": {
+            "sourcemap": true,
+            "outExtension": {
+              ".js": ".js"
+            }
+          }
+        },
+        "configurations": {
+          "development": {},
+          "production": {
+            "esbuildOptions": {
+              "sourcemap": false,
+              "outExtension": {
+                ".js": ".js"
+              }
+            }
+          }
+        }
+      },
+      "prune-lockfile": {
+        "dependsOn": [
+          "build"
+        ],
+        "cache": true,
+        "executor": "@nx/js:prune-lockfile",
+        "outputs": [
+          "{workspaceRoot}/circle-race/circle-race-server/dist/package.json",
+          "{workspaceRoot}/circle-race/circle-race-server/dist/pnpm-lock.yaml"
+        ],
+        "options": {
+          "buildTarget": "build"
+        }
+      },
+      "copy-workspace-modules": {
+        "dependsOn": [
+          "build"
+        ],
+        "cache": true,
+        "outputs": [
+          "{workspaceRoot}/circle-race/circle-race-server/dist/workspace_modules"
+        ],
+        "executor": "@nx/js:copy-workspace-modules",
+        "options": {
+          "buildTarget": "build"
+        }
+      },
+      "prune": {
+        "dependsOn": [
+          "prune-lockfile",
+          "copy-workspace-modules"
+        ],
+        "executor": "nx:noop"
+      },
+      "serve": {
+        "continuous": true,
+        "executor": "@nx/js:node",
+        "defaultConfiguration": "development",
+        "dependsOn": [
+          "build"
+        ],
+        "options": {
+          "buildTarget": "@lagless/circle-race-server:build",
+          "runBuildTargetDependencies": false
+        },
+        "configurations": {
+          "development": {
+            "buildTarget": "@lagless/circle-race-server:build:development"
+          },
+          "production": {
+            "buildTarget": "@lagless/circle-race-server:build:production"
+          }
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "colyseus": "^0.16.5",
+    "@lagless/relay-colyseus-room": "workspace:*",
+    "@lagless/circle-race-simulation": "workspace:*",
+    "@lagless/binary": "workspace:*",
+    "@lagless/net-wire": "workspace:*",
+    "@lagless/misc": "workspace:*",
+    "@lagless/core": "workspace:*"
+  }
+}

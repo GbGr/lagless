@@ -43,7 +43,7 @@ export function getTypeSizeBytes(type: string): number {
   }
 }
 
-export const typeToArrayConstructor: Record<string, TypedArrayConstructor> = {
+export const typeToArrayConstructor = {
   int8: Int8Array,
   uint8: Uint8Array,
   int16: Int16Array,
@@ -397,7 +397,7 @@ export class InputBinarySchema {
           }
 
           // Read fixed-length array
-          const arr = new typeToArrayConstructor[field.type](count);
+          const arr = new typedArrayConstructors[field.type](count);
           for (let j = 0; j < count; j++) {
             arr[j] = binaryRead(dataView, offset, field.type) as number;
             offset += elementSize;

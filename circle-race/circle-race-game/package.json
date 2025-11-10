@@ -1,0 +1,19 @@
+{
+  "name": "@lagless/circle-race-game",
+  "version": "0.0.1",
+  "private": true,
+  "dependencies": {
+    "@lagless/misc": "workspace:*",
+    "@lagless/math": "workspace:*",
+    "@lagless/core": "workspace:*",
+    "@lagless/animate": "workspace:*",
+    "@lagless/pixi-react": "workspace:*",
+    "@lagless/circle-race-simulation": "workspace:*",
+    "@lagless/relay-input-provider": "workspace:*",
+    "pixi.js": "^8.2.6",
+    "@pixi/react": "beta",
+    "pixi-viewport": "^6.0.3",
+    "simplex-noise": "^4.0.3",
+    "alea": "^1.0.1"
+  }
+}

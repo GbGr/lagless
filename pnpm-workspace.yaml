@@ -2,5 +2,6 @@ packages:
   - 'apps/*'
   - 'libs/*'
   - 'tools/*'
+  - 'circle-race/*'
 autoInstallPeers: true
 strictPeerDependencies: false

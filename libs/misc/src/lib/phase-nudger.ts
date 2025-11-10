@@ -12,7 +12,7 @@ export class PhaseNudger {
   public onServerTickHint(serverTick: number, localTick: number): void {
     const dTicks = (serverTick - localTick) | 0; // integer difference
     this._phaseDebtMs += dTicks * this._frameLength;
-    console.log(`PhaseNudger onServerTickHint: ${dTicks} ticks, adding ${dTicks * this._frameLength}ms debt, total debt: ${this._phaseDebtMs}ms`);
+    // console.log(`PhaseNudger onServerTickHint: ${dTicks} ticks, adding ${dTicks * this._frameLength}ms debt, total debt: ${this._phaseDebtMs}ms`);
   }
 
   /** Drain a small portion of phase debt each frame; return ms to add to accumulatedTime. */
@@ -23,7 +23,7 @@ export class PhaseNudger {
       ? this._phaseDebtMs
       : Math.sign(this._phaseDebtMs) * Math.min(absDebt, this._maxNudgePerFrame);
     this._phaseDebtMs -= n;
-    console.log('PhaseNudger drain:', n, 'remaining debt:', this._phaseDebtMs);
+    // console.log('PhaseNudger drain:', n, 'remaining debt:', this._phaseDebtMs);
     return n;
   }
 }

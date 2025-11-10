@@ -35,6 +35,21 @@
     },
     {
       "path": "./apps/network-playground-server"
+    },
+    {
+      "path": "./circle-race/circle-race-game"
+    },
+    {
+      "path": "./circle-race/circle-race-simulation"
+    },
+    {
+      "path": "./circle-race/circle-race-server"
+    },
+    {
+      "path": "./libs/pixi-react"
+    },
+    {
+      "path": "./libs/animate"
     }
   ]
 }

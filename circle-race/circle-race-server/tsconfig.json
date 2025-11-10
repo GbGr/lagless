@@ -1,0 +1,28 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "files": [],
+  "include": [],
+  "references": [
+    {
+      "path": "../../libs/core"
+    },
+    {
+      "path": "../../libs/misc"
+    },
+    {
+      "path": "../../libs/net-wire"
+    },
+    {
+      "path": "../../libs/binary"
+    },
+    {
+      "path": "../circle-race-simulation"
+    },
+    {
+      "path": "../../libs/relay-colyseus-room"
+    },
+    {
+      "path": "./tsconfig.app.json"
+    }
+  ]
+}

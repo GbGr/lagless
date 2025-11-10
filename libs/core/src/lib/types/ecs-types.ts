@@ -107,6 +107,7 @@ export interface IAbstractInput {
 
 export type InputMeta = {
   tick: number;
+  seq: number;
   ordinal: number;
   playerSlot: number;
 };

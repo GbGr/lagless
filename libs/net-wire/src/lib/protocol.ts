@@ -27,9 +27,16 @@ export const ServerHelloStruct = new BinarySchema({
   playerSlot: FieldType.Uint8,
 });
 
+export enum TickInputKind {
+  Client,
+  Server,
+}
+
 export const TickInputStruct = new BinarySchema({
   tick: FieldType.Uint32,
   playerSlot: FieldType.Uint8,
+  kind: FieldType.Uint8,
+  seq: FieldType.Uint32,
 });
 
 export const TickInputFanoutStruct = new BinarySchema({
@@ -39,6 +46,7 @@ export const TickInputFanoutStruct = new BinarySchema({
 export const CancelInputStruct = new BinarySchema({
   tick: FieldType.Uint32,
   playerSlot: FieldType.Uint8,
+  seq: FieldType.Uint32,
 });
 
 export const PingStruct = new BinarySchema({
