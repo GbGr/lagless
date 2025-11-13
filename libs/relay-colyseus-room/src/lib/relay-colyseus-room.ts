@@ -8,15 +8,20 @@ import {
   RELAY_BYTES_CHANNEL,
   ServerHelloStruct,
   TickInputFanoutStruct,
+  TickInputKind,
   TickInputStruct,
   WireVersion,
 } from '@lagless/net-wire';
 import { Client, Room } from 'colyseus';
 import {
-  BinarySchemaPackPipeline, BinarySchemaUnpackPipeline, InferBinarySchemaValues, packBatchBuffers
+  BinarySchemaPackPipeline,
+  BinarySchemaUnpackPipeline,
+  InferBinarySchemaValues,
+  InputBinarySchema,
+  packBatchBuffers,
 } from '@lagless/binary';
 import { now } from '@lagless/misc';
-import { generate2x64Seed } from '@lagless/core';
+import { generate2x64Seed, InputRegistry, RPC } from '@lagless/core';
 
 const SIMULATE_LATENCY_MS = 120;
 // const DEBUG_CANCEL_RATE = 0.05;
@@ -40,7 +45,11 @@ export class RelayColyseusRoom extends Room {
     this._intervalId = setInterval(() => this._tick(), this._frameLength);
   }
 
-  public sendServerInputFanout(inputBuffers: Uint8Array[]): void {
+  public sendServerInputFanout(
+    rpc: RPC,
+    registry: InputRegistry,
+  ): void {
+    const inputBuffers = [this.prepareServerInput(rpc, registry)];
     const pipeline = new BinarySchemaPackPipeline();
     pipeline.pack(HeaderStruct, { version: WireVersion.V1, type: MsgType.TickInputFanout });
     pipeline.pack(TickInputFanoutStruct, { serverTick: this._serverTick(now()) });
@@ -167,5 +176,32 @@ export class RelayColyseusRoom extends Room {
     setTimeout(() => {
       client.send(RELAY_BYTES_CHANNEL, packPipeline.toUint8Array());
     }, SIMULATE_LATENCY_MS / 2);
+  }
+
+  protected prepareServerInput(
+    rpc: RPC,
+    registry: InputRegistry,
+  ): Uint8Array {
+    if (rpc.meta.playerSlot === undefined) throw new Error('Invalid player slot');
+    const packedInputs = InputBinarySchema.packBatch(
+      registry,
+      [
+        {
+          inputId: rpc.inputId,
+          ordinal: rpc.meta.ordinal,
+          values: rpc.data,
+        },
+      ],
+    );
+    const tickInputPipeline = new BinarySchemaPackPipeline();
+    tickInputPipeline.pack(TickInputStruct, {
+      seq: 0,
+      tick: rpc.meta.tick,
+      kind: TickInputKind.Server,
+      playerSlot: rpc.meta.playerSlot,
+    });
+    tickInputPipeline.appendBuffer(packedInputs);
+
+    return tickInputPipeline.toUint8Array()
   }
 }

@@ -14,6 +14,12 @@ export class PlayerResource {
     entity: Uint32Array;
   };
 
+  public readonly safe: {
+    readonly id: Uint8Array;
+
+    entity: number;
+  };
+
   constructor(buffer: ArrayBuffer, memTracker: MemoryTracker) {
     // id
     this.unsafe['id'] = new Uint8Array(buffer, memTracker.ptr, 16);
@@ -22,6 +28,22 @@ export class PlayerResource {
     // entity
     this.unsafe['entity'] = new Uint32Array(buffer, memTracker.ptr, 1);
     memTracker.add(Uint32Array.BYTES_PER_ELEMENT * 1);
+
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const self = this;
+
+    this.safe = {
+      get id() {
+        return self.unsafe['id'];
+      },
+
+      get entity() {
+        return self.unsafe['entity'][0];
+      },
+      set entity(value: number) {
+        self.unsafe['entity'][0] = value;
+      },
+    };
   }
 
   public static calculateSize(memTracker: MemoryTracker): void {

@@ -58,14 +58,12 @@ export class ECSSimulation {
   public update(dt: number) {
     this.clock.update(dt);
 
-    let currentTick = this.mem.tickManager.tick;
     const targetTick = Math.floor(this.clock.accumulatedTime / this._frameLength);
 
-    const hasRollerBack = this.checkAndRollback(currentTick);
+    this.checkAndRollback(this.mem.tickManager.tick);
+    this.simulationTicks(this.mem.tickManager.tick, targetTick);
 
-    currentTick = this.mem.tickManager.tick;
-
-    this.simulationTicks(currentTick, targetTick, hasRollerBack);
+    this._inputProvider.update();
 
     const simTick = this.mem.tickManager.tick;
     const tickTime = simTick * this._frameLength;
@@ -77,14 +75,12 @@ export class ECSSimulation {
   private checkAndRollback(currentTick: number) {
     const rollbackTick = this._inputProvider.getInvalidateRollbackTick();
 
-    if (rollbackTick === undefined || rollbackTick > currentTick) return false;
+    if (rollbackTick === undefined || rollbackTick > currentTick) return;
 
     this.rollback(rollbackTick);
-
-    return true;
   }
 
-  private simulationTicks(currentTick: number, toTick: number, hasRolledBack: boolean): void {
+  private simulationTicks(currentTick: number, toTick: number): void {
     if (toTick - currentTick > 1) {
       console.warn(`Simulation ticks: ${currentTick} -> ${toTick} (simulate ${toTick - currentTick})`);
     }
@@ -92,7 +88,6 @@ export class ECSSimulation {
     while (currentTick < toTick) {
       this.mem.tickManager.setTick(++currentTick);
       this.simulate(currentTick);
-      if (!hasRolledBack) this._inputProvider.update();
       this.storeSnapshotIfNeeded(currentTick);
     }
   }
@@ -109,7 +104,7 @@ export class ECSSimulation {
     }
 
     this.mem.applySnapshot(snapshot);
-    this._snapshotHistory.rollback(tick);
+    this._snapshotHistory.rollback(this.mem.tickManager.tick);
   }
 
   protected simulate(tick: number): void {

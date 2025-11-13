@@ -1,11 +1,9 @@
 import '@abraham/reflection';
-import { Client, Server } from 'colyseus';
-import { RelayColyseusRoom } from '@lagless/relay-colyseus-room';
-import { BinarySchemaPackPipeline, InputBinarySchema } from '@lagless/binary';
-import { TickInputKind, TickInputStruct } from '@lagless/net-wire';
-import { now, UUID } from '@lagless/misc';
-import { CircleRaceSimulationInputRegistry, PlayerJoined } from '@lagless/circle-race-simulation';
 import { RPC } from '@lagless/core';
+import { Client, Server } from 'colyseus';
+import { now, UUID } from '@lagless/misc';
+import { RelayColyseusRoom } from '@lagless/relay-colyseus-room';
+import { CircleRaceSimulationInputRegistry, PlayerJoined, PlayerLeft } from '@lagless/circle-race-simulation';
 
 const host = process.env.HOST ?? 'localhost';
 const port = process.env.PORT ? Number(process.env.PORT) : 3000;
@@ -28,20 +26,31 @@ class CircleRaceRelayColyseusRoom extends RelayColyseusRoom {
     const rpc = new RPC<PlayerJoined>(PlayerJoined.id, { tick, playerSlot, ordinal: 0, seq: 0 }, {
       playerId: UUID.generate().asUint8(),
     });
-    const packedInputs = InputBinarySchema.packBatch(
-      CircleRaceSimulationInputRegistry,
-      [{ inputId: rpc.inputId, ordinal: rpc.meta.ordinal, values: rpc.data }],
-    );
-    const tickInputPipeline = new BinarySchemaPackPipeline();
-    tickInputPipeline.pack(TickInputStruct, {
-      tick,
-      seq: 0,
-      playerSlot,
-      kind: TickInputKind.Server,
-    });
-    tickInputPipeline.appendBuffer(packedInputs);
+    this.sendServerInputFanout(rpc, CircleRaceSimulationInputRegistry);
+    // const packedInputs = InputBinarySchema.packBatch(
+    //   CircleRaceSimulationInputRegistry,
+    //   [{ inputId: rpc.inputId, ordinal: rpc.meta.ordinal, values: rpc.data }],
+    // );
+    // const tickInputPipeline = new BinarySchemaPackPipeline();
+    // tickInputPipeline.pack(TickInputStruct, {
+    //   tick,
+    //   seq: 0,
+    //   playerSlot,
+    //   kind: TickInputKind.Server,
+    // });
+    // tickInputPipeline.appendBuffer(packedInputs);
+    //
+    // this.sendServerInputFanout([tickInputPipeline.toUint8Array()]);
+  }
 
-    this.sendServerInputFanout([tickInputPipeline.toUint8Array()]);
+  public override onLeave(client: Client, consented: boolean) {
+    console.log('onLeave', client.sessionId, consented);
+    const tick = this._serverTick(now() + 2);
+    const playerSlot = this._sessionIdToPlayerSlot.get(client.sessionId);
+    if (playerSlot === undefined) throw new Error('Invalid player slot');
+    const rpc = new RPC<PlayerLeft>(PlayerLeft.id, { tick, playerSlot, ordinal: 0, seq: 0 }, { reason: consented ? 0 : 1 });
+    this.sendServerInputFanout(rpc, CircleRaceSimulationInputRegistry);
+    super.onLeave?.(client, consented);
   }
 }
 
