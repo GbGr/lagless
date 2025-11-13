@@ -31,9 +31,6 @@
       "path": "./libs/relay-input-provider"
     },
     {
-      "path": "./libs/relay-colyseus-room"
-    },
-    {
       "path": "./apps/network-playground-server"
     },
     {
@@ -50,6 +47,9 @@
     },
     {
       "path": "./libs/animate"
+    },
+    {
+      "path": "./libs/colyseus"
     }
   ]
 }

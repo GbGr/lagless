@@ -99,7 +99,7 @@
   },
   "dependencies": {
     "colyseus": "^0.16.5",
-    "@lagless/relay-colyseus-room": "workspace:*",
+    "@lagless/colyseus": "workspace:*",
     "@lagless/circle-race-simulation": "workspace:*",
     "@lagless/binary": "workspace:*",
     "@lagless/net-wire": "workspace:*",

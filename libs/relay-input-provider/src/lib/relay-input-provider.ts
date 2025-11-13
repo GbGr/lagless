@@ -62,7 +62,12 @@ export class RelayInputProvider extends AbstractInputProvider {
       frameLength: ecsConfig.frameLength,
       maxPlayers: ecsConfig.maxPlayers,
     };
-    const room = await client.joinOrCreate('relay', joinOptions);
+    const room = await client.joinOrCreate('matchmaking', joinOptions);
+    room.send('find_match', {});
+    room.onMessage('*', console.log);
+
+    await new Promise((resolve) => setTimeout(resolve, 100_000));
+
     const roomMessagesBuffer: Array<Uint8Array> = [];
 
     const serverHello = await new Promise<InferBinarySchemaValues<typeof ServerHelloStruct>>((resolve, reject) => {

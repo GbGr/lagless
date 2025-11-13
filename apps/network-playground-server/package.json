@@ -104,6 +104,6 @@
     "@lagless/misc": "workspace:*",
     "@lagless/binary": "workspace:*",
     "@lagless/net-wire": "workspace:*",
-    "@lagless/relay-colyseus-room": "workspace:*"
+    "@lagless/colyseus": "workspace:*"
   }
 }

@@ -4,7 +4,7 @@
   "include": [],
   "references": [
     {
-      "path": "../../libs/relay-colyseus-room"
+      "path": "../../libs/colyseus"
     },
     {
       "path": "../../libs/net-wire"

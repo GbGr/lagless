@@ -45,10 +45,7 @@ export class RelayColyseusRoom extends Room {
     this._intervalId = setInterval(() => this._tick(), this._frameLength);
   }
 
-  public sendServerInputFanout(
-    rpc: RPC,
-    registry: InputRegistry,
-  ): void {
+  public sendServerInputFanout(rpc: RPC, registry: InputRegistry): void {
     const inputBuffers = [this.prepareServerInput(rpc, registry)];
     const pipeline = new BinarySchemaPackPipeline();
     pipeline.pack(HeaderStruct, { version: WireVersion.V1, type: MsgType.TickInputFanout });
@@ -61,7 +58,7 @@ export class RelayColyseusRoom extends Room {
     console.log(`Client ${client.sessionId} joined`);
     const pipeline = new BinarySchemaPackPipeline();
     pipeline.pack(HeaderStruct, { version: WireVersion.V1, type: MsgType.ServerHello });
-    const [ seed0, seed1 ] = generate2x64Seed();
+    const [seed0, seed1] = generate2x64Seed();
     const playerSlot = this._nextPlayerSlot++;
     pipeline.pack(ServerHelloStruct, {
       seed0,
@@ -101,7 +98,9 @@ export class RelayColyseusRoom extends Room {
   private _onBytesMessage = (client: Client, buffer: Buffer) => {
     setTimeout(() => {
       if (!(buffer.buffer instanceof ArrayBuffer)) throw new Error('Invalid array buffer');
-      const unpackPipeline = new BinarySchemaUnpackPipeline(buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength));
+      const unpackPipeline = new BinarySchemaUnpackPipeline(
+        buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
+      );
       const header = unpackPipeline.unpack(HeaderStruct);
 
       if (header.version !== WireVersion.V1) {
@@ -122,7 +121,6 @@ export class RelayColyseusRoom extends Room {
           console.warn(`RelayColyseusRoom: Unsupported message type ${header.type}`);
           break;
       }
-
     }, SIMULATE_LATENCY_MS / 2);
   };
 
@@ -157,13 +155,14 @@ export class RelayColyseusRoom extends Room {
 
     this._batchInputBuffer.push(new Uint8Array(buffer));
 
-    console.log(`Received TickInput Δ = ${this._serverTick(now()) - tickInput.tick} for Tick ${tickInput.tick} at ServerTick ${this._serverTick(now())}`);
+    console.log(
+      `Received TickInput Δ = ${this._serverTick(now()) - tickInput.tick} for Tick ${
+        tickInput.tick
+      } at ServerTick ${this._serverTick(now())}`
+    );
   }
 
-  private cancelInput(
-    client: Client,
-    tickInput: InferBinarySchemaValues<typeof TickInputStruct>,
-  ): void {
+  private cancelInput(client: Client, tickInput: InferBinarySchemaValues<typeof TickInputStruct>): void {
     console.warn('Cancel', {
       ti: tickInput.tick,
       sNow: this._serverTick(now()),
@@ -171,28 +170,26 @@ export class RelayColyseusRoom extends Room {
     });
     const packPipeline = new BinarySchemaPackPipeline();
     packPipeline.pack(HeaderStruct, { version: WireVersion.V1, type: MsgType.CancelInput });
-    packPipeline.pack(CancelInputStruct, { tick: tickInput.tick, playerSlot: tickInput.playerSlot, seq: tickInput.seq });
+    packPipeline.pack(CancelInputStruct, {
+      tick: tickInput.tick,
+      playerSlot: tickInput.playerSlot,
+      seq: tickInput.seq,
+    });
 
     setTimeout(() => {
       client.send(RELAY_BYTES_CHANNEL, packPipeline.toUint8Array());
     }, SIMULATE_LATENCY_MS / 2);
   }
 
-  protected prepareServerInput(
-    rpc: RPC,
-    registry: InputRegistry,
-  ): Uint8Array {
+  protected prepareServerInput(rpc: RPC, registry: InputRegistry): Uint8Array {
     if (rpc.meta.playerSlot === undefined) throw new Error('Invalid player slot');
-    const packedInputs = InputBinarySchema.packBatch(
-      registry,
-      [
-        {
-          inputId: rpc.inputId,
-          ordinal: rpc.meta.ordinal,
-          values: rpc.data,
-        },
-      ],
-    );
+    const packedInputs = InputBinarySchema.packBatch(registry, [
+      {
+        inputId: rpc.inputId,
+        ordinal: rpc.meta.ordinal,
+        values: rpc.data,
+      },
+    ]);
     const tickInputPipeline = new BinarySchemaPackPipeline();
     tickInputPipeline.pack(TickInputStruct, {
       seq: 0,
@@ -202,6 +199,6 @@ export class RelayColyseusRoom extends Room {
     });
     tickInputPipeline.appendBuffer(packedInputs);
 
-    return tickInputPipeline.toUint8Array()
+    return tickInputPipeline.toUint8Array();
   }
 }

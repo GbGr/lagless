@@ -1,20 +1,59 @@
 import '@abraham/reflection';
 import { RPC } from '@lagless/core';
-import { Client, Server } from 'colyseus';
+import { Client, matchMaker, RedisDriver, RedisPresence, Server } from 'colyseus';
 import { now, UUID } from '@lagless/misc';
-import { RelayColyseusRoom } from '@lagless/relay-colyseus-room';
+import { BaseMatchmakerRoom, MatchmakingConfig, RelayColyseusRoom } from '@lagless/colyseus';
 import { CircleRaceSimulationInputRegistry, PlayerJoined, PlayerLeft } from '@lagless/circle-race-simulation';
 
 const host = process.env.HOST ?? 'localhost';
 const port = process.env.PORT ? Number(process.env.PORT) : 3000;
 
 const gameServer = new Server({
-  // transport: new uWebSocketsTransport(),
-  // driver: new RedisDriver(),
-  // presence: new RedisPresence(),
+  greet: false,
+  driver: new RedisDriver(),
+  presence: new RedisPresence(),
+  logger: console,
+  selectProcessIdToCreateRoom: async function (roomName: string, clientOptions: any) {
+    console.log(`selectProcessIdToCreateRoom: roomName=${roomName}`, clientOptions);
+    return (await matchMaker.stats.fetchAll())
+      .sort((p1, p2) => p1.roomCount > p2.roomCount ? 1 : -1)[0]
+      .processId;
+  },
+
 });
 
 // gameServer.simulateLatency(200);
+
+class CircleRaceMatchmakingRoom extends BaseMatchmakerRoom {
+  protected override getMatchmakingConfig(): MatchmakingConfig {
+    return {
+      virtualCapacity: 4,
+      maxHumans: 4,
+
+      softMinHumans: 2,
+      hardMinHumans: 1,
+
+      startDelayByHumans: {
+        1: 5000,
+        2: 3000,
+        3: 2000,
+        4: 1000,
+        default: 2000,
+      },
+
+      baseMmrWindow: 100,
+      maxMmrWindow: 600,
+
+      baseMaxPing: 50,
+      maxMaxPing: 200,
+
+      loadTargetQueueSize: 10,
+    };
+  }
+  protected override getGameRoomName(): string {
+    return 'relay';
+  }
+}
 
 class CircleRaceRelayColyseusRoom extends RelayColyseusRoom {
   public override async onJoin(client: Client) {
@@ -27,20 +66,6 @@ class CircleRaceRelayColyseusRoom extends RelayColyseusRoom {
       playerId: UUID.generate().asUint8(),
     });
     this.sendServerInputFanout(rpc, CircleRaceSimulationInputRegistry);
-    // const packedInputs = InputBinarySchema.packBatch(
-    //   CircleRaceSimulationInputRegistry,
-    //   [{ inputId: rpc.inputId, ordinal: rpc.meta.ordinal, values: rpc.data }],
-    // );
-    // const tickInputPipeline = new BinarySchemaPackPipeline();
-    // tickInputPipeline.pack(TickInputStruct, {
-    //   tick,
-    //   seq: 0,
-    //   playerSlot,
-    //   kind: TickInputKind.Server,
-    // });
-    // tickInputPipeline.appendBuffer(packedInputs);
-    //
-    // this.sendServerInputFanout([tickInputPipeline.toUint8Array()]);
   }
 
   public override onLeave(client: Client, consented: boolean) {
@@ -55,6 +80,7 @@ class CircleRaceRelayColyseusRoom extends RelayColyseusRoom {
 }
 
 gameServer.define('relay', CircleRaceRelayColyseusRoom);
+gameServer.define('matchmaking', CircleRaceMatchmakingRoom);
 gameServer.listen(port).then(
   () => console.log(`ColyseusServer started at ws://${host}:${port}`),
   (e) => console.error(`ColyseusServer ERROR:`, e),

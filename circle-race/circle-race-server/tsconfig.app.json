@@ -6,7 +6,9 @@
     "types": ["node"],
     "rootDir": "src",
     "moduleResolution": "nodenext",
-    "tsBuildInfoFile": "dist/tsconfig.app.tsbuildinfo"
+    "tsBuildInfoFile": "dist/tsconfig.app.tsbuildinfo",
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false
   },
   "include": ["src/**/*.ts"],
   "exclude": ["eslint.config.js", "eslint.config.cjs", "eslint.config.mjs"],
@@ -27,7 +29,7 @@
       "path": "../circle-race-simulation/tsconfig.lib.json"
     },
     {
-      "path": "../../libs/relay-colyseus-room/tsconfig.lib.json"
+      "path": "../../libs/colyseus/tsconfig.lib.json"
     }
   ]
 }

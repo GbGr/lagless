@@ -1,5 +1,5 @@
 {
-  "name": "@lagless/relay-colyseus-room",
+  "name": "@lagless/colyseus",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -16,7 +16,7 @@
     }
   },
   "nx": {
-    "sourceRoot": "libs/relay-colyseus-room/src",
+    "sourceRoot": "libs/colyseus/src",
     "targets": {
       "build": {
         "executor": "@nx/js:swc",
@@ -24,18 +24,20 @@
           "{options.outputPath}"
         ],
         "options": {
-          "outputPath": "libs/relay-colyseus-room/dist",
-          "main": "libs/relay-colyseus-room/src/index.ts",
-          "tsConfig": "libs/relay-colyseus-room/tsconfig.lib.json",
+          "outputPath": "libs/colyseus/dist",
+          "main": "libs/colyseus/src/index.ts",
+          "tsConfig": "libs/colyseus/tsconfig.lib.json",
           "skipTypeCheck": true,
           "stripLeadingPaths": true
         }
       }
-    }
+    },
+    "name": "colyseus"
   },
   "dependencies": {
     "@swc/helpers": "~0.5.11",
     "colyseus": "^0.16.5",
+    "@colyseus/schema": "^3.0.68",
     "@lagless/core": "workspace:*",
     "@lagless/misc": "workspace:*",
     "@lagless/binary": "workspace:*",
