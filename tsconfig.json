@@ -49,7 +49,22 @@
       "path": "./libs/animate"
     },
     {
-      "path": "./libs/colyseus"
+      "path": "./libs/colyseus-rooms"
+    },
+    {
+      "path": "./circle-race/circle-race-backend"
+    },
+    {
+      "path": "./libs/api/schemas"
+    },
+    {
+      "path": "./libs/api/player"
+    },
+    {
+      "path": "./libs/react"
+    },
+    {
+      "path": "./libs/api/game"
     }
   ]
 }

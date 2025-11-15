@@ -3,5 +3,6 @@ packages:
   - 'libs/*'
   - 'tools/*'
   - 'circle-race/*'
+  - 'libs/api/*'
 autoInstallPeers: true
 strictPeerDependencies: false

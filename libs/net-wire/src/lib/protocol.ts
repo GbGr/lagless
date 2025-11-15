@@ -11,6 +11,7 @@ export const enum MsgType {
   ServerHello,
   TickInput,
   TickInputFanout,
+  FinishGame,
   CancelInput,
   Ping,
   Pong,
@@ -58,6 +59,11 @@ export const PongStruct = new BinarySchema({
   sRecv: FieldType.Float32,
   sSend: FieldType.Float32,
   sTick: FieldType.Uint32,
+});
+
+export const FinishGameStruct = new BinarySchema({
+  tick: FieldType.Uint32,
+  playerSlot: FieldType.Uint8,
 });
 
 

@@ -5,19 +5,6 @@ import { IAbstractMemory } from '../abstract-memory.interface.js';
 const STATE_TYPED_ARRAY_LENGTH = 4;
 
 export class PRNG {
-  /** Parse UUID string (with or without dashes) into 16 bytes. Throws on invalid input. */
-  public static uuidToBytes16(uuid: string): Uint8Array {
-    const hex = uuid.replace(/-/g, '').toLowerCase();
-    if (!/^[0-9a-f]{32}$/.test(hex)) throw new Error('Invalid UUID string.');
-    const out = new Uint8Array(16);
-    for (let i = 0; i < 16; i++) {
-      const hi = parseInt(hex.slice(i * 2, i * 2 + 1), 16);
-      const lo = parseInt(hex.slice(i * 2 + 1, i * 2 + 2), 16);
-      out[i] = (hi << 4) | lo;
-    }
-    return out;
-  }
-
   constructor(private readonly _PRNGManager: PRNGManager) {}
 
   public getFloat(): number {
@@ -56,6 +43,8 @@ export class PRNGManager implements IAbstractMemory {
     // Accept various seed inputs:
     // - this._ECSConfig.seed may be: number | Uint32Array(4) | Uint8Array(16) | string (UUID)
     this.seed128(this._ECSConfig.seed);
+    console.log(`this._ECSConfig.seed ${this._ECSConfig.seed}`);
+    console.log(`Seed hash ${this.getSeedHash()}`);
   }
 
   public calculateSize(tracker: MemoryTracker): void {
@@ -144,6 +133,13 @@ export class PRNGManager implements IAbstractMemory {
 
     return out >>> 0;
   }
+
+  private getSeedHash(): string {
+    // Simple hash of the seed state for logging/identification.
+    const s = this._state;
+    const hash = mix32(s[0] ^ rotl32(s[1], 8) ^ rotl32(s[2], 16) ^ rotl32(s[3], 24));
+    return hash.toString(16).padStart(8, '0');
+  }
 }
 
 const SEED_2x64_TYPED_ARRAY = new Float64Array(2);
@@ -154,11 +150,17 @@ export const seedFrom2x64 = (seed0: number, seed1: number): RawSeed => {
   const seedBytes = new Uint8Array(SEED_2x64_TYPED_ARRAY.buffer);
   seed.set(seedBytes);
   return seed as unknown as RawSeed;
-}
-
-export const generate2x64Seed = (): [ number, number ] => {
-  return [ Math.random(), Math.random() ];
 };
+
+export const pack128BufferTo2x64 = (seedUint8: Uint8Array): { seed0: number; seed1: number } => {
+  if (seedUint8.length !== 16) throw new Error('Invalid seed length; expected 16 bytes.');
+  const seedBytes = new Uint8Array(SEED_2x64_TYPED_ARRAY.buffer);
+  seedBytes.set(seedUint8);
+  return {
+    seed0: SEED_2x64_TYPED_ARRAY[0],
+    seed1: SEED_2x64_TYPED_ARRAY[1],
+  };
+}
 
 // ---------- Helper functions (pure, inlineable) ----------
 

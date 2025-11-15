@@ -1,0 +1,37 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "files": [],
+  "include": [],
+  "references": [
+    {
+      "path": "../../libs/net-wire"
+    },
+    {
+      "path": "../../libs/misc"
+    },
+    {
+      "path": "../../libs/core"
+    },
+    {
+      "path": "../../libs/colyseus-rooms"
+    },
+    {
+      "path": "../circle-race-simulation"
+    },
+    {
+      "path": "../../libs/binary"
+    },
+    {
+      "path": "../../libs/api/player"
+    },
+    {
+      "path": "../../libs/api/schemas"
+    },
+    {
+      "path": "../../libs/api/game"
+    },
+    {
+      "path": "./tsconfig.app.json"
+    }
+  ]
+}

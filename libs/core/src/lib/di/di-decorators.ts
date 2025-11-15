@@ -2,6 +2,9 @@ import type { Token } from './di-container.js';
 
 const DESIGN_PARAM_TYPES = 'design:paramtypes';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+declare const Reflect: any;
+
 export function ECSSystem(...overrideDeps: Token[]): ClassDecorator {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   return (target: Function) => {
@@ -10,8 +13,6 @@ export function ECSSystem(...overrideDeps: Token[]): ClassDecorator {
 
     // 2) Otherwise try to read from reflect metadata
     if (!deps) {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-expect-error
       const getMeta = Reflect['getMetadata'];
       if (typeof getMeta !== 'function') {
         // No reflect-metadata loaded

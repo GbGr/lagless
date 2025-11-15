@@ -24,6 +24,9 @@
       "path": "../../libs/misc"
     },
     {
+      "path": "../../libs/react"
+    },
+    {
       "path": "./tsconfig.app.json"
     }
   ],

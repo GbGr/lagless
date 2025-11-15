@@ -19,7 +19,7 @@
       "path": "../circle-race-simulation"
     },
     {
-      "path": "../../libs/colyseus"
+      "path": "../../libs/colyseus-rooms"
     },
     {
       "path": "./tsconfig.app.json"

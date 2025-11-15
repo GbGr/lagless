@@ -4,6 +4,9 @@
   "include": [],
   "references": [
     {
+      "path": "../colyseus-rooms"
+    },
+    {
       "path": "../net-wire"
     },
     {

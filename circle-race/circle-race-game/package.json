@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "dependencies": {
+    "@lagless/react": "workspace:*",
     "@lagless/misc": "workspace:*",
     "@lagless/math": "workspace:*",
     "@lagless/core": "workspace:*",

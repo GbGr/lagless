@@ -7,7 +7,8 @@ import { ECSConfig } from '@lagless/core';
 import { createContext, FC, ReactNode, useContext, useEffect, useState } from 'react';
 import { useTick } from '@pixi/react';
 import { MathOps } from '@lagless/math';
-import { RelayInputProvider } from '@lagless/relay-input-provider';
+import { Matchmaking, RelayInputProvider } from '@lagless/relay-input-provider';
+import { AuthTokenStore } from '@lagless/react';
 
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 const RunnerContext = createContext<CircleRaceSimulationRunner>(null!);
@@ -27,20 +28,23 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
   useEffect(() => {
     let disposed = false;
     let _runner: CircleRaceSimulationRunner;
+    const token = AuthTokenStore.get();
+
+    if (!token) throw new Error('No auth token found');
 
     (async () => {
       await MathOps.init();
       const ecsConfig = new ECSConfig({ fps: 60 });
       // const inputProvider = new LocalInputProvider(ecsConfig, CircleRaceSimulationInputRegistry);
-      const inputProvider = await RelayInputProvider.connect(ecsConfig, CircleRaceSimulationInputRegistry, import.meta.env.VITE_RELAY_URL);
+      const matchmaking = new Matchmaking();
+      const { client, seatReservation } = await matchmaking.connectAndFindMatch(import.meta.env.VITE_RELAY_URL, ecsConfig, token);
+      const inputProvider = await RelayInputProvider.connect(ecsConfig, CircleRaceSimulationInputRegistry, client, seatReservation);
       if (disposed) {
         inputProvider.dispose();
         return;
       }
 
-      console.log('PLAYER SLOT:', inputProvider.playerSlot);
-
-      _runner = new CircleRaceSimulationRunner(ecsConfig, inputProvider, CircleRaceSimulationSystems);
+      _runner = new CircleRaceSimulationRunner(inputProvider.ecsConfig, inputProvider, CircleRaceSimulationSystems);
 
       _runner.start();
 

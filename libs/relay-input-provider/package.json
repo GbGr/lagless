@@ -39,6 +39,7 @@
     "@lagless/core": "workspace:*",
     "@lagless/misc": "workspace:*",
     "@lagless/binary": "workspace:*",
-    "@lagless/net-wire": "workspace:*"
+    "@lagless/net-wire": "workspace:*",
+    "@lagless/colyseus-rooms": "workspace:*"
   }
 }

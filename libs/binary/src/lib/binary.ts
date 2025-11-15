@@ -487,6 +487,15 @@ export const toFloat32 = (value: number): number => {
   return FLOAT32_BUFFER[0];
 };
 
+export const getFastHash = (arrayBuffer: ArrayBuffer): number => {
+  const dataView = new DataView(arrayBuffer);
+  let hash = 0;
+  for (let i = 0; i < dataView.byteLength; i++) {
+    hash = (hash * 31 + dataView.getUint8(i)) >>> 0;
+  }
+  return hash;
+};
+
 function throwIfOutOfBounds(fieldKey: string, fieldType: FieldType, value: number): number {
   switch (fieldType) {
     case FieldType.Uint8:

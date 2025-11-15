@@ -1,0 +1,30 @@
+{
+  "name": "@lagless/colyseus-rooms",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10"
+  },
+  "peerDependencies": {
+    "jsonwebtoken": "^9.0.2"
+  },
+  "dependencies": {
+    "@lagless/core": "workspace:*",
+    "@lagless/misc": "workspace:*",
+    "@lagless/binary": "workspace:*",
+    "@lagless/net-wire": "workspace:*",
+    "colyseus": "^0.16.5",
+    "@colyseus/schema": "^3.0.68"
+  }
+}

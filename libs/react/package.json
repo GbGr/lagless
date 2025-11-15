@@ -1,0 +1,20 @@
+{
+  "name": "@lagless/react",
+  "version": "0.0.1",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@lagless/schemas": "workspace:*"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "^5.90.9"
+  }
+}

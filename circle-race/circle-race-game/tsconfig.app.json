@@ -45,6 +45,9 @@
     },
     {
       "path": "../../libs/misc/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/react/tsconfig.lib.json"
     }
   ]
 }

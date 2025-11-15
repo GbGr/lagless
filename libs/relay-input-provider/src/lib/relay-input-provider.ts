@@ -1,8 +1,7 @@
 import { AbstractInputProvider, ECSConfig, ECSSimulation, InputRegistry, RPC, seedFrom2x64 } from '@lagless/core';
-import { Client, Room } from 'colyseus.js';
+import { Client, Room, SeatReservation } from 'colyseus.js';
 import {
   ClockSync,
-  ColyseusRelayRoomOptions,
   HeaderStruct,
   InputDelayController,
   MsgType,
@@ -12,7 +11,7 @@ import {
   ServerHelloStruct,
   TickInputFanoutStruct,
   TickInputStruct,
-  CancelInputStruct, // <-- ensure this exists
+  CancelInputStruct,
   WireVersion,
   TickInputKind,
 } from '@lagless/net-wire';
@@ -23,7 +22,7 @@ import {
   InputBinarySchema,
   unpackBatchBuffers,
 } from '@lagless/binary';
-import { RelayTelemetry, RelayTelemetrySnapshot } from './relay-telemetry.js'; // <-- new
+import { RelayTelemetry, RelayTelemetrySnapshot } from './relay-telemetry.js';
 
 export class RelayInputProvider extends AbstractInputProvider {
   private readonly PING_INTERVAL_MS = 1000 / 4;
@@ -55,18 +54,10 @@ export class RelayInputProvider extends AbstractInputProvider {
   public static async connect(
     ecsConfig: ECSConfig,
     inputRegistry: InputRegistry,
-    relayServerUrl: string
+    client: Client,
+    seatReservation: SeatReservation,
   ): Promise<RelayInputProvider> {
-    const client = new Client(relayServerUrl);
-    const joinOptions: ColyseusRelayRoomOptions = {
-      frameLength: ecsConfig.frameLength,
-      maxPlayers: ecsConfig.maxPlayers,
-    };
-    const room = await client.joinOrCreate('matchmaking', joinOptions);
-    room.send('find_match', {});
-    room.onMessage('*', console.log);
-
-    await new Promise((resolve) => setTimeout(resolve, 100_000));
+    const room = await client.consumeSeatReservation(seatReservation);
 
     const roomMessagesBuffer: Array<Uint8Array> = [];
 

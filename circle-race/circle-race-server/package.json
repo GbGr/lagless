@@ -98,12 +98,21 @@
     }
   },
   "dependencies": {
+    "pg": "^8.16.3",
+    "typeorm": "^0.3.27",
     "colyseus": "^0.16.5",
-    "@lagless/colyseus": "workspace:*",
+    "@colyseus/schema": "^3.0.68",
+    "@colyseus/monitor": "^0.16.7",
+    "@colyseus/playground": "^0.16.4",
+    "@colyseus/tools": "^0.16.14",
+    "jsonwebtoken": "^9.0.2",
+    "@lagless/colyseus-rooms": "workspace:*",
     "@lagless/circle-race-simulation": "workspace:*",
     "@lagless/binary": "workspace:*",
     "@lagless/net-wire": "workspace:*",
     "@lagless/misc": "workspace:*",
-    "@lagless/core": "workspace:*"
+    "@lagless/core": "workspace:*",
+    "express": "^4.21.2",
+    "reflect-metadata": "^0.2.2"
   }
 }
