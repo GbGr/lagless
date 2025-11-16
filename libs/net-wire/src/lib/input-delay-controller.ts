@@ -21,7 +21,7 @@ export class InputDelayController {
     rttEwmaMs: number,
     jitterEwmaMs: number,
     k = 1.8,
-    safetyMs = 3,
+    safetyMs = 10,
   ): number {
     const prevDelta = this._deltaTicks;
     const needMs = rttEwmaMs * 0.5 + k * jitterEwmaMs + safetyMs;

@@ -4,6 +4,8 @@ import { PlayerConnectionSystem } from './player-connection.system.js';
 import { ApplyMoveSystem } from './apply-move.system.js';
 import { VelocitySystem } from './velocity.system.js';
 import { PlayerLeaveSystem } from './player-leave.system.js';
+import { FinishGameSystem } from './finish-game.system.js';
+import { PlayerFinishGameSystem } from './player-finish-game.system.js';
 
 export const CircleRaceSimulationSystems: IECSSystemConstructor[] = [
   Transform2dSystem,
@@ -12,4 +14,6 @@ export const CircleRaceSimulationSystems: IECSSystemConstructor[] = [
   ApplyMoveSystem,
   VelocitySystem,
   PlayerLeaveSystem,
+  PlayerFinishGameSystem,
+  FinishGameSystem,
 ];

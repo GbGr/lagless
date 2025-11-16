@@ -12,14 +12,18 @@ import { GameService } from '@lagless/game';
 import { PlayerService } from '@lagless/player';
 
 export class CircleRaceMatchmakingRoom extends BaseMatchmakerRoom {
+  private readonly _GameService = NestDI.resolve(GameService);
+  private readonly _PlayerService= NestDI.resolve(PlayerService);
+  private readonly _ConfigService= NestDI.resolve(ConfigService);
+
   protected override async onCancelMatchmakingSession(ticket: MatchTicket<Client>): Promise<void> {
     if (ticket.matchmakingSessionId) {
-      await NestDI.resolve(GameService).internalCancelMatchmakingSession(ticket.matchmakingSessionId);
+      await this._GameService.internalCancelMatchmakingSession(ticket.matchmakingSessionId);
     }
   }
 
   protected override async onBeforeMatchmaking(auth: RoomAuthResult): Promise<string | undefined> {
-    const matchmakingSession = await NestDI.resolve(GameService).internalStartMatchmakingSession(auth.id, new Date());
+    const matchmakingSession = await this._GameService.internalStartMatchmakingSession(auth.id, new Date());
 
     return matchmakingSession.id;
   }
@@ -29,17 +33,17 @@ export class CircleRaceMatchmakingRoom extends BaseMatchmakerRoom {
       playerId,
       matchmakingSessionId,
     }));
-    const game = await NestDI.resolve(GameService).internalCreateGame(sessions);
+    const game = await this._GameService.internalCreateGame(sessions);
 
     return game.id;
   }
 
   protected override async getPlayerDataFromAuth(auth: RoomAuthResult): Promise<{ username: string; mmr: number }> {
-    return await NestDI.resolve(PlayerService).getById(auth.id);
+    return await this._PlayerService.getById(auth.id);
   }
 
   protected override _getAuthSecret(): string {
-    return NestDI.resolve(ConfigService).getOrThrow('JWT_SECRET');
+    return this._ConfigService.getOrThrow('JWT_SECRET');
   }
 
   protected override getFrameLength(): number {

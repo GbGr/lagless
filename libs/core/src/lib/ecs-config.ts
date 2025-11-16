@@ -12,7 +12,9 @@ export class ECSConfig {
   public readonly seed: RawSeed;
   public readonly maxEntities: number;
   public readonly maxPlayers: number;
-  public readonly inputDelay: number;
+  public readonly initialInputDelayTick: number;
+  public readonly minInputDelayTick: number;
+  public readonly maxInputDelayTick: number;
   public readonly fps: number;
   public readonly frameLength: number;
   public readonly snapshotRate: number;
@@ -23,7 +25,9 @@ export class ECSConfig {
     this.seed = options?.seed ?? ZERO_SEED;
     this.maxEntities = options?.maxEntities ?? 1000;
     this.maxPlayers = options?.maxPlayers ?? 6;
-    this.inputDelay = options?.inputDelay ?? 1;
+    this.initialInputDelayTick = options?.initialInputDelayTick ?? 2;
+    this.minInputDelayTick = options?.minInputDelayTick ?? 1;
+    this.maxInputDelayTick = options?.maxInputDelayTick ?? 8;
     this.fps = options?.fps ?? 60;
     this.frameLength = 1000 / this.fps;
     this.snapshotRate = options?.snapshotRate ?? 1;

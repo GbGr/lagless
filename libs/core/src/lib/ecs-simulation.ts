@@ -4,14 +4,17 @@ import { ECSConfig } from './ecs-config.js';
 import { SimulationClock, SnapshotHistory } from '@lagless/misc';
 import { ECSDeps, IECSSystem } from './types/index.js';
 import { AbstractInputProvider } from './input/index.js';
+import { SignalsRegistry } from './signals/signals.registry.js';
 
 export class ECSSimulation {
   public readonly mem: Mem;
   public readonly clock: SimulationClock;
+  public readonly _signalsRegistry: SignalsRegistry;
   private readonly _frameLength: number;
   private readonly _snapshotRate: number;
   private readonly _initialSnapshot!: ArrayBuffer;
   private readonly _systems = new Array<IECSSystem>();
+  private readonly _onTickHandlers = new Set<(tick: number) => void>();
 
   private _interpolationFactor = 0;
   private _snapshotHistory: SnapshotHistory<ArrayBuffer>;
@@ -35,6 +38,18 @@ export class ECSSimulation {
     this._snapshotHistory = new SnapshotHistory<ArrayBuffer>(this._ECSConfig.snapshotHistorySize);
     this._initialSnapshot = this.mem.exportSnapshot();
     this.clock = new SimulationClock(_ECSConfig.frameLength, _ECSConfig.maxNudgePerFrame);
+    this._signalsRegistry = new SignalsRegistry(this._ECSConfig);
+  }
+
+  public addTickHandler(handler: (tick: number) => void): () => void {
+    this._onTickHandlers.add(handler);
+    return () => {
+      this._onTickHandlers.delete(handler);
+    };
+  }
+
+  public removeTickHandler(handler: (tick: number) => void): void {
+    this._onTickHandlers.delete(handler);
   }
 
   public registerSystems(systems: IECSSystem[]): void {
@@ -88,7 +103,9 @@ export class ECSSimulation {
     while (currentTick < toTick) {
       this.mem.tickManager.setTick(++currentTick);
       this.simulate(currentTick);
+      this._signalsRegistry.update(currentTick);
       this.storeSnapshotIfNeeded(currentTick);
+      for (const handler of this._onTickHandlers) handler(currentTick);
     }
   }
 

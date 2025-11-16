@@ -169,6 +169,10 @@ export class BinarySchemaUnpackPipeline {
   public sliceRemaining(): ArrayBuffer {
     return this.arrayBuffer.slice(this._offset);
   }
+
+  public getFastHash<TSchema extends RawSchema>(schema: BinarySchema<TSchema>): number {
+    return schema.getFastHashFrom(this._dataView, this._offset);
+  }
 }
 
 export class BinarySchemaPackPipeline {
@@ -253,6 +257,17 @@ export class BinarySchema<TSchema extends RawSchema> {
       offset += fieldTypeSizeBytes[fieldType];
     }
     return result;
+  }
+
+  public getFastHashFrom(dataView: DataView, byteOffset = 0): number {
+    ensureCapacity(dataView, byteOffset, this._byteLength, 'BinarySchema.getFastHashFrom');
+
+    let hash = 0;
+    for (let i = 0; i < this._byteLength; i++) {
+      hash = (hash * 31 + dataView.getUint8(byteOffset + i)) >>> 0;
+    }
+
+    return hash;
   }
 }
 

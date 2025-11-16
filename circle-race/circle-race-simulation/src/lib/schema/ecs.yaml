@@ -1,3 +1,4 @@
+# nx g @lagless/codegen:ecs --configPath circle-race/circle-race-simulation/src/lib/schema/ecs.yam
 components:
   Transform2d:
     positionX: float32
@@ -9,10 +10,18 @@ components:
   Velocity2d:
     velocityX: float32
     velocityY: float32
+singletons:
+  GameState:
+    finishedAtTick: int32
 playerResources:
   PlayerResource:
     id: uint8[16]
+    mmr: uint32
     entity: uint32
+    connected: uint8
+    finishedAtTick: uint32
+    score: uint32
+    mmrChange: int32
 inputs:
   PlayerJoined:
     playerId: uint8[16]

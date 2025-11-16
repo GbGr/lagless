@@ -1,7 +1,7 @@
 import {
   CancelInputStruct,
   ColyseusRelayRoomOptions,
-  FinishGameStruct,
+  PlayerFinishedGameStruct,
   HeaderStruct,
   MsgType,
   PingStruct,
@@ -16,10 +16,10 @@ import {
 import { Client, Room } from 'colyseus';
 import {
   BinarySchemaPackPipeline,
-  BinarySchemaUnpackPipeline, getFastHash,
+  BinarySchemaUnpackPipeline,
   InferBinarySchemaValues,
   InputBinarySchema,
-  packBatchBuffers
+  packBatchBuffers,
 } from '@lagless/binary';
 import { now, UUID } from '@lagless/misc';
 import { InputRegistry, pack128BufferTo2x64, RPC } from '@lagless/core';
@@ -34,9 +34,10 @@ export interface PlayerInfo {
   isConnected: boolean;
   playerId?: string;
   displayName?: string;
-  finishGameData?: {
-    struct: InferBinarySchemaValues<typeof FinishGameStruct>;
-    buffer: ArrayBuffer;
+  finishedGameData?: {
+    ts: number;
+    verifiedTick: number;
+    struct: InferBinarySchemaValues<typeof PlayerFinishedGameStruct>;
     hash: number;
   };
 }
@@ -47,15 +48,20 @@ export abstract class RelayColyseusRoom extends Room {
   private _roomStartedAt = 0;
   private _nextPlayerSlot = 0;
   private _intervalId: NodeJS.Timeout | null = null;
-  private readonly _players = new Map<string, PlayerInfo>();
 
-  protected _sessionIdToPlayerSlot = new Map<string, number>();
+  protected readonly _players = new Map<string, PlayerInfo>();
+  protected readonly _sessionIdToPlayerSlot = new Map<string, number>();
+  protected readonly _playerSlotToClient = new Map<number, Client>();
 
   private readonly _batchInputBuffer = new Array<Uint8Array>();
 
-  protected abstract onPlayerFinishedGame(playerInfo: PlayerInfo): Promise<void>;
+  protected abstract onPlayerJoined(gameId: string, playerInfo: PlayerInfo): Promise<void>;
 
-  protected abstract onBeforeDispose(players: Array<PlayerInfo>): Promise<void>;
+  protected abstract onPlayerFinishedGame(gameId: string, playerInfo: PlayerInfo): Promise<void>;
+
+  protected abstract onBeforeDispose(gameId: string, isDisposed: boolean): Promise<void>;
+
+  protected abstract onPlayerLeave(gameId: string, playerInfo: PlayerInfo): Promise<void>;
 
   public override async onCreate(options: ColyseusRelayRoomOptions) {
     this._gameId = options.gameId;
@@ -90,24 +96,34 @@ export abstract class RelayColyseusRoom extends Room {
     });
     client.send(RELAY_BYTES_CHANNEL, pipeline.toUint8Array());
     this._sessionIdToPlayerSlot.set(client.sessionId, playerSlot);
-    this._players.set(client.sessionId, {
+    const playerInfo: PlayerInfo = {
       playerSlot,
       playerId: client.auth.playerId,
       displayName: client.auth.displayName,
       connectedAt: Date.now(),
       isConnected: true,
-    });
+    };
+    this._players.set(client.sessionId, playerInfo);
+    this._playerSlotToClient.set(playerSlot, client);
+    this.onPlayerJoined(this._gameId, playerInfo).catch(console.error);
   }
 
-  public override onLeave(client: Client, consented: boolean): void {
+  public override async onLeave(client: Client, consented: boolean) {
     console.log(`Client ${client.sessionId} left (consented: ${consented})`);
     const playerInfo = this._players.get(client.sessionId);
     if (playerInfo) {
       playerInfo.isConnected = false;
+      if (this._gameId) {
+        await this.onPlayerLeave(this._gameId, playerInfo);
+      }
     }
   }
 
-  public override onDispose(): void {
+  public override async onDispose() {
+    if (this._gameId) {
+      await this.onBeforeDispose(this._gameId, true);
+    }
+
     if (this._intervalId) {
       clearInterval(this._intervalId);
       this._intervalId = null;
@@ -119,6 +135,7 @@ export abstract class RelayColyseusRoom extends Room {
   }
 
   private _tick = () => {
+    this.processPlayersFinishedGame().catch(console.error);
     if (this._batchInputBuffer.length === 0) return;
 
     const pipeline = new BinarySchemaPackPipeline();
@@ -155,7 +172,7 @@ export abstract class RelayColyseusRoom extends Room {
         case MsgType.TickInput:
           this.onTickInputMessage(client, unpackPipeline);
           break;
-        case MsgType.FinishGame:
+        case MsgType.PlayerFinishedGame:
           this.onFinishGameMessage(client, unpackPipeline).catch(console.error);
           break;
         default:
@@ -186,7 +203,9 @@ export abstract class RelayColyseusRoom extends Room {
 
     const clientPlayerSlot = this._sessionIdToPlayerSlot.get(client.sessionId);
     if (clientPlayerSlot === undefined || clientPlayerSlot !== tickInput.playerSlot) {
-      console.warn(`Player slot mismatch for client ${client.sessionId}: expected ${clientPlayerSlot}, got ${tickInput.playerSlot}`);
+      console.warn(
+        `Player slot mismatch for client ${client.sessionId}: expected ${clientPlayerSlot}, got ${tickInput.playerSlot}`
+      );
       return;
     }
 
@@ -226,33 +245,26 @@ export abstract class RelayColyseusRoom extends Room {
   private async onFinishGameMessage(client: Client, pipeline: BinarySchemaUnpackPipeline) {
     const roomLifetimeMs = now() - this._roomStartedAt;
     if (roomLifetimeMs < SEAT_RESERVATION_TIME_MS) throw new Error('FinishGame received before room started');
-    const finishGame = pipeline.unpack(FinishGameStruct);
-    const finishGameBuffer = pipeline.sliceRemaining();
-    const playerInfo = this._players.get(client.sessionId);
 
-    if (playerInfo && !playerInfo.finishGameData) {
-      playerInfo.finishGameData = {
+    const senderPlayerSlot = this._sessionIdToPlayerSlot.get(client.sessionId);
+    if (senderPlayerSlot === undefined) throw new Error('FinishGame received from unknown playerSlot');
+
+    const finishGameHash = pipeline.getFastHash(PlayerFinishedGameStruct);
+    const finishGame = pipeline.unpack(PlayerFinishedGameStruct);
+
+    const finishedGamePlayerClient = this._playerSlotToClient.get(finishGame.playerSlot);
+    if (!finishedGamePlayerClient) throw new Error('FinishGame received for unknown client');
+    const finishedGamePlayerInfo = this._players.get(finishedGamePlayerClient.sessionId);
+    if (!finishedGamePlayerInfo) throw new Error('FinishGame received for unknown playerInfo');
+
+    if (shouldSetFinishGame(finishedGamePlayerInfo, senderPlayerSlot)) {
+      console.log(`Player slot ${finishGame.playerSlot} finished game at tick ${finishGame.tick}`);
+      finishedGamePlayerInfo.finishedGameData = {
+        ts: Date.now(),
+        verifiedTick: finishGame.verifiedTick,
         struct: finishGame,
-        buffer: finishGameBuffer,
-        hash: getFastHash(finishGameBuffer),
+        hash: finishGameHash,
       };
-
-      await this.onPlayerFinishedGame(playerInfo);
-    }
-
-    let allPlayersFinished = true;
-
-    for (const [, pInfo] of this._players) {
-      if (!pInfo.finishGameData) {
-        allPlayersFinished = false;
-        break;
-      }
-    }
-
-    if (allPlayersFinished) {
-      console.log('All players finished the game. Disposing room.');
-      await this.onBeforeDispose(Array.from(this._players.values()));
-      await this.disconnect(148);
     }
   }
 
@@ -276,4 +288,48 @@ export abstract class RelayColyseusRoom extends Room {
 
     return tickInputPipeline.toUint8Array();
   }
+
+  private async processPlayersFinishedGame() {
+    const tickNowShifted = this._serverTick(now()) - 1;
+    if (tickNowShifted <= 0) return;
+
+    for (const [, playerInfo] of this._players) {
+      console.log(`${playerInfo.finishedGameData?.verifiedTick} === ${tickNowShifted}`);
+      if (playerInfo.finishedGameData && playerInfo.finishedGameData.verifiedTick === tickNowShifted) {
+        this.onPlayerFinishedGame(this._gameId, playerInfo).catch(console.error);
+      }
+    }
+
+    // check that all players who can finish a current game (connected) have finished
+    // and server tick is greater than their finish tick
+    let allPlayersFinished = true;
+
+    for (const [, pInfo] of this._players) {
+      if (pInfo.isConnected && !pInfo.finishedGameData) {
+        allPlayersFinished = false;
+        break;
+      }
+      if (pInfo.finishedGameData && pInfo.finishedGameData.struct.tick > tickNowShifted) {
+        allPlayersFinished = false;
+        break;
+      }
+    }
+
+    if (allPlayersFinished) {
+      console.log('All players finished the game. Disposing room.');
+      await this.onBeforeDispose(this._gameId, false);
+      await this.disconnect(1480);
+    }
+  }
+}
+
+function shouldSetFinishGame(
+  playerInfo: PlayerInfo,
+  senderPlayerSlot: number
+): boolean {
+  return (
+    !playerInfo.finishedGameData ||
+    playerInfo.playerSlot === senderPlayerSlot
+  );
+
 }

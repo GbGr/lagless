@@ -2,6 +2,7 @@
 
 export * from './Transform2d.js';
 export * from './Velocity2d.js';
+export * from './GameState.js';
 export * from './PlayerResource.js';
 export * from './Transform2dFilter.js';
 export * from './MovableFilter.js';

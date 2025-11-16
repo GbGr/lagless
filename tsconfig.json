@@ -4,9 +4,6 @@
   "files": [],
   "references": [
     {
-      "path": "./apps/network-playground"
-    },
-    {
       "path": "./libs/binary"
     },
     {
@@ -31,16 +28,10 @@
       "path": "./libs/relay-input-provider"
     },
     {
-      "path": "./apps/network-playground-server"
-    },
-    {
       "path": "./circle-race/circle-race-game"
     },
     {
       "path": "./circle-race/circle-race-simulation"
-    },
-    {
-      "path": "./circle-race/circle-race-server"
     },
     {
       "path": "./libs/pixi-react"

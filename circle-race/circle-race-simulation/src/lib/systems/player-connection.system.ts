@@ -26,6 +26,7 @@ export class PlayerConnectionSystem implements IECSSystem {
       playerResource.unsafe.entity[0] = playerEntity;
       for (let i = 0; i < rpc.data.playerId.length; i++) {
         playerResource.unsafe.id[i] = rpc.data.playerId[i]
+        playerResource.unsafe.connected[i] = 1;
       }
 
       console.log(`Player joined: slot ${rpc.meta.playerSlot}, id ${rpc.data.playerId}, entity ${playerEntity}`);

@@ -57,9 +57,6 @@ export abstract class AbstractInputProvider {
     const rpc = new RPC(InputCtor.id, newRPCMeta, data);
     this._frameRPCBuffer.push(rpc);
     this._rpcHistory.addRPC(rpc);
-    if (newRPCMeta.tick < 100) {
-      debugger;
-    }
     console.log(`Added RPC for tick ${newRPCMeta.tick} (${this._currentInputDelay}), seq ${newRPCMeta.seq} slot ${newRPCMeta.playerSlot}, inputId ${InputCtor.id}`);
   };
 

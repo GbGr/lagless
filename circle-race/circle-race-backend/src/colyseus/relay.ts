@@ -3,21 +3,46 @@ import { RPC } from '@lagless/core';
 import { now, UUID } from '@lagless/misc';
 import { Client } from 'colyseus';
 import { CircleRaceSimulationInputRegistry, PlayerJoined, PlayerLeft } from '@lagless/circle-race-simulation';
+import { NestDI } from '../nest-di';
+import { GameService } from '@lagless/game';
 
 export class CircleRaceRelayColyseusRoom extends RelayColyseusRoom {
-  protected override onBeforeDispose(players: Array<PlayerInfo>): Promise<void> {
-    throw new Error('Method not implemented.');
+  private readonly _GameService = NestDI.resolve(GameService);
+
+  protected override async onPlayerJoined(gameId: string, playerInfo: PlayerInfo): Promise<void> {
+    if (!playerInfo.playerId) throw new Error('InvalidPlayerId');
+    await this._GameService.internalStartGameSession(playerInfo.playerId, playerInfo.playerSlot, gameId, playerInfo.connectedAt);
   }
-  protected override onPlayerFinishedGame(playerInfo: PlayerInfo): Promise<void> {
-    throw new Error('Method not implemented.');
+
+  protected override async onPlayerFinishedGame(gameId: string, playerInfo: PlayerInfo): Promise<void> {
+    console.log('onPlayerFinishedGame', gameId, playerInfo);
+    if (!playerInfo.playerId) throw new Error('InvalidPlayerId');
+    if (!playerInfo.finishedGameData) throw new Error('No finished game data');
+    const { score, mmrChange } = playerInfo.finishedGameData.struct;
+    await this._GameService.internalPlayerFinishedGameSession(
+      playerInfo.playerId,
+      gameId,
+      score,
+      mmrChange,
+      playerInfo.finishedGameData.hash,
+      playerInfo.finishedGameData.ts,
+    );
+  }
+
+  protected override async onBeforeDispose(gameId: string, isDestroyed: boolean): Promise<void> {
+    await this._GameService.internalGameOver(gameId, new Date(), isDestroyed)
+  }
+
+  protected override async onPlayerLeave(gameId: string, playerInfo: PlayerInfo): Promise<void> {
+    if (!playerInfo.playerId) throw new Error('InvalidPlayerId');
+    await this._GameService.internalPlayerLeaveGameSession(playerInfo.playerId, gameId, new Date());
   }
 
   public override maxClients = 6;
 
   public override async onJoin(client: Client) {
     super.onJoin(client);
-    await new Promise((resolve) => setTimeout(resolve, 5_000));
-    const tick = this._serverTick(now() + 20);
+    const tick = this._serverTick(now() + 1);
     const playerSlot = this._sessionIdToPlayerSlot.get(client.sessionId);
     if (playerSlot === undefined) throw new Error('Invalid player slot');
     const rpc = new RPC<PlayerJoined>(
@@ -30,7 +55,7 @@ export class CircleRaceRelayColyseusRoom extends RelayColyseusRoom {
     this.sendServerInputFanout(rpc, CircleRaceSimulationInputRegistry);
   }
 
-  public override onLeave(client: Client, consented: boolean) {
+  public override async onLeave(client: Client, consented: boolean) {
     console.log('onLeave', client.sessionId, consented);
     const tick = this._serverTick(now() + 2);
     const playerSlot = this._sessionIdToPlayerSlot.get(client.sessionId);
@@ -41,6 +66,6 @@ export class CircleRaceRelayColyseusRoom extends RelayColyseusRoom {
       { reason: consented ? 0 : 1 }
     );
     this.sendServerInputFanout(rpc, CircleRaceSimulationInputRegistry);
-    super.onLeave?.(client, consented);
+    await super.onLeave(client, consented);
   }
 }

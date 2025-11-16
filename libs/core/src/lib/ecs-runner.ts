@@ -5,6 +5,7 @@ import { AbstractInputProvider } from './input/index.js';
 import { ECSDeps, IECSSystemConstructor } from './types/index.js';
 import { InputProvider } from './input/input-provider-di-token.js';
 import { EntitiesManager, PlayerResources, PRNG } from './mem/index.js';
+import { ISignalConstructor } from './signals/verified-signal.js';
 
 export abstract class ECSRunner {
   public readonly DIContainer: Container;
@@ -14,6 +15,7 @@ export abstract class ECSRunner {
     public readonly Config: ECSConfig,
     public readonly InputProviderInstance: AbstractInputProvider,
     public readonly Systems: Array<IECSSystemConstructor>,
+    public readonly Signals: Array<ISignalConstructor> = [],
     public readonly Deps: ECSDeps,
   ) {
     this.DIContainer = new Container();
@@ -43,10 +45,17 @@ export abstract class ECSRunner {
     // player resources
     this.DIContainer.register(PlayerResources, mem.playerResourcesManager.PlayerResources);
 
+    // signals
+    const signalInstances = this.Signals.map((SignalConstructor) => {
+      return this.DIContainer.resolve(SignalConstructor);
+    });
+    this.Simulation._signalsRegistry.init(signalInstances);
+
     // systems
     const systemInstances = this.Systems.map((SystemConstructor) => {
       return this.DIContainer.resolve(SystemConstructor);
     });
+
     this.Simulation.registerSystems(systemInstances);
   }
 

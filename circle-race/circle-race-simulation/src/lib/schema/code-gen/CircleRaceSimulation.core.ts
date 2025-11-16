@@ -3,7 +3,7 @@ import { ECSDeps } from '@lagless/core';
 
 import { Transform2d } from './Transform2d.js';
 import { Velocity2d } from './Velocity2d.js';
-
+import { GameState } from './GameState.js';
 import { PlayerResource } from './PlayerResource.js';
 import { Transform2dFilter } from './Transform2dFilter.js';
 import { MovableFilter } from './MovableFilter.js';
@@ -13,7 +13,7 @@ import { Move } from './Move.js';
 
 export const CircleRaceSimulationCore: ECSDeps = {
   components: [Transform2d, Velocity2d],
-  singletons: [],
+  singletons: [GameState],
   playerResources: [PlayerResource],
   filters: [Transform2dFilter, MovableFilter],
   inputs: [PlayerJoined, PlayerLeft, Move],

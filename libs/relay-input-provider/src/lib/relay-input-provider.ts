@@ -14,6 +14,7 @@ import {
   CancelInputStruct,
   WireVersion,
   TickInputKind,
+  PlayerFinishedGameStruct,
 } from '@lagless/net-wire';
 import {
   BinarySchemaPackPipeline,
@@ -33,8 +34,8 @@ export class RelayInputProvider extends AbstractInputProvider {
   private _nowFn!: () => number;
   private _pingIntervalId!: NodeJS.Timeout;
 
-  private readonly _clockSync = new ClockSync();
-  private readonly _inputDelayController = new InputDelayController();
+  private readonly _clockSync: ClockSync;
+  private readonly _inputDelayController: InputDelayController;
 
   private _lastServerTickHint = 0;
 
@@ -91,10 +92,16 @@ export class RelayInputProvider extends AbstractInputProvider {
     _ecsConfig: ECSConfig,
     _inputRegistry: InputRegistry,
     private readonly _room: Room<unknown>,
-    private readonly _initialMessagesBuffer: Array<Uint8Array>
+    private readonly _initialMessagesBuffer: Array<Uint8Array>,
   ) {
     super(_ecsConfig, _inputRegistry);
     this.playerSlot = playerSlot;
+    this._clockSync = new ClockSync();
+    this._inputDelayController = new InputDelayController(
+      _ecsConfig.minInputDelayTick,
+      _ecsConfig.maxInputDelayTick,
+      _ecsConfig.initialInputDelayTick
+    );
   }
 
   public override init(simulation: ECSSimulation): void {
@@ -114,6 +121,7 @@ export class RelayInputProvider extends AbstractInputProvider {
 
   public override dispose(): void {
     super.dispose();
+    this._room.leave(true).catch(console.error);
     if (this._pingIntervalId) clearInterval(this._pingIntervalId);
   }
 
@@ -149,6 +157,13 @@ export class RelayInputProvider extends AbstractInputProvider {
     this._room.send(RELAY_BYTES_CHANNEL, packPipeline.toUint8Array());
 
     this._telemetry.onSend('input');
+  }
+
+  public sendPlayerFinishedGame(payload: Omit<InferBinarySchemaValues<typeof PlayerFinishedGameStruct>, 'verifiedTick'>): void {
+    const pipeline = new BinarySchemaPackPipeline();
+    pipeline.pack(HeaderStruct, { version: WireVersion.V1, type: MsgType.PlayerFinishedGame });
+    pipeline.pack(PlayerFinishedGameStruct, { ...payload, verifiedTick: this._simulation.tick + this.ecsConfig.maxInputDelayTick });
+    this._room.send(RELAY_BYTES_CHANNEL, pipeline.toUint8Array());
   }
 
   private sendPing(): void {

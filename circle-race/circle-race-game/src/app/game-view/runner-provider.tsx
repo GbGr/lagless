@@ -1,7 +1,10 @@
 import {
   CircleRaceSimulationInputRegistry,
   CircleRaceSimulationRunner,
+  CircleRaceSimulationSignals,
   CircleRaceSimulationSystems,
+  GameOverSignal,
+  PlayerFinishedGameSignal,
 } from '@lagless/circle-race-simulation';
 import { ECSConfig } from '@lagless/core';
 import { createContext, FC, ReactNode, useContext, useEffect, useState } from 'react';
@@ -44,9 +47,25 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
         return;
       }
 
-      _runner = new CircleRaceSimulationRunner(inputProvider.ecsConfig, inputProvider, CircleRaceSimulationSystems);
+      _runner = new CircleRaceSimulationRunner(
+        inputProvider.ecsConfig,
+        inputProvider,
+        CircleRaceSimulationSystems,
+        CircleRaceSimulationSignals,
+      );
 
       _runner.start();
+
+      const _PlayerFinishedGameSignal = _runner.DIContainer.resolve(PlayerFinishedGameSignal);
+      _PlayerFinishedGameSignal.addListener((data) => {
+        inputProvider.sendPlayerFinishedGame(data);
+      });
+
+      const _GameOverSignal = _runner.DIContainer.resolve(GameOverSignal);
+      _GameOverSignal.addListener((data) => {
+        console.log(`Game over signal received at tick ${data.tick}`);
+        inputProvider.dispose();
+      });
 
       // const uuid = UUID.generate();
 
@@ -77,3 +96,28 @@ export const RunnerTicker: FC<{ children: ReactNode }> = ({ children }) => {
 
   return children;
 }
+
+
+// function createFinishGameDrainer(DIContainer: Container): (tick: number) => void {
+//   const _ECSConfig = DIContainer.resolve(ECSConfig);
+//   const _PlayerResources = DIContainer.resolve(PlayerResources);
+//   const _GameState = DIContainer.resolve(GameState);
+//   const playerResources = Array.from(
+//     { length: _ECSConfig.maxPlayers },
+//     (_, i) => _PlayerResources.get(PlayerResource, i)
+//   );
+//   const tickShift = _ECSConfig.maxInputDelayTick;
+//   return (tick) => {
+//     const adjustedTick = tick - tickShift;
+//     if (adjustedTick < 0) return;
+//     for (const playerResource of playerResources) {
+//       if (playerResource.safe.finishedAtTick === tick) {
+//         console.log(`Draining player finished game at tick ${tick}`);
+//       }
+//     }
+//
+//     if (_GameState.safe.finishedAtTick === tick) {
+//       console.log(`Draining game finished at tick ${tick}`);
+//     }
+//   };
+// }

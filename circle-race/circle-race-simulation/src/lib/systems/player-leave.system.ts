@@ -22,6 +22,9 @@ export class PlayerLeaveSystem implements IECSSystem {
 
     for (const rpc of leaveRPCs) {
       const player = this._PlayerResources.get(PlayerResource, rpc.meta.playerSlot);
+      player.safe.connected = 0;
+      player.safe.score = 0;
+      player.safe.mmrChange = -1;
       this._EntitiesManager.removeEntity(player.safe.entity);
     }
   }
