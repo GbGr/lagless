@@ -4,5 +4,6 @@ packages:
   - 'tools/*'
   - 'circle-race/*'
   - 'libs/api/*'
+  - 'circle-sumo/*'
 autoInstallPeers: true
 strictPeerDependencies: false

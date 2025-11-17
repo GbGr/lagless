@@ -56,6 +56,18 @@
     },
     {
       "path": "./libs/api/game"
+    },
+    {
+      "path": "./circle-sumo/circle-sumo-simulation"
+    },
+    {
+      "path": "./circle-sumo/circle-sumo-backend"
+    },
+    {
+      "path": "./circle-sumo/circle-sumo-frontend"
+    },
+    {
+      "path": "./circle-sumo/circle-sumo-old-sim"
     }
   ]
 }

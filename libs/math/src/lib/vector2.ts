@@ -1,5 +1,10 @@
 import { MathOps } from './math-ops.js';
 
+export interface IVector2Like {
+  x: number;
+  y: number;
+}
+
 export class Vector2 {
   // ---- Static readonly constants (do not mutate) ----
   public static readonly ZERO = new Vector2(0, 0);
@@ -27,13 +32,13 @@ export class Vector2 {
     return this;
   }
 
-  public copyFrom(other: Vector2): Vector2 {
+  public copyFrom(other: IVector2Like): Vector2 {
     this.x = other.x;
     this.y = other.y;
     return this;
   }
 
-  public copyToRef(ref: Vector2): Vector2 {
+  public copyToRef(ref: IVector2Like): IVector2Like {
     ref.x = this.x;
     ref.y = this.y;
     return ref;
@@ -44,7 +49,7 @@ export class Vector2 {
   }
 
   // ---- Addition ----
-  public addToNew(other: Vector2): Vector2 {
+  public addToNew(other: IVector2Like): Vector2 {
     return new Vector2(this.x + other.x, this.y + other.y);
   }
 

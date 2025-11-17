@@ -1,0 +1,23 @@
+{
+  "name": "@lagless/circle-sumo-frontend",
+  "version": "0.0.1",
+  "private": true,
+  "dependencies": {
+    "@lagless/react": "workspace:*",
+    "@lagless/misc": "workspace:*",
+    "@lagless/math": "workspace:*",
+    "@lagless/core": "workspace:*",
+    "@lagless/animate": "workspace:*",
+    "@lagless/pixi-react": "workspace:*",
+    "@lagless/circle-sumo-simulation": "workspace:*",
+    "@lagless/relay-input-provider": "workspace:*",
+    "pixi.js": "^8.2.6",
+    "@pixi/react": "^8.0.3",
+    "pixi-viewport": "^6.0.3",
+    "pixi-filters": "^6.1.4"
+  },
+  "devDependencies": {
+    "vite-plugin-wasm": "^3.5.0",
+    "vite-plugin-top-level-await": "^1.6.0"
+  }
+}

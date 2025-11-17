@@ -1,0 +1,42 @@
+{
+  "name": "@lagless/circle-sumo-simulation",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@lagless/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "nx": {
+    "sourceRoot": "circle-sumo/circle-sumo-simulation/src",
+    "targets": {
+      "build": {
+        "executor": "@nx/js:swc",
+        "outputs": [
+          "{options.outputPath}"
+        ],
+        "options": {
+          "outputPath": "circle-sumo/circle-sumo-simulation/dist",
+          "main": "circle-sumo/circle-sumo-simulation/src/index.ts",
+          "tsConfig": "circle-sumo/circle-sumo-simulation/tsconfig.lib.json",
+          "skipTypeCheck": true,
+          "stripLeadingPaths": true
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "@swc/helpers": "~0.5.11",
+    "@lagless/core": "workspace:*",
+    "@lagless/math": "workspace:*",
+    "@lagless/binary": "workspace:*"
+  }
+}

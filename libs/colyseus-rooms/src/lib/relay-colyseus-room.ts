@@ -48,6 +48,7 @@ export abstract class RelayColyseusRoom extends Room {
   private _roomStartedAt = 0;
   private _nextPlayerSlot = 0;
   private _intervalId: NodeJS.Timeout | null = null;
+  private _isDisposed = false;
 
   protected readonly _players = new Map<string, PlayerInfo>();
   protected readonly _sessionIdToPlayerSlot = new Map<string, number>();
@@ -121,7 +122,10 @@ export abstract class RelayColyseusRoom extends Room {
 
   public override async onDispose() {
     if (this._gameId) {
-      await this.onBeforeDispose(this._gameId, true);
+      if (!this._isDisposed) {
+        this._isDisposed = true;
+        await this.onBeforeDispose(this._gameId, true);
+      }
     }
 
     if (this._intervalId) {
@@ -316,9 +320,11 @@ export abstract class RelayColyseusRoom extends Room {
     }
 
     if (allPlayersFinished) {
+      if (this._isDisposed) return;
+      this._isDisposed = true;
       console.log('All players finished the game. Disposing room.');
       await this.onBeforeDispose(this._gameId, false);
-      await this.disconnect(1480);
+      await this.disconnect();
     }
   }
 }

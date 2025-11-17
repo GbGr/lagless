@@ -51,12 +51,19 @@
     },
     {
       "plugin": "@nx/js/typescript",
-      "include": ["libs/colyseus-rooms/*", "libs/api/schemas/*", "libs/api/player/*", "libs/api/game/*"],
+      "include": [
+        "libs/colyseus-rooms/*",
+        "libs/api/schemas/*",
+        "libs/api/player/*",
+        "libs/api/game/*",
+        "circle-sumo/circle-sumo-simulation/*"
+      ],
       "options": {
         "typecheck": {
           "targetName": "typecheck"
         }
-      }
+      },
+      "exclude": ["circle-sumo/circle-sumo-simulation/*"]
     },
     {
       "plugin": "@nx/webpack/plugin",

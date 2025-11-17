@@ -26,7 +26,7 @@ export abstract class AbstractInputProvider {
     protected readonly _inputRegistry: InputRegistry,
   ) {
     this._frameLength = this.ecsConfig.frameLength;
-    this._currentInputDelay = this.ecsConfig.inputDelay;
+    this._currentInputDelay = this.ecsConfig.initialInputDelayTick;
   }
 
   public getUpdateOrdinal(): number {
