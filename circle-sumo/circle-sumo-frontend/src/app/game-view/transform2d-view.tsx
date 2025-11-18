@@ -28,7 +28,6 @@ export const Transform2dView: FilterView = filterView(({ entity }, ref) => {
   const runner = useRunner();
   const { app } = useApplication();
   const viewport = useViewport();
-  const viewRenderLayer = useViewRenderLayer();
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const bodySpriteRef = useRef<Sprite>(null!);
   const playerResource = useMemo(() => {
@@ -47,7 +46,6 @@ export const Transform2dView: FilterView = filterView(({ entity }, ref) => {
     () => {
       return {
         onCreate() {
-          viewRenderLayer.attach(bodySpriteRef.current);
           const t2d = transform2d.getCursor(entity);
           interpolateTransform2dCursorToRef(t2d, simulation.interpolationFactor, containerRef.current);
 
@@ -104,7 +102,7 @@ export const Transform2dView: FilterView = filterView(({ entity }, ref) => {
         length = minDistance;
         to.subInPlace(from).normalizeInPlace().scaleInPlace(minDistance).addInPlace(from);
       }
-      const power = MathOps.clamp01(length / maxDistance);
+      // const power = MathOps.clamp01(length / maxDistance);
       const angle = MathOps.atan2(to.y - from.y, to.x - from.x);
       // arrowRef.current.width = length;
       // directionContainerRef.current.rotation = angle;

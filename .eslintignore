@@ -1,0 +1,7 @@
+node_modules
+dist
+build
+coverage
+.nx/cache
+.nx/workspace-data
+*.d.ts

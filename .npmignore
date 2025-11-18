@@ -1,0 +1,11 @@
+node_modules
+dist
+build
+.nx
+.specify
+specs
+docs
+coverage
+*.log
+.vscode
+.idea
