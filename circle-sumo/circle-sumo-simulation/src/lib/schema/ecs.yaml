@@ -1,4 +1,4 @@
-# nx g @lagless/codegen:ecs --configPath circle-race/circle-race-simulation/src/lib/schema/ecs.yam
+# nx g @lagless/codegen:ecs --configPath circle-sumo/circle-sumo-simulation/src/lib/schema/ecs.yaml
 projectName: CircleSumo
 components:
   Transform2d:
@@ -8,6 +8,29 @@ components:
     prevPositionX: float32
     prevPositionY: float32
     prevRotation: float32
+  Velocity2d:
+    velocityX: float32
+    velocityY: float32
+    angularVelocity: float32
+  CircleBody:
+    playerSlot: uint8
+    radius: float32
+    mass: float32
+    restitution: float32
+    linearDamping: float32
+    angularDamping: float32
+  PendingImpulse:
+    impulseX: float32
+    impulseY: float32
+  LastHit:
+    hasAttacker: uint8
+    attackerEntity: uint32
+    atTick: uint32
+    impulse: float32
+  LastAssist:
+    hasAssister: uint8
+    assisterEntity: uint32
+    atTick: uint32
 singletons:
   GameState:
     finishedAtTick: int32
@@ -18,8 +41,12 @@ playerResources:
     entity: uint32
     connected: uint8
     finishedAtTick: uint32
+    kills: uint16
+    assists: uint16
     score: uint32
     mmrChange: int32
+    wasInDangerZoneTimes: uint16
+    isInDangerZone: uint8
 inputs:
   PlayerJoined:
     playerId: uint8[16]
@@ -28,7 +55,27 @@ inputs:
   Move:
     direction: float32
     speed: float32
+  LookAt:
+    direction: float32
 filters:
   Transform2dFilter:
     include:
       - Transform2d
+  PendingImpulseFilter:
+    include:
+      - PendingImpulse
+      - Velocity2d
+      - CircleBody
+  Velocity2dFilter:
+    include:
+      - Velocity2d
+      - Transform2d
+  DampingFilter:
+    include:
+      - Velocity2d
+      - CircleBody
+  SumoCharacterFilter:
+    include:
+      - Transform2d
+      - Velocity2d
+      - CircleBody

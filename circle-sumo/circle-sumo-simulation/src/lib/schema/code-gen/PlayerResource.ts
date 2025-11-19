@@ -13,9 +13,17 @@ export class PlayerResource {
 
     finishedAtTick: Uint32Array,
 
+    kills: Uint16Array,
+
+    assists: Uint16Array,
+
     score: Uint32Array,
 
     mmrChange: Int32Array,
+
+    wasInDangerZoneTimes: Uint16Array,
+
+    isInDangerZone: Uint8Array,
   };
 
   public readonly unsafe = {} as {
@@ -29,9 +37,17 @@ export class PlayerResource {
 
     finishedAtTick: Uint32Array;
 
+    kills: Uint16Array;
+
+    assists: Uint16Array;
+
     score: Uint32Array;
 
     mmrChange: Int32Array;
+
+    wasInDangerZoneTimes: Uint16Array;
+
+    isInDangerZone: Uint8Array;
   };
 
   public readonly safe: {
@@ -45,9 +61,17 @@ export class PlayerResource {
 
     finishedAtTick: number;
 
+    kills: number;
+
+    assists: number;
+
     score: number;
 
     mmrChange: number;
+
+    wasInDangerZoneTimes: number;
+
+    isInDangerZone: number;
   };
 
   constructor(buffer: ArrayBuffer, memTracker: MemoryTracker) {
@@ -71,6 +95,14 @@ export class PlayerResource {
     this.unsafe['finishedAtTick'] = new Uint32Array(buffer, memTracker.ptr, 1);
     memTracker.add(Uint32Array.BYTES_PER_ELEMENT * 1);
 
+    // kills
+    this.unsafe['kills'] = new Uint16Array(buffer, memTracker.ptr, 1);
+    memTracker.add(Uint16Array.BYTES_PER_ELEMENT * 1);
+
+    // assists
+    this.unsafe['assists'] = new Uint16Array(buffer, memTracker.ptr, 1);
+    memTracker.add(Uint16Array.BYTES_PER_ELEMENT * 1);
+
     // score
     this.unsafe['score'] = new Uint32Array(buffer, memTracker.ptr, 1);
     memTracker.add(Uint32Array.BYTES_PER_ELEMENT * 1);
@@ -78,6 +110,14 @@ export class PlayerResource {
     // mmrChange
     this.unsafe['mmrChange'] = new Int32Array(buffer, memTracker.ptr, 1);
     memTracker.add(Int32Array.BYTES_PER_ELEMENT * 1);
+
+    // wasInDangerZoneTimes
+    this.unsafe['wasInDangerZoneTimes'] = new Uint16Array(buffer, memTracker.ptr, 1);
+    memTracker.add(Uint16Array.BYTES_PER_ELEMENT * 1);
+
+    // isInDangerZone
+    this.unsafe['isInDangerZone'] = new Uint8Array(buffer, memTracker.ptr, 1);
+    memTracker.add(Uint8Array.BYTES_PER_ELEMENT * 1);
 
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;
@@ -115,6 +155,20 @@ export class PlayerResource {
         self.unsafe['finishedAtTick'][0] = value;
       },
 
+      get kills() {
+        return self.unsafe['kills'][0];
+      },
+      set kills(value: number) {
+        self.unsafe['kills'][0] = value;
+      },
+
+      get assists() {
+        return self.unsafe['assists'][0];
+      },
+      set assists(value: number) {
+        self.unsafe['assists'][0] = value;
+      },
+
       get score() {
         return self.unsafe['score'][0];
       },
@@ -127,6 +181,20 @@ export class PlayerResource {
       },
       set mmrChange(value: number) {
         self.unsafe['mmrChange'][0] = value;
+      },
+
+      get wasInDangerZoneTimes() {
+        return self.unsafe['wasInDangerZoneTimes'][0];
+      },
+      set wasInDangerZoneTimes(value: number) {
+        self.unsafe['wasInDangerZoneTimes'][0] = value;
+      },
+
+      get isInDangerZone() {
+        return self.unsafe['isInDangerZone'][0];
+      },
+      set isInDangerZone(value: number) {
+        self.unsafe['isInDangerZone'][0] = value;
       },
     };
   }
@@ -147,11 +215,23 @@ export class PlayerResource {
     // finishedAtTick
     memTracker.add(Uint32Array.BYTES_PER_ELEMENT * 1);
 
+    // kills
+    memTracker.add(Uint16Array.BYTES_PER_ELEMENT * 1);
+
+    // assists
+    memTracker.add(Uint16Array.BYTES_PER_ELEMENT * 1);
+
     // score
     memTracker.add(Uint32Array.BYTES_PER_ELEMENT * 1);
 
     // mmrChange
     memTracker.add(Int32Array.BYTES_PER_ELEMENT * 1);
+
+    // wasInDangerZoneTimes
+    memTracker.add(Uint16Array.BYTES_PER_ELEMENT * 1);
+
+    // isInDangerZone
+    memTracker.add(Uint8Array.BYTES_PER_ELEMENT * 1);
   }
 }
 

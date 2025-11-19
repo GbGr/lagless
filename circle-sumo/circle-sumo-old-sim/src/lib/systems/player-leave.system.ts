@@ -1,11 +1,10 @@
-import { ECSSystem, EntitiesManager, IECSSystem, InputProvider, PlayerResources } from '@lagless/core';
+import { ECSSystem, IECSSystem, InputProvider, PlayerResources } from '@lagless/core';
 import { PlayerLeft, PlayerResource } from '../schema/code-gen/index.js';
 
 @ECSSystem()
 export class PlayerLeaveSystem implements IECSSystem {
   constructor(
     private readonly _InputProvider: InputProvider,
-    private readonly _EntitiesManager: EntitiesManager,
     private readonly _PlayerResources: PlayerResources
   ) {}
 
@@ -17,7 +16,6 @@ export class PlayerLeaveSystem implements IECSSystem {
       player.safe.connected = 0;
       player.safe.score = 0;
       player.safe.mmrChange = -1;
-      this._EntitiesManager.removeEntity(player.safe.entity);
     }
   }
 }

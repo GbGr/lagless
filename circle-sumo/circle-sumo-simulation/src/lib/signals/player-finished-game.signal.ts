@@ -4,6 +4,7 @@ import { PlayerResource } from '../schema/code-gen/index.js';
 @ECSSignal()
 export class PlayerFinishedGameSignal extends VerifiedSignal<{
   tick: number;
+  kills: number;
   playerSlot: number;
   score: number;
   mmrChange: number;
@@ -26,6 +27,7 @@ export class PlayerFinishedGameSignal extends VerifiedSignal<{
         return {
           tick,
           playerSlot,
+          kills: playerResource.safe.kills,
           score: playerResource.safe.score,
           mmrChange: playerResource.safe.mmrChange,
         };

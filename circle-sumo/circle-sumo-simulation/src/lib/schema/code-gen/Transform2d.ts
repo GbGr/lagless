@@ -35,17 +35,17 @@ export class Transform2d {
   private readonly _cursor: {
     readonly entity: number;
 
-    readonly positionX: number;
+    positionX: number;
 
-    readonly positionY: number;
+    positionY: number;
 
-    readonly rotation: number;
+    rotation: number;
 
-    readonly prevPositionX: number;
+    prevPositionX: number;
 
-    readonly prevPositionY: number;
+    prevPositionY: number;
 
-    readonly prevRotation: number;
+    prevRotation: number;
   };
 
   public getCursor(index: number) {

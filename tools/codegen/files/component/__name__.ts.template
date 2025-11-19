@@ -19,7 +19,7 @@ export class <%= component.name %> {
   private readonly _cursor: {
     readonly entity: number;
     <% for (const [fieldName, field] of Object.entries(fields)) { %>
-    readonly <%= fieldName %>: number;
+    <%= fieldName %>: number;
     <% } %>
   };
 

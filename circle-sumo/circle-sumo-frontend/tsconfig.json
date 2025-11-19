@@ -27,6 +27,9 @@
       "path": "../../libs/react"
     },
     {
+      "path": "../../libs/binary"
+    },
+    {
       "path": "./tsconfig.app.json"
     }
   ],

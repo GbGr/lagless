@@ -24,8 +24,8 @@ export class GameSessionSchema {
   @Column({ type: 'smallint' })
   public slot!: number;
 
-  @Column()
-  public hash!: number;
+  @Column({ type: 'bigint', nullable: true })
+  public hash?: number;
 
   @Column({ nullable: true })
   public score?: number;

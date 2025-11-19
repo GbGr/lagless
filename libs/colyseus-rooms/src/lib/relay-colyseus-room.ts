@@ -298,7 +298,6 @@ export abstract class RelayColyseusRoom extends Room {
     if (tickNowShifted <= 0) return;
 
     for (const [, playerInfo] of this._players) {
-      console.log(`${playerInfo.finishedGameData?.verifiedTick} === ${tickNowShifted}`);
       if (playerInfo.finishedGameData && playerInfo.finishedGameData.verifiedTick === tickNowShifted) {
         this.onPlayerFinishedGame(this._gameId, playerInfo).catch(console.error);
       }

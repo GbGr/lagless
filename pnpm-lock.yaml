@@ -419,6 +419,9 @@ importers:
       '@lagless/animate':
         specifier: workspace:*
         version: link:../../libs/animate
+      '@lagless/binary':
+        specifier: workspace:*
+        version: link:../../libs/binary
       '@lagless/circle-sumo-simulation':
         specifier: workspace:*
         version: link:../circle-sumo-simulation

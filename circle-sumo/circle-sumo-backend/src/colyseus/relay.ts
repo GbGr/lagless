@@ -42,17 +42,19 @@ export class CircleSumoRelayColyseusRoom extends RelayColyseusRoom {
 
   public override async onJoin(client: Client) {
     super.onJoin(client);
-    const tick = this._serverTick(now() + 1);
-    const playerSlot = this._sessionIdToPlayerSlot.get(client.sessionId);
-    if (playerSlot === undefined) throw new Error('Invalid player slot');
-    const rpc = new RPC<PlayerJoined>(
-      PlayerJoined.id,
-      { tick, playerSlot, ordinal: 0, seq: 0 },
-      {
-        playerId: UUID.generate().asUint8(),
-      }
-    );
-    this.sendServerInputFanout(rpc, CircleSumoInputRegistry);
+    setTimeout(() => {
+      const tick = this._serverTick(now() + 100);
+      const playerSlot = this._sessionIdToPlayerSlot.get(client.sessionId);
+      if (playerSlot === undefined) throw new Error('Invalid player slot');
+      const rpc = new RPC<PlayerJoined>(
+        PlayerJoined.id,
+        { tick, playerSlot, ordinal: 0, seq: 0 },
+        {
+          playerId: UUID.generate().asUint8(),
+        }
+      );
+      this.sendServerInputFanout(rpc, CircleSumoInputRegistry);
+    }, 1_000);
   }
 
   public override async onLeave(client: Client, consented: boolean) {

@@ -4,5 +4,6 @@ import { InputRegistry } from '@lagless/core';
 import { PlayerJoined } from './PlayerJoined.js';
 import { PlayerLeft } from './PlayerLeft.js';
 import { Move } from './Move.js';
+import { LookAt } from './LookAt.js';
 
-export const CircleSumoInputRegistry = new InputRegistry([PlayerJoined, PlayerLeft, Move]);
+export const CircleSumoInputRegistry = new InputRegistry([PlayerJoined, PlayerLeft, Move, LookAt]);

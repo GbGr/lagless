@@ -15,6 +15,7 @@ export const ViewportProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
   const initializeViewport = useCallback((viewport: Viewport) => {
     setViewportRef(viewport);
+    viewport.setZoom(0.75);
     viewport.moveCenter(0, 0);
   }, []);
 

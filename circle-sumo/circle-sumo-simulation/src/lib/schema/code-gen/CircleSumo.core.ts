@@ -2,17 +2,27 @@
 import { ECSDeps } from '@lagless/core';
 
 import { Transform2d } from './Transform2d.js';
+import { Velocity2d } from './Velocity2d.js';
+import { CircleBody } from './CircleBody.js';
+import { PendingImpulse } from './PendingImpulse.js';
+import { LastHit } from './LastHit.js';
+import { LastAssist } from './LastAssist.js';
 import { GameState } from './GameState.js';
 import { PlayerResource } from './PlayerResource.js';
 import { Transform2dFilter } from './Transform2dFilter.js';
+import { PendingImpulseFilter } from './PendingImpulseFilter.js';
+import { Velocity2dFilter } from './Velocity2dFilter.js';
+import { DampingFilter } from './DampingFilter.js';
+import { SumoCharacterFilter } from './SumoCharacterFilter.js';
 import { PlayerJoined } from './PlayerJoined.js';
 import { PlayerLeft } from './PlayerLeft.js';
 import { Move } from './Move.js';
+import { LookAt } from './LookAt.js';
 
 export const CircleSumoCore: ECSDeps = {
-  components: [Transform2d],
+  components: [Transform2d, Velocity2d, CircleBody, PendingImpulse, LastHit, LastAssist],
   singletons: [GameState],
   playerResources: [PlayerResource],
-  filters: [Transform2dFilter],
-  inputs: [PlayerJoined, PlayerLeft, Move],
+  filters: [Transform2dFilter, PendingImpulseFilter, Velocity2dFilter, DampingFilter, SumoCharacterFilter],
+  inputs: [PlayerJoined, PlayerLeft, Move, LookAt],
 };

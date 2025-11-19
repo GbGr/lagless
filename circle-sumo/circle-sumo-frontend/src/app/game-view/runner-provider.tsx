@@ -5,15 +5,13 @@ import {
   CircleSumoSystems,
   GameOverSignal,
   PlayerFinishedGameSignal,
-  PlayerJoined,
 } from '@lagless/circle-sumo-simulation';
-import { ECSConfig, LocalInputProvider } from '@lagless/core';
+import { ECSConfig } from '@lagless/core';
 import { createContext, FC, ReactNode, useContext, useEffect, useState } from 'react';
 import { useTick } from '@pixi/react';
 import { MathOps } from '@lagless/math';
 import { Matchmaking, RelayInputProvider } from '@lagless/relay-input-provider';
 import { AuthTokenStore } from '@lagless/react';
-import { UUID } from '@lagless/misc';
 
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 const RunnerContext = createContext<CircleSumoRunner>(null!);
@@ -40,46 +38,46 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
     (async () => {
       await MathOps.init();
       const ecsConfig = new ECSConfig({ fps: 60 });
-      const inputProvider = new LocalInputProvider(ecsConfig, CircleSumoInputRegistry);
-      // const matchmaking = new Matchmaking();
-      // const { client, seatReservation } = await matchmaking.connectAndFindMatch(
-      //   import.meta.env.VITE_RELAY_URL,
-      //   ecsConfig,
-      //   token
-      // );
-      // const inputProvider = await RelayInputProvider.connect(
-      //   ecsConfig,
-      //   CircleSumoInputRegistry,
-      //   client,
-      //   seatReservation
-      // );
-      // if (disposed) {
-      //   inputProvider.dispose();
-      //   return;
-      // }
+      // const inputProvider = new LocalInputProvider(ecsConfig, CircleSumoInputRegistry);
+      const matchmaking = new Matchmaking();
+      const { client, seatReservation } = await matchmaking.connectAndFindMatch(
+        import.meta.env.VITE_RELAY_URL,
+        ecsConfig,
+        token
+      );
+      const inputProvider = await RelayInputProvider.connect(
+        ecsConfig,
+        CircleSumoInputRegistry,
+        client,
+        seatReservation
+      );
+      if (disposed) {
+        inputProvider.dispose();
+        return;
+      }
 
       _runner = new CircleSumoRunner(inputProvider.ecsConfig, inputProvider, CircleSumoSystems, CircleSumoSignals);
 
       _runner.start();
 
-      // const _PlayerFinishedGameSignal = _runner.DIContainer.resolve(PlayerFinishedGameSignal);
-      // _PlayerFinishedGameSignal.addListener((data) => {
-      //   inputProvider.sendPlayerFinishedGame(data);
-      // });
+      const _PlayerFinishedGameSignal = _runner.DIContainer.resolve(PlayerFinishedGameSignal);
+      _PlayerFinishedGameSignal.addListener((data) => {
+        inputProvider.sendPlayerFinishedGame(data);
+      });
+
+      const _GameOverSignal = _runner.DIContainer.resolve(GameOverSignal);
+      _GameOverSignal.addListener((data) => {
+        console.log(`Game over signal received at tick ${data.tick}`);
+        inputProvider.dispose();
+      });
+
+      // for (let i = 0; i < ecsConfig.maxPlayers; i++) {
+      //   const uuid = UUID.generate();
       //
-      // const _GameOverSignal = _runner.DIContainer.resolve(GameOverSignal);
-      // _GameOverSignal.addListener((data) => {
-      //   console.log(`Game over signal received at tick ${data.tick}`);
-      //   inputProvider.dispose();
-      // });
-
-      for (let i = 0; i < ecsConfig.maxPlayers; i++) {
-        const uuid = UUID.generate();
-
-        console.log(`Player joined: ${uuid.asString()}`);
-        inputProvider['playerSlot'] = i;
-        inputProvider['addRpc'](PlayerJoined, { playerId: uuid.asUint8() });
-      }
+      //   console.log(`Player joined: ${uuid.asString()}`);
+      //   inputProvider['playerSlot'] = i;
+      //   inputProvider['addRpc'](PlayerJoined, { playerId: uuid.asUint8() });
+      // }
 
       setRunner(_runner);
     })();

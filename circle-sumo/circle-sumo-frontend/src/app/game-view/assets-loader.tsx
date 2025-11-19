@@ -7,6 +7,7 @@ import EYES from '../../assets/textures/EYES.png';
 import EYES_CLOSED from '../../assets/textures/EYES_CLOSED.png';
 import ARROW from '../../assets/textures/ARROW.png';
 import ARROW_GRADIENT from '../../assets/textures/ARROW_GRADIENT.png';
+import SHADOW from '../../assets/textures/SHADOW.png';
 
 export const AssetsBundle = {
   name: 'circle-sumo-assets',
@@ -17,6 +18,7 @@ export const AssetsBundle = {
     { alias: 'EYES_CLOSED', src: EYES_CLOSED },
     { alias: 'ARROW', src: ARROW },
     { alias: 'ARROW_GRADIENT', src: ARROW_GRADIENT },
+    { alias: 'SHADOW', src: SHADOW },
   ],
 };
 

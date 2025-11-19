@@ -2,14 +2,34 @@ export const easing: TimingFunction = (timeFraction: number) => 1 - Math.sin(Mat
 export const easingInOut: TimingFunction = makeEaseInOut(easing);
 export const linear: TimingFunction = (timeFraction: number) => timeFraction;
 
+export class AnimationCancelToken {
+  private _isCancelled = false;
+
+  public get isCancelled(): boolean {
+    return this._isCancelled;
+  }
+
+  public cancel(): void {
+    this._isCancelled = true;
+  }
+}
+
 export const animatePromise = (draw: DrawFunction, duration: number, timing?: TimingFunction): Promise<void> => {
   return new Promise<void>((resolve) => animate(draw, duration, resolve, timing));
 };
 
-export function animate(draw: DrawFunction, duration: number, onAnimationDone: () => void, timing: TimingFunction = easing): void {
+export function animate(draw: DrawFunction, duration: number, onAnimationDone: () => void, timing: TimingFunction = easing): AnimationCancelToken {
   const start = performance.now();
+  const cancelToken = new AnimationCancelToken();
+
+  if (cancelToken.isCancelled) {
+    return cancelToken;
+  }
 
   requestAnimationFrame(function animate(time) {
+    if (cancelToken.isCancelled) {
+      return;
+    }
     let timeFraction = (time - start) / duration;
     if (timeFraction > 1) timeFraction = 1;
     const progress = timing(timeFraction);
@@ -21,8 +41,9 @@ export function animate(draw: DrawFunction, duration: number, onAnimationDone: (
     } else if (onAnimationDone) {
       onAnimationDone();
     }
-
   });
+
+  return cancelToken;
 }
 
 function makeEaseInOut(timing: TimingFunction): TimingFunction {
