@@ -1,3 +1,4 @@
+// libs/core/src/lib/mem/mem.ts
 import { ECSDeps } from '../types/index.js';
 import { ECSConfig } from '../ecs-config.js';
 import { IAbstractMemory } from './abstract-memory.interface.js';

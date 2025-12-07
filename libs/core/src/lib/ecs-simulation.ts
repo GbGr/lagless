@@ -1,3 +1,4 @@
+// libs/core/src/lib/ecs-simulation.ts
 import { MathOps } from '@lagless/math';
 import { Mem } from './mem/index.js';
 import { ECSConfig } from './ecs-config.js';

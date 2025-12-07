@@ -1,3 +1,4 @@
+// libs/binary/src/lib/binary.ts
 import { InputFieldDefinition, TypedArray, TypedArrayConstructor } from './types.js';
 
 export const LE = true as const; // little-endian

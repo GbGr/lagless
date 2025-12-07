@@ -1,3 +1,5 @@
+// libs/colyseus-rooms/src/lib/matchmaking.room.ts
+
 import { Room, Client, matchMaker } from 'colyseus';
 import { MatchmakingConfig, MatchTicket, MatchGroup } from './matchmaking.types.js';
 import { MatchmakingService } from './matchmaking.service.js';

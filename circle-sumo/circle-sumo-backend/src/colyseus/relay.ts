@@ -1,3 +1,5 @@
+// circle-sumo/circle-sumo-backend/src/colyseus/relay.ts
+
 import { PlayerInfo, RelayColyseusRoom, RelayRoomOptions } from '@lagless/colyseus-rooms';
 import { RPC, ReplayInputProvider } from '@lagless/core';
 import { UUID } from '@lagless/misc';
@@ -15,10 +17,6 @@ import fs from 'node:fs/promises';
 const FULL_LOBBY_SIZE = 6;
 
 export class CircleSumoRelayRoom extends RelayColyseusRoom {
-  // ─────────────────────────────────────────────────────────────────────────
-  // Private fields
-  // ─────────────────────────────────────────────────────────────────────────
-
   private readonly _gameService = NestDI.resolve(GameService);
   private _allPlayersConnectedTimeout: Delayed | null = null;
   private _hasGameStarted = false;

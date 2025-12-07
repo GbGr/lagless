@@ -1,3 +1,5 @@
+// libs/net-wire/src/lib/protocol.ts
+
 import { BinarySchema, FieldType } from '@lagless/binary';
 
 // Bytes-channel tag for Colyseus raw-binary messages
