@@ -23,8 +23,6 @@ export class ApplyImpulseSystem implements IECSSystem {
       velocity.velocityY += pendingImpulse.impulseY * invMass;
 
       this._EntitiesManager.removeComponent(entity, PendingImpulse);
-
-      console.log(`ApplyImpulseSystem: entity=${entity}, impulse=(${pendingImpulse.impulseX.toFixed(2)}, ${pendingImpulse.impulseY.toFixed(2)})`);
     }
   }
 }

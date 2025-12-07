@@ -7,7 +7,7 @@ export class Velocity2dFilter extends AbstractFilter {
   public static readonly include: Array<IComponentConstructor> = [Velocity2d, Transform2d];
   public static readonly exclude: Array<IComponentConstructor> = [];
 
-  public readonly includeMask: number = 3;
+  public readonly includeMask: number = 6;
   public readonly excludeMask: number = 0;
 }
 

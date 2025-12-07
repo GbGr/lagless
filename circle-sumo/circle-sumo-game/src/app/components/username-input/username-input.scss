@@ -1,0 +1,31 @@
+.username-input {
+  gap: 12px;
+  display: flex;
+  align-items: center;
+  padding-bottom: 24px;
+
+  &__field {
+    outline: 0;
+    border: none;
+    background: transparent;
+    color: #FFF;
+
+    text-align: center;
+    font-size: 20px;
+    font-style: normal;
+    font-weight: 900;
+    line-height: 90%; /* 18px */
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+
+    &:focus {
+      border-bottom: 2px solid #FFF;
+    }
+  }
+
+  &__icon {
+    cursor: pointer;
+    width: 29.205px;
+    height: 28.729px;
+  }
+}

@@ -8,7 +8,7 @@ export class PendingImpulseFilter extends AbstractFilter {
   public static readonly include: Array<IComponentConstructor> = [PendingImpulse, Velocity2d, CircleBody];
   public static readonly exclude: Array<IComponentConstructor> = [];
 
-  public readonly includeMask: number = 14;
+  public readonly includeMask: number = 28;
   public readonly excludeMask: number = 0;
 }
 

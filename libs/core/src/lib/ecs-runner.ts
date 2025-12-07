@@ -3,9 +3,9 @@ import { ECSConfig } from './ecs-config.js';
 import { ECSSimulation } from './ecs-simulation.js';
 import { AbstractInputProvider } from './input/index.js';
 import { ECSDeps, IECSSystemConstructor } from './types/index.js';
-import { InputProvider } from './input/input-provider-di-token.js';
+import { InputProvider } from './input/index.js';
 import { EntitiesManager, PlayerResources, PRNG } from './mem/index.js';
-import { ISignalConstructor } from './signals/verified-signal.js';
+import { ISignalConstructor } from './signals/signal.js';
 
 export abstract class ECSRunner {
   public readonly DIContainer: Container;
@@ -70,5 +70,7 @@ export abstract class ECSRunner {
   public dispose(): void {
     console.log('ECSRunner disposed');
     this.InputProviderInstance.dispose();
+    this.Simulation._signalsRegistry.dispose();
+
   }
 }

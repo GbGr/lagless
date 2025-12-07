@@ -11,13 +11,15 @@ export class PlayerResource {
 
     connected: Uint8Array,
 
+    initialRotation: Float32Array,
+
     finishedAtTick: Uint32Array,
+
+    positionInTop: Uint8Array,
 
     kills: Uint16Array,
 
     assists: Uint16Array,
-
-    score: Uint32Array,
 
     mmrChange: Int32Array,
 
@@ -35,13 +37,15 @@ export class PlayerResource {
 
     connected: Uint8Array;
 
+    initialRotation: Float32Array;
+
     finishedAtTick: Uint32Array;
+
+    positionInTop: Uint8Array;
 
     kills: Uint16Array;
 
     assists: Uint16Array;
-
-    score: Uint32Array;
 
     mmrChange: Int32Array;
 
@@ -59,13 +63,15 @@ export class PlayerResource {
 
     connected: number;
 
+    initialRotation: number;
+
     finishedAtTick: number;
+
+    positionInTop: number;
 
     kills: number;
 
     assists: number;
-
-    score: number;
 
     mmrChange: number;
 
@@ -91,9 +97,17 @@ export class PlayerResource {
     this.unsafe['connected'] = new Uint8Array(buffer, memTracker.ptr, 1);
     memTracker.add(Uint8Array.BYTES_PER_ELEMENT * 1);
 
+    // initialRotation
+    this.unsafe['initialRotation'] = new Float32Array(buffer, memTracker.ptr, 1);
+    memTracker.add(Float32Array.BYTES_PER_ELEMENT * 1);
+
     // finishedAtTick
     this.unsafe['finishedAtTick'] = new Uint32Array(buffer, memTracker.ptr, 1);
     memTracker.add(Uint32Array.BYTES_PER_ELEMENT * 1);
+
+    // positionInTop
+    this.unsafe['positionInTop'] = new Uint8Array(buffer, memTracker.ptr, 1);
+    memTracker.add(Uint8Array.BYTES_PER_ELEMENT * 1);
 
     // kills
     this.unsafe['kills'] = new Uint16Array(buffer, memTracker.ptr, 1);
@@ -102,10 +116,6 @@ export class PlayerResource {
     // assists
     this.unsafe['assists'] = new Uint16Array(buffer, memTracker.ptr, 1);
     memTracker.add(Uint16Array.BYTES_PER_ELEMENT * 1);
-
-    // score
-    this.unsafe['score'] = new Uint32Array(buffer, memTracker.ptr, 1);
-    memTracker.add(Uint32Array.BYTES_PER_ELEMENT * 1);
 
     // mmrChange
     this.unsafe['mmrChange'] = new Int32Array(buffer, memTracker.ptr, 1);
@@ -148,11 +158,25 @@ export class PlayerResource {
         self.unsafe['connected'][0] = value;
       },
 
+      get initialRotation() {
+        return self.unsafe['initialRotation'][0];
+      },
+      set initialRotation(value: number) {
+        self.unsafe['initialRotation'][0] = value;
+      },
+
       get finishedAtTick() {
         return self.unsafe['finishedAtTick'][0];
       },
       set finishedAtTick(value: number) {
         self.unsafe['finishedAtTick'][0] = value;
+      },
+
+      get positionInTop() {
+        return self.unsafe['positionInTop'][0];
+      },
+      set positionInTop(value: number) {
+        self.unsafe['positionInTop'][0] = value;
       },
 
       get kills() {
@@ -167,13 +191,6 @@ export class PlayerResource {
       },
       set assists(value: number) {
         self.unsafe['assists'][0] = value;
-      },
-
-      get score() {
-        return self.unsafe['score'][0];
-      },
-      set score(value: number) {
-        self.unsafe['score'][0] = value;
       },
 
       get mmrChange() {
@@ -212,17 +229,20 @@ export class PlayerResource {
     // connected
     memTracker.add(Uint8Array.BYTES_PER_ELEMENT * 1);
 
+    // initialRotation
+    memTracker.add(Float32Array.BYTES_PER_ELEMENT * 1);
+
     // finishedAtTick
     memTracker.add(Uint32Array.BYTES_PER_ELEMENT * 1);
+
+    // positionInTop
+    memTracker.add(Uint8Array.BYTES_PER_ELEMENT * 1);
 
     // kills
     memTracker.add(Uint16Array.BYTES_PER_ELEMENT * 1);
 
     // assists
     memTracker.add(Uint16Array.BYTES_PER_ELEMENT * 1);
-
-    // score
-    memTracker.add(Uint32Array.BYTES_PER_ELEMENT * 1);
 
     // mmrChange
     memTracker.add(Int32Array.BYTES_PER_ELEMENT * 1);

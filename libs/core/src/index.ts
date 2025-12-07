@@ -6,4 +6,4 @@ export * from './lib/ecs-runner.js';
 export * from './lib/types/index.js';
 export * from './lib/input/index.js';
 export * from './lib/ecs-simulation.js';
-export * from './lib/signals/verified-signal.js';
+export * from './lib/signals/signal.js';

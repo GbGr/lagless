@@ -5,14 +5,22 @@ export class PlayerJoined {
   public static readonly id = 1;
   public readonly id = 1;
 
-  // 16 = 16;
-  public readonly byteLength = 16;
+  // 16 + 2 + 4 = 22;
+  public readonly byteLength = 22;
 
   public readonly fields = [
     { name: 'playerId', type: FieldType.Uint8, isArray: true, arrayLength: 16, byteLength: 16 },
+
+    { name: 'skinId', type: FieldType.Uint16, isArray: false, byteLength: 2 },
+
+    { name: 'mmr', type: FieldType.Uint32, isArray: false, byteLength: 4 },
   ] as const;
 
   public readonly schema!: {
     playerId: Uint8Array;
+
+    skinId: number;
+
+    mmr: number;
   };
 }

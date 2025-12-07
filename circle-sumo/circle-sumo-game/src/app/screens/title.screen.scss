@@ -1,0 +1,47 @@
+.title-screen {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+
+  &__title {
+    color: #FFF;
+    width: 300px;
+    padding: 24px 0 0;
+    font-size: 64px;
+    font-style: normal;
+    font-weight: 900;
+    line-height: 90%;
+    text-align: center;
+  }
+
+  &__character {
+    position: relative;
+  }
+
+  &__locker {
+    position: absolute;
+    top: 20px;
+    right: -40px;
+  }
+
+  &__actions {
+    gap: 28px;
+    display: flex;
+    margin: auto 0;
+    align-items: center;
+    padding-bottom: 24px;
+    flex-direction: column;
+  }
+
+  .balance {
+    margin-top: 24px;
+  }
+
+  .character-preview {
+    margin-top: 48px;
+  }
+
+  .username-input {
+    margin-top: 44px;
+  }
+}

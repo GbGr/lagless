@@ -59,34 +59,21 @@ export class GameService {
     playerId: PlayerSchema['id'],
     playerSlot: number,
     gameId: GameSchema['id'],
-    connectedAt: number,
+    connectedAt: number
   ) {
-    await this._GameSessionSchemaRepository.insert(
-      this._GameSessionSchemaRepository.create({
-        gameId,
-        playerId,
-        slot: playerSlot,
-        joinedAt: new Date(connectedAt),
-      })
-    );
+    await this._GameSessionSchemaRepository.insert({
+      gameId,
+      playerId,
+      slot: playerSlot,
+      joinedAt: new Date(connectedAt),
+    });
   }
 
-  public async internalPlayerLeaveGameSession(
-    playerId: PlayerSchema['id'],
-    gameId: GameSchema['id'],
-    leavedAt: Date,
-  ) {
-    await this._GameSessionSchemaRepository.update(
-      { playerId, gameId },
-      { gameLeavedAt: leavedAt }
-    )
+  public async internalPlayerLeaveGameSession(playerId: PlayerSchema['id'], gameId: GameSchema['id'], leavedAt: Date) {
+    await this._GameSessionSchemaRepository.update({ playerId, gameId }, { gameLeavedAt: leavedAt });
   }
 
-  public async internalGameOver(
-    gameId: GameSchema['id'],
-    gameOverAt: Date,
-    isDestroyed: boolean,
-  ) {
+  public async internalGameOver(gameId: GameSchema['id'], gameOverAt: Date, isDestroyed: boolean) {
     await this._GameSchemaRepository.update(
       { id: gameId },
       isDestroyed ? { destroyedAt: gameOverAt } : { finishedAt: gameOverAt }
@@ -99,10 +86,10 @@ export class GameService {
     score: number,
     mmrChange: number,
     hash: number,
-    ts: number,
+    ts: number
   ) {
     await this._GameSchemaRepository.manager.transaction(async (manager) => {
-      const [ player, gameSession ] = await Promise.all([
+      const [player, gameSession] = await Promise.all([
         manager.findOneOrFail(PlayerSchema, { where: { id: playerId } }),
         manager.findOneOrFail(GameSessionSchema, { where: { playerId, gameId } }),
       ]);
@@ -115,10 +102,7 @@ export class GameService {
       gameSession.mmrChange = mmrChange;
       gameSession.gameFinishedAt = new Date(ts);
 
-      await Promise.all([
-        manager.save(player),
-        manager.save(gameSession),
-      ]);
+      await Promise.all([manager.save(player), manager.save(gameSession)]);
     });
   }
 }

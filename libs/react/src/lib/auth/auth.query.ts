@@ -4,7 +4,7 @@ import { api } from './api';
 import { useQuery } from '@tanstack/react-query';
 import { currentQueryClient } from '../react-query.provider';
 
-export const usePlayerQuery = () => {
+export const usePlayer = () => {
   const { data } = useAuthQuery();
   return data?.player as PlayerSchema;
 }
@@ -13,7 +13,7 @@ export const useAuthQuery = () => {
   return useQuery(authQuery());
 };
 
-export const updatePlayer = async (player: PlayerSchema) => {
+export const updatePlayer = async () => {
   const data = await api.get<{ player: PlayerSchema }>('/player/me').then((res) => res.data);
   currentQueryClient.setQueryData(['auth'], { token: AuthTokenStore.get(), player: data });
   return data;

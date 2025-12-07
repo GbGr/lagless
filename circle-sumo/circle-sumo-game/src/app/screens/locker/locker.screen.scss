@@ -1,0 +1,40 @@
+.locker-screen {
+  display: flex;
+  padding-top: 34px;
+  align-items: center;
+  flex-direction: column;
+
+  &__title {
+    color: #FFF;
+    text-align: center;
+    font-size: 32px;
+    font-style: normal;
+    font-weight: 900;
+    line-height: 90%;
+    margin-top: 54px;
+  }
+
+  &__list {
+    margin-top: 32px;
+    width: 100%;
+    flex-grow: 1;
+    position: relative;
+    canvas {
+      height: 100%;
+      width: 100%;
+      position: absolute;
+      display: block;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 32px 24px 48px;
+    .button {
+      font-size: 26px;
+    }
+  }
+}

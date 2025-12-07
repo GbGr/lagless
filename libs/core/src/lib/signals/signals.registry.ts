@@ -1,22 +1,33 @@
-import { ECSConfig } from '../ecs-config.js';
-import { VerifiedSignal } from './verified-signal.js';
+import { Signal } from './signal.js';
 
 export class SignalsRegistry {
-  private readonly _tickShift: number;
-  private readonly _Signals = new Array<VerifiedSignal>();
+  private readonly _signals: Signal[] = [];
 
-  constructor(
-    private readonly _ECSConfig: ECSConfig,
-  ) {
-    this._tickShift = this._ECSConfig.maxInputDelayTick;
+  public init(signals: Signal[]): void {
+    if (this._signals.length !== 0) {
+      throw new Error('Signals already registered');
+    }
+    for (const signal of signals) {
+      this._signals.push(signal);
+    }
   }
 
-  public init(signals: VerifiedSignal[]): void {
-    if (this._Signals.length !== 0) throw new Error('Signals already registered');
-    for (const signal of signals) this._Signals.push(signal);
+  public onTick(currentTick: number): void {
+    for (const signal of this._signals) {
+      signal._onTick(currentTick);
+    }
   }
 
-  public update(tick: number): void {
-    for (const signal of this._Signals) signal.onSimulate(tick, this._tickShift);
+  public onBeforeRollback(toTick: number): void {
+    for (const signal of this._signals) {
+      signal._onBeforeRollback(toTick);
+    }
+  }
+
+  public dispose(): void {
+    for (const signal of this._signals) {
+      signal.dispose();
+    }
+    this._signals.length = 0;
   }
 }

@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { Check, Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity('players')
 export class PlayerSchema {
@@ -11,9 +11,13 @@ export class PlayerSchema {
   @Column({ type: 'integer', default: 1000 })
   public mmr!: number;
 
+  @Check('score >= 0')
   @Column({ type: 'integer', default: 0 })
   public score!: number;
 
   @CreateDateColumn()
   public createdAt!: Date;
+
+  @Column({ type: 'jsonb', default: {} })
+  public data!: unknown;
 }

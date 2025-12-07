@@ -360,7 +360,7 @@ export class InputBinarySchema {
   public static unpackBatch(
     registry: { get(id: number): { id: number; fields: ReadonlyArray<InputFieldDefinition>; byteLength: number } },
     buffer: ArrayBuffer,
-  ): Array<{ inputId: number; values: { [key: string]: number | TypedArray } }> {
+  ): Array<{ inputId: number; ordinal: number; values: { [key: string]: number | TypedArray } }> {
     const dataView = new DataView(buffer);
     const results: Array<{ inputId: number; ordinal: number; values: { [key: string]: number | TypedArray } }> = [];
 

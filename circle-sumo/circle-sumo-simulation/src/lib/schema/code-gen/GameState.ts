@@ -3,26 +3,60 @@ import { MemoryTracker } from '@lagless/binary';
 
 export class GameState {
   public static readonly schema = {
-    finishedAtTick: Int32Array,
+    playerFinishedCount: Uint8Array,
+
+    startedAtTick: Uint32Array,
+
+    finishedAtTick: Uint32Array,
   };
 
   public readonly unsafe = {} as {
-    finishedAtTick: Int32Array;
+    playerFinishedCount: Uint8Array;
+
+    startedAtTick: Uint32Array;
+
+    finishedAtTick: Uint32Array;
   };
 
   public readonly safe: {
+    playerFinishedCount: number;
+
+    startedAtTick: number;
+
     finishedAtTick: number;
   };
 
   constructor(buffer: ArrayBuffer, memTracker: MemoryTracker) {
+    // playerFinishedCount
+    this.unsafe['playerFinishedCount'] = new Uint8Array(buffer, memTracker.ptr, 1);
+    memTracker.add(Uint8Array.BYTES_PER_ELEMENT * 1);
+
+    // startedAtTick
+    this.unsafe['startedAtTick'] = new Uint32Array(buffer, memTracker.ptr, 1);
+    memTracker.add(Uint32Array.BYTES_PER_ELEMENT * 1);
+
     // finishedAtTick
-    this.unsafe['finishedAtTick'] = new Int32Array(buffer, memTracker.ptr, 1);
-    memTracker.add(Int32Array.BYTES_PER_ELEMENT * 1);
+    this.unsafe['finishedAtTick'] = new Uint32Array(buffer, memTracker.ptr, 1);
+    memTracker.add(Uint32Array.BYTES_PER_ELEMENT * 1);
 
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;
 
     this.safe = {
+      get playerFinishedCount() {
+        return self.unsafe['playerFinishedCount'][0];
+      },
+      set playerFinishedCount(value: number) {
+        self.unsafe['playerFinishedCount'][0] = value;
+      },
+
+      get startedAtTick() {
+        return self.unsafe['startedAtTick'][0];
+      },
+      set startedAtTick(value: number) {
+        self.unsafe['startedAtTick'][0] = value;
+      },
+
       get finishedAtTick() {
         return self.unsafe['finishedAtTick'][0];
       },
@@ -33,8 +67,14 @@ export class GameState {
   }
 
   public static calculateSize(memTracker: MemoryTracker): void {
+    // playerFinishedCount
+    memTracker.add(Uint8Array.BYTES_PER_ELEMENT * 1);
+
+    // startedAtTick
+    memTracker.add(Uint32Array.BYTES_PER_ELEMENT * 1);
+
     // finishedAtTick
-    memTracker.add(Int32Array.BYTES_PER_ELEMENT * 1);
+    memTracker.add(Uint32Array.BYTES_PER_ELEMENT * 1);
   }
 }
 

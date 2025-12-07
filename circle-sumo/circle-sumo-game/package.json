@@ -1,0 +1,30 @@
+{
+  "name": "@lagless/circle-sumo-game",
+  "version": "0.0.1",
+  "private": true,
+  "dependencies": {
+    "@lagless/binary": "workspace:*",
+    "@lagless/react": "workspace:*",
+    "@lagless/misc": "workspace:*",
+    "@lagless/math": "workspace:*",
+    "@lagless/core": "workspace:*",
+    "@lagless/animate": "workspace:*",
+    "@lagless/pixi-react": "workspace:*",
+    "@lagless/circle-sumo-simulation": "workspace:*",
+    "@lagless/relay-input-provider": "workspace:*",
+    "pixi.js": "8.12.0",
+    "@pixi/react": "^8.0.5",
+    "pixi-viewport": "^6.0.3",
+    "pixi-filters": "^6.1.4",
+    "fontfaceobserver": "^2.3.0",
+    "js-confetti": "^0.13.1",
+    "neutrinoparticles.pixi": "^6.0.3"
+  },
+  "devDependencies": {
+    "eruda": "^3.4.3",
+    "@types/fontfaceobserver": "^2.1.3",
+    "vite-plugin-svgr": "^4.5.0",
+    "vite-plugin-wasm": "^3.5.0",
+    "vite-plugin-top-level-await": "^1.6.0"
+  }
+}

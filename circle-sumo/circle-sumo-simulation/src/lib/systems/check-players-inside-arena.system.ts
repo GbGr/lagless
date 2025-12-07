@@ -1,4 +1,4 @@
-import { ECSSystem, EntitiesManager, IECSSystem, PlayerResources } from '@lagless/core';
+import { ECSConfig, ECSSystem, EntitiesManager, IECSSystem, PlayerResources } from '@lagless/core';
 import {
   CircleBody,
   PlayerResource,
@@ -6,7 +6,7 @@ import {
   Transform2d,
   Velocity2d,
   LastHit,
-  LastAssist,
+  LastAssist, GameState
 } from '../schema/code-gen/index.js';
 import { MathOps } from '@lagless/math';
 import { CircleSumoArena } from '../map.js';
@@ -29,6 +29,8 @@ export class CheckPlayersInsideArenaSystem implements IECSSystem {
     private readonly _PlayerResources: PlayerResources,
     private readonly _LastHit: LastHit,
     private readonly _LastAssist: LastAssist,
+    private readonly _GameState: GameState,
+    private readonly _ECSConfig: ECSConfig,
   ) {}
 
   public update(tick: number): void {
@@ -75,19 +77,7 @@ export class CheckPlayersInsideArenaSystem implements IECSSystem {
           }
         }
 
-        // Debug logging for KO attribution
-        if (killerEntity === null) {
-          console.log(
-            `Player entity=${entity} eliminated (self-KO or no recent hit) ` +
-            `(distanceFromCenter=${distanceFromCenter.toFixed(2)})`
-          );
-        } else {
-          console.log(
-            `Player entity=${entity} eliminated by killer=${killerEntity}` +
-            (assisterEntity !== null ? ` (assist=${assisterEntity})` : '') +
-            ` (distanceFromCenter=${distanceFromCenter.toFixed(2)})`
-          );
-
+        if (killerEntity !== null) {
           const killerPlayerSlot = this._CircleBody.unsafe.playerSlot[killerEntity];
           const killerPlayerResource = this._PlayerResources.get(PlayerResource, killerPlayerSlot);
           killerPlayerResource.safe.kills += 1;
@@ -112,7 +102,9 @@ export class CheckPlayersInsideArenaSystem implements IECSSystem {
         }
 
         // Mark player as finished in this match (for ranking / placement)
+        playerResource.safe.positionInTop = this._ECSConfig.maxPlayers - this._GameState.safe.playerFinishedCount;
         playerResource.safe.finishedAtTick = tick;
+        this._GameState.safe.playerFinishedCount += 1;
 
         console.log(`Player entity=${entity} finished in this match (tick=${tick}) Kills=${playerResource.safe.kills} Assists=${playerResource.safe.assists}`);
 

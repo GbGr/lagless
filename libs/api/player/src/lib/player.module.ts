@@ -11,6 +11,6 @@ import { AuthGuard } from './auth.guard';
   imports: [ConfigModule, TypeOrmModule.forFeature([PlayerSchema, LoginLogSchema])],
   controllers: [PlayerController],
   providers: [PlayerService, JwtService, AuthGuard],
-  exports: [AuthGuard, PlayerService],
+  exports: [AuthGuard, JwtService, PlayerService],
 })
 export class LaglessPlayerModule {}

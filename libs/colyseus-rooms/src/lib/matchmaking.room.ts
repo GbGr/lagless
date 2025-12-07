@@ -175,9 +175,7 @@ export abstract class BaseMatchmakerRoom extends Room<MatchmakerState> {
   private readonly _handleMatchFound = async (group: MatchGroup<Client>): Promise<void> => {
     const roomName = this.getGameRoomName();
     const roomOptions = this.buildGameRoomOptions(group);
-
     const gameId = await this.createGameId(group);
-
     const room = await matchMaker.createRoom(roomName, { ...roomOptions, gameId } as ColyseusRelayRoomOptions);
 
     for (const ticket of group.tickets) {

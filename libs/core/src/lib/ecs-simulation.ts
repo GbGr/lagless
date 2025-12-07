@@ -38,7 +38,7 @@ export class ECSSimulation {
     this._snapshotHistory = new SnapshotHistory<ArrayBuffer>(this._ECSConfig.snapshotHistorySize);
     this._initialSnapshot = this.mem.exportSnapshot();
     this.clock = new SimulationClock(_ECSConfig.frameLength, _ECSConfig.maxNudgePerFrame);
-    this._signalsRegistry = new SignalsRegistry(this._ECSConfig);
+    this._signalsRegistry = new SignalsRegistry();
   }
 
   public addTickHandler(handler: (tick: number) => void): () => void {
@@ -103,13 +103,14 @@ export class ECSSimulation {
     while (currentTick < toTick) {
       this.mem.tickManager.setTick(++currentTick);
       this.simulate(currentTick);
-      this._signalsRegistry.update(currentTick);
+      this._signalsRegistry.onTick(currentTick);
       this.storeSnapshotIfNeeded(currentTick);
       for (const handler of this._onTickHandlers) handler(currentTick);
     }
   }
 
   protected rollback(tick: number): void {
+    this._signalsRegistry.onBeforeRollback(tick);
     let snapshot: ArrayBuffer;
 
     try {

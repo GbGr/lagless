@@ -17,8 +17,6 @@ export class ApplyLookAtInputSystem implements IECSSystem {
       const playerResource = this._PlayerResources.get(PlayerResource, moveRpc.meta.playerSlot);
       const playerEntity = playerResource?.safe.entity;
       this._Transform2d.unsafe.rotation[playerEntity] = moveRpc.data.direction;
-
-      console.log(`ApplyLookAtInputSystem: playerSlot=${moveRpc.meta.playerSlot}, entity=${playerEntity}, direction=${moveRpc.data.direction.toFixed(2)}`);
     }
   }
 }

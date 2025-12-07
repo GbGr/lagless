@@ -2,7 +2,7 @@
 import { MemoryTracker } from '@lagless/binary';
 
 export class LastHit {
-  public static readonly ID = 16;
+  public static readonly ID = 32;
   public static readonly schema = {
     hasAttacker: Uint8Array,
 

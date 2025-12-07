@@ -1,73 +1,174 @@
-import { PlayerInfo, RelayColyseusRoom } from '@lagless/colyseus-rooms';
-import { RPC } from '@lagless/core';
-import { now, UUID } from '@lagless/misc';
-import { Client } from 'colyseus';
-import { CircleSumoInputRegistry, PlayerJoined, PlayerLeft } from '@lagless/circle-sumo-simulation';
+import { PlayerInfo, RelayColyseusRoom, RelayRoomOptions } from '@lagless/colyseus-rooms';
+import { RPC, ReplayInputProvider } from '@lagless/core';
+import { UUID } from '@lagless/misc';
+import { Client, Delayed } from 'colyseus';
+import {
+  CircleSumoInputRegistry,
+  getRandomSkinId,
+  PlayerJoined,
+  PlayerLeft,
+} from '@lagless/circle-sumo-simulation';
 import { NestDI } from '../nest-di';
 import { GameService } from '@lagless/game';
+import fs from 'node:fs/promises';
 
-export class CircleSumoRelayColyseusRoom extends RelayColyseusRoom {
-  private readonly _GameService = NestDI.resolve(GameService);
+const FULL_LOBBY_SIZE = 6;
+
+export class CircleSumoRelayRoom extends RelayColyseusRoom {
+  // ─────────────────────────────────────────────────────────────────────────
+  // Private fields
+  // ─────────────────────────────────────────────────────────────────────────
+
+  private readonly _gameService = NestDI.resolve(GameService);
+  private _allPlayersConnectedTimeout: Delayed | null = null;
+  private _hasGameStarted = false;
+
+  public override maxClients = FULL_LOBBY_SIZE;
+
+  protected override _InputRegistry = CircleSumoInputRegistry;
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Lifecycle overrides
+  // ─────────────────────────────────────────────────────────────────────────
+
+  public override async onCreate(options: RelayRoomOptions): Promise<void> {
+    await super.onCreate(options);
+
+    // Schedule game start after seat reservation expires
+    this._allPlayersConnectedTimeout = this.clock.setTimeout(
+      () => this.startGame(),
+      this.seatReservationTime * 1000
+    );
+  }
+
+  public override onJoin(client: Client): void {
+    super.onJoin(client);
+
+    // Start game early if lobby is full
+    if (this._sessionIdToPlayerSlot.size === this.maxClients) {
+      this._allPlayersConnectedTimeout?.clear();
+      this.startGame();
+    }
+  }
+
+  public override async onLeave(client: Client, consented: boolean): Promise<void> {
+    // Broadcast player leave event before calling super
+    const playerSlot = this._sessionIdToPlayerSlot.get(client.sessionId);
+
+    if (playerSlot !== undefined && this._hasGameStarted) {
+      const tick = this.serverTick + 2; // Small buffer for network delay
+      const rpc = new RPC<PlayerLeft>(
+        PlayerLeft.id,
+        { tick, playerSlot, ordinal: 0, seq: 0 },
+        { reason: consented ? 0 : 1 }
+      );
+      this.sendServerInputFanout([rpc], CircleSumoInputRegistry);
+    }
+
+    await super.onLeave(client, consented);
+  }
+
+  public override async onDispose(): Promise<void> {
+    await super.onDispose?.();
+
+    // TODO: Save rpc history locally
+    const { seed0, seed1 } = this.getGameSeeds();
+    const arrayBuffer = ReplayInputProvider.exportReplay(
+      seed0,
+      seed1,
+      this.maxClients,
+      this._RPCHistory.export(this._InputRegistry)
+    );
+    await fs.writeFile(`./circle-sumo-rpc-history-${this.gameId}.bin`, Buffer.from(arrayBuffer));
+    await fs.writeFile(`./circle-sumo-rpc-history-${this.gameId}.json`, this._RPCHistory.debugExportAsJSON());
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Abstract method implementations
+  // ─────────────────────────────────────────────────────────────────────────
 
   protected override async onPlayerJoined(gameId: string, playerInfo: PlayerInfo): Promise<void> {
-    if (!playerInfo.playerId) throw new Error('InvalidPlayerId');
-    await this._GameService.internalStartGameSession(playerInfo.playerId, playerInfo.playerSlot, gameId, playerInfo.connectedAt);
+    if (!playerInfo.playerId) {
+      throw new Error('Player ID is required');
+    }
+
+    await this._gameService.internalStartGameSession(
+      playerInfo.playerId,
+      playerInfo.playerSlot,
+      gameId,
+      playerInfo.connectedAt
+    );
   }
 
   protected override async onPlayerFinishedGame(gameId: string, playerInfo: PlayerInfo): Promise<void> {
-    console.log('onPlayerFinishedGame', gameId, playerInfo);
-    if (!playerInfo.playerId) throw new Error('InvalidPlayerId');
-    if (!playerInfo.finishedGameData) throw new Error('No finished game data');
+    if (!playerInfo.playerId || !playerInfo.finishedGameData) {
+      throw new Error(`Invalid player finish data for player slot ${playerInfo.playerSlot}, ID ${playerInfo.playerId}`);
+    }
+
     const { score, mmrChange } = playerInfo.finishedGameData.struct;
-    await this._GameService.internalPlayerFinishedGameSession(
+
+    console.warn(`[CircleSumo] Player ${playerInfo.playerId} finished game with score ${score} and mmr change ${mmrChange}`);
+
+    await this._gameService.internalPlayerFinishedGameSession(
       playerInfo.playerId,
       gameId,
       score,
       mmrChange,
       playerInfo.finishedGameData.hash,
-      playerInfo.finishedGameData.ts,
+      playerInfo.finishedGameData.timestamp
     );
   }
 
-  protected override async onBeforeDispose(gameId: string, isDestroyed: boolean): Promise<void> {
-    await this._GameService.internalGameOver(gameId, new Date(), isDestroyed)
+  protected override async onBeforeDispose(gameId: string, wasForced: boolean): Promise<void> {
+    await this._gameService.internalGameOver(gameId, new Date(), wasForced);
   }
 
   protected override async onPlayerLeave(gameId: string, playerInfo: PlayerInfo): Promise<void> {
-    if (!playerInfo.playerId) throw new Error('InvalidPlayerId');
-    await this._GameService.internalPlayerLeaveGameSession(playerInfo.playerId, gameId, new Date());
-  }
+    if (!playerInfo.playerId) {
+      throw new Error('Player ID is required');
+    }
 
-  public override maxClients = 6;
-
-  public override async onJoin(client: Client) {
-    super.onJoin(client);
-    setTimeout(() => {
-      const tick = this._serverTick(now() + 100);
-      const playerSlot = this._sessionIdToPlayerSlot.get(client.sessionId);
-      if (playerSlot === undefined) throw new Error('Invalid player slot');
-      const rpc = new RPC<PlayerJoined>(
-        PlayerJoined.id,
-        { tick, playerSlot, ordinal: 0, seq: 0 },
-        {
-          playerId: UUID.generate().asUint8(),
-        }
-      );
-      this.sendServerInputFanout(rpc, CircleSumoInputRegistry);
-    }, 1_000);
-  }
-
-  public override async onLeave(client: Client, consented: boolean) {
-    console.log('onLeave', client.sessionId, consented);
-    const tick = this._serverTick(now() + 2);
-    const playerSlot = this._sessionIdToPlayerSlot.get(client.sessionId);
-    if (playerSlot === undefined) throw new Error('Invalid player slot');
-    const rpc = new RPC<PlayerLeft>(
-      PlayerLeft.id,
-      { tick, playerSlot, ordinal: 0, seq: 0 },
-      { reason: consented ? 0 : 1 }
+    await this._gameService.internalPlayerLeaveGameSession(
+      playerInfo.playerId,
+      gameId,
+      new Date()
     );
-    this.sendServerInputFanout(rpc, CircleSumoInputRegistry);
-    await super.onLeave(client, consented);
+  }
+
+  private startGame(): void {
+    if (this._hasGameStarted) return;
+    this._hasGameStarted = true;
+    this.markGameStarted();
+
+    const tick = this.serverTick + 10; // Give clients time to receive the message
+    const rpcs: RPC<PlayerJoined>[] = [];
+
+    // Create PlayerJoined RPCs for connected players
+    for (const [, playerSlot] of this._sessionIdToPlayerSlot) {
+      rpcs.push(this.createPlayerJoinedRpc(tick, playerSlot, false));
+    }
+
+    // Fill remaining slots with bots
+    const botsNeeded = Math.max(FULL_LOBBY_SIZE - rpcs.length, 0);
+    for (let i = 0; i < botsNeeded; i++) {
+      const botSlot = this._nextPlayerSlot++;
+      rpcs.push(this.createPlayerJoinedRpc(tick, botSlot, true));
+    }
+
+    console.log(`[CircleSumo] Starting game with ${rpcs.length} players (${botsNeeded} bots)`);
+
+    this.sendServerInputFanout(rpcs, CircleSumoInputRegistry);
+  }
+
+  private createPlayerJoinedRpc(tick: number, playerSlot: number, isBot: boolean): RPC<PlayerJoined> {
+    return new RPC<PlayerJoined>(
+      PlayerJoined.id,
+      { tick, playerSlot, ordinal: 0, seq: 0 },
+      {
+        playerId: isBot ? UUID.generateMasked().asUint8() : UUID.generate().asUint8(),
+        mmr: isBot ? 1200 : 0,
+        skinId: getRandomSkinId(),
+      }
+    );
   }
 }

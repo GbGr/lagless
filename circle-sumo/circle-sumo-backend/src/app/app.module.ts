@@ -1,13 +1,15 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import {
   GameSchema, GameSessionSchema, LoginLogSchema, MatchmakingSessionSchema, PlayerSchema
 } from '@lagless/schemas';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LaglessPlayerModule } from '@lagless/player';
 import { LaglessGameModule } from '@lagless/game';
+import { SumoPlayerSkinsSchema } from './sumo-player-skins.schema';
+import { SumoPlayerController } from './sumo-player.controller';
+import { SumoPlayerService } from './sumo-player.service';
 
 @Module({
   imports: [
@@ -25,15 +27,21 @@ import { LaglessGameModule } from '@lagless/game';
           GameSchema,
           GameSessionSchema,
           MatchmakingSessionSchema,
+          SumoPlayerSkinsSchema,
         ],
       }),
       inject: [ConfigService],
     }),
 
+    TypeOrmModule.forFeature([
+      PlayerSchema,
+      SumoPlayerSkinsSchema,
+    ]),
+
     LaglessPlayerModule,
     LaglessGameModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [AppController, SumoPlayerController],
+  providers: [SumoPlayerService],
 })
 export class AppModule {}

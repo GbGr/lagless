@@ -10,12 +10,15 @@ import { CollisionSystem } from './collision.system.js';
 import { ApplyMoveInputSystem } from './apply-move-input.system.js';
 import { ApplyLookAtInputSystem } from './apply-look-at-input.system.js';
 import { CheckPlayersInsideArenaSystem } from './check-players-inside-arena.system.js';
+import { BotAISystem } from './bot-ai.system.js';
+import { GameEventsSystem } from './game-events.system.js';
 
 export const CircleSumoSystems: IECSSystemConstructor[] = [
   Transform2dSystem,
 
   ApplyLookAtInputSystem,
   ApplyMoveInputSystem,
+  BotAISystem,
   ApplyImpulseSystem,
   IntegrateSystem,
   DampingSystem,
@@ -25,4 +28,5 @@ export const CircleSumoSystems: IECSSystemConstructor[] = [
   PlayerLeaveSystem,
   CheckPlayersInsideArenaSystem,
   FinishGameSystem,
+  GameEventsSystem,
 ];

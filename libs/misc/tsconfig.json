@@ -4,6 +4,9 @@
   "include": [],
   "references": [
     {
+      "path": "../math"
+    },
+    {
       "path": "./tsconfig.lib.json"
     },
     {

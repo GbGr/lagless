@@ -1,3 +1,5 @@
+import { MathOps } from '@lagless/math';
+
 const INTERPOLATION_RESULT_BUFFER = { x: 0, y: 0, rotation: 0 };
 
 const BASE_TELEPORT_THRESHOLD = 300;
@@ -29,11 +31,11 @@ export const interpolateTransform2dToRef = (
   if (distanceSquared >= teleportThresholdSquared * teleportThresholdSquared) {
     ref.x = positionX;
     ref.y = positionY;
-    ref.rotation = rotation;
+    ref.rotation = -rotation;
   } else {
     ref.x = prevPositionX + dx * interpolationFactor;
     ref.y = -(prevPositionY + dy * interpolationFactor);
-    ref.rotation = -(prevRotation + (rotation - prevRotation) * interpolationFactor);
+    ref.rotation = -MathOps.lerpAngle(prevRotation, rotation, interpolationFactor);
   }
 };
 

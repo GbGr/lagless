@@ -1,6 +1,8 @@
 # nx g @lagless/codegen:ecs --configPath circle-sumo/circle-sumo-simulation/src/lib/schema/ecs.yaml
 projectName: CircleSumo
 components:
+  Skin:
+    skinId: uint16
   Transform2d:
     positionX: float32
     positionY: float32
@@ -31,25 +33,34 @@ components:
     hasAssister: uint8
     assisterEntity: uint32
     atTick: uint32
+  Bot:
+    lastPanicTick: uint32
+    nextDecisionTick: uint32
+    aggressiveness: float32
 singletons:
   GameState:
-    finishedAtTick: int32
+    playerFinishedCount: uint8
+    startedAtTick: uint32
+    finishedAtTick: uint32
 playerResources:
   PlayerResource:
     id: uint8[16]
     mmr: uint32
     entity: uint32
     connected: uint8
+    initialRotation: float32
     finishedAtTick: uint32
+    positionInTop: uint8
     kills: uint16
     assists: uint16
-    score: uint32
     mmrChange: int32
     wasInDangerZoneTimes: uint16
     isInDangerZone: uint8
 inputs:
   PlayerJoined:
     playerId: uint8[16]
+    skinId: uint16
+    mmr: uint32
   PlayerLeft:
     reason: uint8
   Move:
@@ -78,4 +89,9 @@ filters:
     include:
       - Transform2d
       - Velocity2d
+      - CircleBody
+  BotFilter:
+    include:
+      - Bot
+      - Transform2d
       - CircleBody

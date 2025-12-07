@@ -12,9 +12,12 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "pixi.js": "^8.2.6",
-    "@pixi/react": "beta",
     "@lagless/core": "workspace:*",
     "@lagless/binary": "workspace:*"
+  },
+  "peerDependencies": {
+    "pixi.js": "8.12.0",
+    "@pixi/react": "^8.0.5",
+    "neutrinoparticles.pixi": "^6.0.3"
   }
 }

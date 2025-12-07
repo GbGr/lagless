@@ -14,6 +14,7 @@ export default [
       '**/.nx/cache',
       '**/vite.config.*.timestamp*',
       '**/vitest.config.*.timestamp*',
+      '**/.react-router',
     ],
   },
   {

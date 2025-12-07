@@ -37,6 +37,7 @@
     "@swc/helpers": "~0.5.11",
     "@lagless/core": "workspace:*",
     "@lagless/math": "workspace:*",
-    "@lagless/binary": "workspace:*"
+    "@lagless/binary": "workspace:*",
+    "@lagless/misc": "workspace:*"
   }
 }

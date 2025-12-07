@@ -1,0 +1,71 @@
+//const fadeInOutPop = keyframes`
+//0%, 20% {
+//        opacity: 0.5;
+//      }
+//40% {
+//    opacity: 1;
+//  }
+//80% {
+//    opacity: 0.5;
+//  }
+//100% {
+//     opacity: 0.5;
+//   }
+//`;
+//
+//export const DotsStyled = styled.span(() => css`
+//                                          display: inline-flex;
+//letter-spacing: -0.2em;
+//
+//span {
+//  animation: ${fadeInOutPop} 0.9s ease-in-out infinite;
+//
+//  &:nth-child(1) {
+//    animation-delay: 0s;
+//  }
+//
+//  &:nth-child(2) {
+//    animation-delay: 0.3s;
+//  }
+//
+//  &:nth-child(3) {
+//    animation-delay: 0.6s;
+//  }
+//}
+//`);
+
+.dots {
+  display: inline-flex;
+  letter-spacing: 0.2em;
+
+  span {
+    animation: fadeInOutPop 0.9s ease-in-out infinite;
+  }
+
+  span:nth-child(1) {
+    animation-delay: 0s;
+  }
+
+  span:nth-child(2) {
+    animation-delay: 0.3s;
+  }
+
+  span:nth-child(3) {
+    animation-delay: 0.6s;
+  }
+}
+
+@keyframes fadeInOutPop {
+  0%, 20% {
+    opacity: 0.5;
+  }
+  40% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0.5;
+  }
+}

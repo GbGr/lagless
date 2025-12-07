@@ -55,7 +55,7 @@ export class CircleSumoMatchmakingRoom extends BaseMatchmakerRoom {
       virtualCapacity: 4,
       maxHumans: 4,
 
-      softMinHumans: 2,
+      softMinHumans: 3,
       hardMinHumans: 1,
 
       startDelayByHumans: {

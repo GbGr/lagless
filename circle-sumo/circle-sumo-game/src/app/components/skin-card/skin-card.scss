@@ -1,0 +1,51 @@
+.skin-card {
+  border-radius: 7px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0 28px;
+  width: 238px;
+
+  &_common {
+    background: linear-gradient(154deg, #D9D9D9 0%, #737373 97.71%);
+  }
+
+  &_rare {
+    background: linear-gradient(154deg, #00B2FF 0%, #0051FF 100%);
+  }
+
+  &_legendary {
+    background: linear-gradient(155deg, #FF6200 1.83%, #F40 100%);
+  }
+
+  &__title {
+    color: #FFF;
+    text-align: center;
+    font-size: 32px;
+    font-style: normal;
+    font-weight: 900;
+    line-height: 90%;
+    text-transform: lowercase;
+    margin-bottom: 10px;
+    &:first-letter {
+      text-transform: uppercase;
+    }
+  }
+
+  &__preview {
+    width: 208px;
+    height: 208px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__stars {
+    display: flex;
+    margin: 16px auto 0;
+  }
+
+  .character-preview {
+    transform: scale(1.62);
+  }
+}

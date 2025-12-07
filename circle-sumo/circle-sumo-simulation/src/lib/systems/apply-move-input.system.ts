@@ -1,5 +1,5 @@
 import { ECSSystem, EntitiesManager, IECSSystem, InputProvider, PlayerResources } from '@lagless/core';
-import { Move, PendingImpulse, PlayerResource } from '../schema/code-gen/index.js';
+import { GameState, Move, PendingImpulse, PlayerResource } from '../schema/code-gen/index.js';
 import { MathOps, Vector2, VECTOR2_BUFFER_1 } from '@lagless/math';
 
 const POWER_SCALE = 1;
@@ -11,10 +11,13 @@ export class ApplyMoveInputSystem implements IECSSystem {
     private readonly _EntitiesManager: EntitiesManager,
     private readonly _PendingImpulse: PendingImpulse,
     private readonly _PlayerResources: PlayerResources,
+    private readonly _GameState: GameState,
   ) {
   }
 
   public update(tick: number): void {
+    if (tick < this._GameState.safe.startedAtTick) return;
+
     const rpcs = this._InputProvider.getTickRPCs(tick, Move);
 
     for (const moveRpc of rpcs) {

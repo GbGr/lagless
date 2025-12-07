@@ -28,12 +28,6 @@
       "path": "./libs/relay-input-provider"
     },
     {
-      "path": "./circle-race/circle-race-game"
-    },
-    {
-      "path": "./circle-race/circle-race-simulation"
-    },
-    {
       "path": "./libs/pixi-react"
     },
     {
@@ -41,9 +35,6 @@
     },
     {
       "path": "./libs/colyseus-rooms"
-    },
-    {
-      "path": "./circle-race/circle-race-backend"
     },
     {
       "path": "./libs/api/schemas"
@@ -64,10 +55,7 @@
       "path": "./circle-sumo/circle-sumo-backend"
     },
     {
-      "path": "./circle-sumo/circle-sumo-frontend"
-    },
-    {
-      "path": "./circle-sumo/circle-sumo-old-sim"
+      "path": "./circle-sumo/circle-sumo-game"
     }
   ]
 }
