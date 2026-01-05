@@ -1,96 +1,42 @@
 # `@lagless/math`
 
-> Deterministic math helpers and vector utilities used by the Lagless ECS runtime and simulations.
+## What it is
+`@lagless/math` wraps deterministic math operations and vector utilities used across Lagless simulations and renderers. It provides a consistent math surface that avoids non-deterministic browser math where needed.
 
-## 1. Responsibility & Context
+## Why it exists / when to use it
+Use it for any math that affects simulation or visualization tied to ECS state. It ensures consistent results across clients and servers.
 
-- **Primary responsibility**: Provide deterministically computed math primitives (trig, lerp, vector ops) backed by shared lookup tables.
-- **Upstream dependencies**: `@lagless/deterministic-math` for low-level trig functions.
-- **Downstream consumers**: `@lagless/core`, gameplay systems, animation helpers, physics/force calculations.
-- **ECS lifecycle role**: `Utility`
+## Public API
+- `MathOps`: deterministic math helpers (`sin`, `cos`, `atan2`, `sqrt`, `lerp`, `clamp`, `normalizeAngle`)
+- `Vector2` and `IVector2Like`: 2D vector operations
+- `VECTOR2_BUFFER_1..10`: reusable buffers to avoid allocations
 
-## 2. Architecture Role
-
-| Aspect | Details |
-| --- | --- |
-| Simulation tick source | N/A (helpers invoked inside systems) |
-| Authority | Not authoritative itself; ensures deterministic math for authoritative systems |
-| Persistence strategy | Stateless functions + optional vector buffers (no snapshots) |
-| Network boundary | None directly; ensures consistent math on client/server |
-
-### 2.1 Simulation / Rollback / Resimulate
-
-- Deterministic math ensures identical results during rollback/resimulation by replacing `Math.sin/cos/...` with LUT-backed functions.
-- Vector buffers avoid allocation churn so state snapshots remain predictable.
-- Any system using these helpers must call `MathOps.init()` once before simulation ticks to seed deterministic math tables.
-
-### 2.2 Networking Interaction
-
-- No network IO; its role is to guarantee that client and server predictions use identical math operations so corrections are minimal.
-
-## 3. Public API
-
-| Export | Type | Description | Stability |
-| --- | --- | --- | --- |
-| `MathOps` | class | Static deterministic math utilities (clamp, trig, lerpAngle, smoothRotate). | Stable |
-| `Vector2` / `MutableVector2` | classes | Deterministic 2D vector operations for systems. | Stable |
-| `vector2Buffers` helpers | functions | Pool/reuse vector instances to avoid GC. | Stable |
-
-## 4. Preconditions
-
-- `MathOps.init()` must be awaited before using trig functions to ensure LUT data is loaded.
-- Callers must supply inputs in radians for trig helpers (matching `dm_*` functions) unless otherwise documented.
-
-## 5. Postconditions
-
-- Math helpers always return deterministic values given the same inputs; no hidden global state is mutated.
-- Vector buffer helpers return pooled objects that should be released/returned according to their API to keep reuse deterministic.
-
-## 6. Invariants & Constraints
-
-- Never bypass deterministic helpers with native `Math` APIs for gameplay-critical calculations.
-- Avoid mutating shared buffers outside their documented lifecycle; stale references can break rollback determinism.
-- When extending `MathOps`, implement functions using deterministic primitives only (no randomness).
-
-## 7. Safety Notes & Implementation Notes for AI Agents
-
-- Do not introduce `Date`, `performance`, or `Math.random` usage here.
-- When adding vector helpers, keep operations pure and stateless; use pooling utilities if allocations matter.
-- Document angle units (radians vs degrees) explicitly to avoid subtle divergence between modules.
-- Ensure new helpers can be executed on both client and server runtimes (no DOM APIs).
-
-## 8. Example Usage
+## Typical usage
+Circle Sumo computes a movement direction using deterministic math helpers:
 
 ```ts
 import { MathOps, Vector2 } from '@lagless/math';
 
-await MathOps.init();
-
-const direction = new Vector2(1, 0);
-const targetAngle = MathOps.atan2(direction.y, direction.x);
-const smoothed = MathOps.smoothRotate(currentAngle, targetAngle, rotationSpeedPerTick);
+const from = new Vector2();
+const to = new Vector2();
+const angle = MathOps.atan2(to.y - from.y, to.x - from.x);
 ```
 
-## 9. Testing Guidance
+## Key concepts & data flow
+- `MathOps.init()` loads deterministic math primitives; it must be called before using `sin`, `cos`, or `atan2`.
+- `Vector2` methods are allocation-friendly and designed for reuse with buffers.
+- Vector buffers are mutable and intended for temporary calculations only.
 
-- Run `nx test @lagless/math`.
-- Add deterministic tests whenever new helpers are introduced:
-  - Property-style: `MathOps.lerp` should equal expected arithmetic interpolation.
-  - Edge cases: `smoothRotate` respects wrap-around at ±π.
-  - Buffer pooling: ensure borrow/return produces deterministic iteration order.
+## Configuration and environment assumptions
+- Deterministic math depends on `@lagless/deterministic-math` initialization.
+- Consumers should await `MathOps.init()` during app or server startup.
 
-## 10. Change Checklist
+## Pitfalls / common mistakes
+- Using `Math.sin` or `Math.cos` in simulation code instead of `MathOps`.
+- Mutating `Vector2.ZERO` or other static constants.
+- Allocating new vectors in tight loops instead of reusing buffers.
 
-- [ ] New helpers rely exclusively on deterministic primitives.
-- [ ] README sections updated with new APIs, invariants, or initialization steps.
-- [ ] Tests cover edge cases (angle wrapping, normalization, pooling).
-- [ ] Downstream README references updated if APIs change (e.g., core/animation docs).
-
-## 11. Integration Notes (Optional)
-
-- Pair with `@lagless/core` systems for movement/force calculations; document rotation smoothing per system.
-- Animation modules can reuse `MathOps.lerp`/`lerpAngle` for deterministic tweening.
-
-## 12. Appendix (Optional)
-
-- Vector buffer helpers live under `libs/math/src/lib/vector2-buffers.ts` and expose typed arrays for deterministic SIMD-like loops.
+## Related modules
+- `libs/core` for deterministic ECS simulation.
+- `libs/misc` for interpolation helpers that use `MathOps`.
+- `circle-sumo/circle-sumo-simulation` and `circle-sumo/circle-sumo-game` for real usage.

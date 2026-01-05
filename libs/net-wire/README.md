@@ -1,105 +1,46 @@
 # `@lagless/net-wire`
 
-> Shared wire protocol definitions, schema helpers, and timing utilities that power Lagless input-only networking.
+## What it is
+`@lagless/net-wire` defines the shared binary wire protocol for Lagless input-only networking. It includes packet schemas, clock sync helpers, and input delay logic.
 
-## 1. Responsibility & Context
+## Why it exists / when to use it
+Use it anywhere you need to encode or decode Lagless relay packets or compute client-side input delay. It keeps the client and server in sync on the exact byte layout and timing rules.
 
-- **Primary responsibility**: Define message formats, schema binary layouts, clock-sync routines, and input delay logic for clients/servers.
-- **Upstream dependencies**: `@lagless/binary` (schema packing), `@lagless/misc` (timing helpers).
-- **Downstream consumers**: Relay servers, relay input providers, matchmaking clients, and any tooling inspecting network traffic.
-- **ECS lifecycle role**: `Network`
+## Public API
+- `WireVersion`, `MsgType`, `TickInputKind`, `RELAY_BYTES_CHANNEL`
+- Binary schemas: `HeaderStruct`, `ServerHelloStruct`, `TickInputStruct`, `TickInputFanoutStruct`, `CancelInputStruct`, `PingStruct`, `PongStruct`, `PlayerFinishedGameStruct`
+- `ClockSync`: RTT/jitter tracking and clock offset estimation
+- `InputDelayController`: converts RTT/jitter into target input delay
+- `TickInputBuffer`: stores recent inputs for late joiners
+- `ColyseusRelayRoomOptions`: relay room connection options
 
-## 2. Architecture Role
-
-| Aspect | Details |
-| --- | --- |
-| Simulation tick source | Not directly; provides conversions and delay calculations to align with ECS ticks. |
-| Authority | Works with whichever side is authoritative (server) to propagate input-only replication. |
-| Persistence strategy | Schemas describe packets, not storage; state is transient. |
-| Network boundary | Entirely focused on bytes-level contract between clients, relay, and authoritative ECS world. |
-
-### 2.1 Simulation / Rollback / Resimulate
-
-- `TickInputStruct` packets carry per-tick commands; server can cancel/replay via `CancelInputStruct` triggering rollback.
-- `TickInputFanoutStruct` informs clients when authoritative inputs arrive so they can resimulate.
-- `PlayerFinishedGameStruct` delivers verified results after server reconciliation.
-
-### 2.2 Networking Interaction
-
-- `RELAY_BYTES_CHANNEL` defines the Colyseus binary channel reserved for these packets.
-- `ServerHelloStruct` seeds deterministic PRNG values + player slots; clients must wait for it before sending inputs.
-- `PingStruct`/`PongStruct` feed `ClockSync` which adjusts theta (offset) and jitter used by `InputDelayController`.
-
-## 3. Public API
-
-| Export | Type | Description | Stability |
-| --- | --- | --- | --- |
-| `WireVersion`, `MsgType` | enums | Versioned protocol constants. | Stable |
-| `HeaderStruct`, `TickInputStruct`, ... | `BinarySchema` | Schemas for every packet type. | Stable |
-| `ClockSync` | class | Calculates EWMA RTT/jitter and clock offset from Pong data. | Stable |
-| `InputDelayController` | class | Converts RTT/jitter to target input lead (delta ticks). | Stable |
-| `relay-room-options` | types | Connection helper interfaces for relay clients. | Stable |
-
-## 4. Preconditions
-
-- When sending packets, always prepend `HeaderStruct` with supported `WireVersion` and `MsgType`.
-- `ClockSync.updateFromPong` expects timestamps in milliseconds with the same epoch on both client/server.
-- Clients must respect min/max delta ticks enforced by `InputDelayController` when feeding ECS inputs.
-
-## 5. Postconditions
-
-- After processing Pong messages, `ClockSync` exposes `thetaMs`, `rttEwmaMs`, `jitterEwmaMs` for UI/relay tuning.
-- Recomputed delta ticks remain within configured `[min, max]` bounds, ensuring stable prediction windows.
-- All schemas encode/decode deterministically thanks to `@lagless/binary`.
-
-## 6. Invariants & Constraints
-
-- WireVersion increments require backward compatibility strategy; bump only when schema/semantics change.
-- Message payloads must stay input-only and high-level per project constitution.
-- Keep `TickInputKind` semantics (`Client` vs `Server`) consistent across readers/writers.
-
-## 7. Safety Notes & Implementation Notes for AI Agents
-
-- When adding schemas, update `MsgType` enums, handling code, and README plus downstream modules simultaneously.
-- Do not log sensitive payloads (JWTs, seeds) by default; ensure debugging statements are gated.
-- Keep EWMA coefficients configurable if future tuning is required; document defaults in README.
-
-## 8. Example Usage
+## Typical usage
+Circle Sumo does not import `@lagless/net-wire` directly; the relay server and input provider do. This is the pattern used inside those layers:
 
 ```ts
 import { HeaderStruct, MsgType, TickInputStruct, WireVersion } from '@lagless/net-wire';
-import { BinarySchema } from '@lagless/binary';
 
 const buffer = new ArrayBuffer(HeaderStruct.byteLength + TickInputStruct.byteLength);
 const header = HeaderStruct.pack(buffer);
 header.struct.version = WireVersion.V1;
 header.struct.type = MsgType.TickInput;
-
-const payload = TickInputStruct.pack(buffer, HeaderStruct.byteLength);
-payload.struct.tick = tick;
-payload.struct.playerSlot = slot;
-payload.struct.kind = 0; // client
-payload.struct.seq = nextSeq++;
 ```
 
-## 9. Testing Guidance
+## Key concepts & data flow
+- Every packet begins with `HeaderStruct` and a `MsgType` identifier.
+- `ClockSync` tracks RTT and jitter via Ping/Pong to align client tick timing.
+- `InputDelayController` clamps delay inside configured min/max bounds.
 
-- Add tests around schema pack/unpack (length, field ordering).
-- Simulate network jitter to validate `ClockSync` and `InputDelayController` outputs.
-- Integration tests: use relay client/server harness to send sample packets and ensure both ends decode correctly.
+## Configuration and environment assumptions
+- All schemas are fixed-size and little-endian via `@lagless/binary`.
+- Client and server must share the same `WireVersion` and `MsgType` list.
 
-## 10. Change Checklist
+## Pitfalls / common mistakes
+- Changing schema ordering without bumping `WireVersion`.
+- Sending ad-hoc JSON or string payloads on the relay bytes channel.
+- Using clock sync values before receiving enough Pong samples.
 
-- [ ] Schema or enum updates documented, versioned, and reflected in downstream repos.
-- [ ] `ClockSync` / delay logic changes accompanied by rationale and tests.
-- [ ] README & other docs updated for new packet types/settings.
-- [ ] Compatibility considerations noted (e.g., fallback behavior for mixed versions).
-
-## 11. Integration Notes (Optional)
-
-- Works with Colyseus raw-binary channel 99; ensure server and client keep the same channel id.
-- Pair with `@lagless/relay-input-provider` on the client side and relay rooms on the server side.
-
-## 12. Appendix (Optional)
-
-- Additional helper types in `relay-room-options.ts` describe environment-specific connection parameters.
+## Related modules
+- `libs/relay-input-provider` uses these schemas on the client.
+- `libs/colyseus-rooms` uses these schemas on the server.
+- `circle-sumo/circle-sumo-backend` and `circle-sumo/circle-sumo-game` consume those layers.
