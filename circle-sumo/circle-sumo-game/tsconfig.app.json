@@ -26,9 +26,6 @@
   "include": ["src/**/*.js", "src/**/*.jsx", "src/**/*.ts", "src/**/*.tsx"],
   "references": [
     {
-      "path": "../../libs/relay-input-provider/tsconfig.lib.json"
-    },
-    {
       "path": "../circle-sumo-simulation/tsconfig.lib.json"
     },
     {

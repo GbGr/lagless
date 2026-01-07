@@ -1,6 +1,5 @@
 import { CircleSumoInputRegistry } from '@lagless/circle-sumo-simulation';
-import { AbstractInputProvider, ECSConfig } from '@lagless/core';
-import { Matchmaking, RelayInputProvider } from '@lagless/relay-input-provider';
+import { AbstractInputProvider, ECSConfig, LocalInputProvider } from '@lagless/core';
 import { useCallback, useState } from 'react';
 import { AuthTokenStore } from '@lagless/react';
 import { useNavigate } from 'react-router-dom';
@@ -41,18 +40,7 @@ export const useStartMatch = () => {
       const token = AuthTokenStore.get();
       if (!token) throw new Error('No auth token found');
       const ecsConfig = new ECSConfig({ fps: 60 });
-      const matchmaking = new Matchmaking();
-      const { client, seatReservation } = await matchmaking.connectAndFindMatch(
-        import.meta.env.VITE_RELAY_URL,
-        ecsConfig,
-        token
-      );
-      const inputProvider = await RelayInputProvider.connect(
-        ecsConfig,
-        CircleSumoInputRegistry,
-        client,
-        seatReservation
-      );
+      const inputProvider = new LocalInputProvider(ecsConfig, CircleSumoInputRegistry);
 
       ProviderStore.set(inputProvider);
       navigate('/game');

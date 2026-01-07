@@ -19,13 +19,7 @@
       "path": "./libs/core"
     },
     {
-      "path": "./libs/testbed"
-    },
-    {
       "path": "./libs/net-wire"
-    },
-    {
-      "path": "./libs/relay-input-provider"
     },
     {
       "path": "./libs/pixi-react"
@@ -34,25 +28,10 @@
       "path": "./libs/animate"
     },
     {
-      "path": "./libs/colyseus-rooms"
-    },
-    {
-      "path": "./libs/api/schemas"
-    },
-    {
-      "path": "./libs/api/player"
-    },
-    {
       "path": "./libs/react"
     },
     {
-      "path": "./libs/api/game"
-    },
-    {
       "path": "./circle-sumo/circle-sumo-simulation"
-    },
-    {
-      "path": "./circle-sumo/circle-sumo-backend"
     },
     {
       "path": "./circle-sumo/circle-sumo-game"
