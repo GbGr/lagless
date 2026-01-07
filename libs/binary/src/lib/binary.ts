@@ -178,7 +178,7 @@ export class BinarySchemaUnpackPipeline {
 
 export class BinarySchemaPackPipeline {
   private _offset = 0;
-  private readonly _chunks: ArrayBuffer[] = [];
+  private readonly _chunks: ArrayBufferLike[] = [];
 
   public pack<TSchema extends RawSchema>(schema: BinarySchema<TSchema>, values: SchemaValues<TSchema>): void {
     const buffer = new ArrayBuffer(schema.byteLength);
@@ -188,7 +188,7 @@ export class BinarySchemaPackPipeline {
     this._offset += schema.byteLength;
   }
 
-  public appendBuffer(buffer: ArrayBuffer): void {
+  public appendBuffer(buffer: ArrayBufferLike): void {
     this._chunks.push(buffer);
     this._offset += buffer.byteLength;
   }
@@ -503,7 +503,7 @@ export const toFloat32 = (value: number): number => {
   return FLOAT32_BUFFER[0];
 };
 
-export const getFastHash = (arrayBuffer: ArrayBuffer): number => {
+export const getFastHash = (arrayBuffer: ArrayBufferLike): number => {
   const dataView = new DataView(arrayBuffer);
   let hash = 0;
   for (let i = 0; i < dataView.byteLength; i++) {

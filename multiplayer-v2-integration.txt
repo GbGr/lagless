@@ -1,0 +1,2789 @@
+[0] QUICK INDEX
+Lagless is an Nx monorepo for deterministic ECS simulation and input-synced multiplayer.
+Clients run the simulation with rollback; servers only coordinate matchmaking and relay inputs.
+Binary schemas and codegen keep ECS memory layouts and inputs consistent across client and server.
+Circle Sumo is the reference game, with dedicated simulation, frontend, and backend apps.
+
+Modules:
+- libs/core - deterministic ECS runtime (memory layout, simulation loop, rollback, input providers)
+- libs/binary - fixed-size binary serialization and schema helpers
+- libs/net-wire - wire protocol structs, timing sync, input delay, tick input buffer
+- libs/relay-input-provider - client-side Colyseus input provider + matchmaking helper
+- libs/colyseus-rooms - server-side base rooms for matchmaking and relay input fanout
+- libs/math - deterministic math ops and vectors
+- libs/misc - simulation clock, snapshot history, UUIDs, interpolation helpers
+- libs/animate - UI animation helpers
+- libs/pixi-react - Pixi + React helpers (VFX, joystick)
+- libs/react - frontend auth and API helpers
+- libs/api/schemas - TypeORM entities for backend persistence
+- libs/api/player - player auth/guard/service
+- libs/api/game - game and matchmaking persistence services
+- libs/testbed - generated ECS schema sandbox
+- tools/codegen - YAML-to-TS ECS code generator (Nx generator + CLI)
+- circle-sumo/circle-sumo-simulation - Circle Sumo ECS ruleset + generated schema
+- circle-sumo/circle-sumo-game - Circle Sumo frontend client (React + Pixi)
+- circle-sumo/circle-sumo-backend - Circle Sumo backend (Colyseus + NestJS)
+
+Where to look for:
+- main loop/tick: libs/core/src/lib/ecs-simulation.ts, circle-sumo/circle-sumo-game/src/app/game-view/runner-provider.tsx
+- input system: libs/core/src/lib/input/*, circle-sumo/circle-sumo-game/src/app/game-view/components/direction-arrow-view.tsx
+- determinism: libs/core/src/lib/ecs-config.ts, libs/core/src/lib/mem/*, libs/math/src/lib/math-ops.ts, libs/misc/src/lib/simulation-clock.ts
+- serialization: libs/binary/src/lib/binary.ts, libs/core/src/lib/input/rpc-history.ts, libs/net-wire/src/lib/protocol.ts
+- networking: libs/relay-input-provider/src/lib/relay-input-provider.ts, libs/colyseus-rooms/src/lib/relay-colyseus-room.ts
+- codegen: tools/codegen, circle-sumo/circle-sumo-simulation/src/lib/schema/ecs.yaml, libs/testbed/src/lib/schema/ecs.yaml
+- circle-sumo usage: circle-sumo/circle-sumo-game/src/app/hooks/use-start-match.ts, circle-sumo/circle-sumo-backend/src/colyseus/*
+
+[1] AGENTS + READMES (CURATED AGGREGATION)
+=== FILE: AGENTS.md ===
+<!-- nx configuration start-->
+<!-- Leave the start & end comments to automatically receive updates. -->
+
+# General Guidelines for working with Nx
+
+- When running tasks (for example build, lint, test, e2e, etc.), always prefer running the task through `nx` (i.e. `nx run`, `nx run-many`, `nx affected`) instead of using the underlying tooling directly
+- You have access to the Nx MCP server and its tools, use them to help the user
+- When answering questions about the repository, use the `nx_workspace` tool first to gain an understanding of the workspace architecture where applicable.
+- When working in individual projects, use the `nx_project_details` mcp tool to analyze and understand the specific project structure and dependencies
+- For questions around nx configuration, best practices or if you're unsure, use the `nx_docs` tool to get relevant, up-to-date docs. Always use this instead of assuming things about nx configuration
+- If the user needs help with an Nx configuration or project graph error, use the `nx_workspace` tool to get any errors
+
+<!-- nx configuration end-->
+
+
+=== FILE: circle-sumo/circle-sumo-backend/AGENTS.md ===
+# AGENTS: @lagless/circle-sumo-backend
+
+## Purpose and boundaries
+- Run Circle Sumo backend services: matchmaking, relay rooms, and persistence.
+- Not responsible for frontend rendering or client UI.
+
+## Imports and entry points
+- `circle-sumo/circle-sumo-backend/src/main.ts` (entry point)
+- `circle-sumo/circle-sumo-backend/src/colyseus/matchmaking.ts`
+- `circle-sumo/circle-sumo-backend/src/colyseus/relay.ts`
+- `circle-sumo/circle-sumo-backend/src/app/*` (Nest controllers/services)
+- `circle-sumo/circle-sumo-backend/src/nest-di.ts`
+
+## Common tasks -> files
+- Adjust matchmaking rules: `src/colyseus/matchmaking.ts`.
+- Adjust relay behavior or RPC fanout: `src/colyseus/relay.ts`.
+- Add API endpoints: `src/app/*.controller.ts` and `src/app/*.service.ts`.
+- Update module wiring: `src/app/app.module.ts`.
+
+## Integration points
+- Depends on `@lagless/colyseus-rooms`, `@lagless/game`, `@lagless/player`, and `@lagless/schemas`.
+- Uses `@lagless/circle-sumo-simulation` for input registry and gameplay helpers.
+- Client-side counterpart is `@lagless/relay-input-provider`.
+
+## Invariants and rules
+- Relay rooms must send input-only RPCs and use `CircleSumoInputRegistry`.
+- Frame length must match client `ECSConfig` to keep prediction stable.
+- Do not block Colyseus callbacks; await async work and handle failures.
+
+## Workflow for modifications
+- Update room logic or Nest services, then update any client assumptions.
+- If RPCs or schema change, regenerate simulation code and update clients.
+- Verify with `nx lint @lagless/circle-sumo-backend` and `nx typecheck @lagless/circle-sumo-backend`.
+- Run locally with `nx serve @lagless/circle-sumo-backend`.
+
+## Example future AI tasks
+1) Tune matchmaking thresholds: update `matchmaking.ts`, update docs, verify with staging clients.
+2) Add a relay-side analytics hook: update `relay.ts`, update persistence service, update docs.
+3) Add a new REST endpoint: update controller/service, register schema entity if needed.
+
+
+=== FILE: circle-sumo/circle-sumo-game/AGENTS.md ===
+# AGENTS: @lagless/circle-sumo-game
+
+## Purpose and boundaries
+- Provide the Circle Sumo frontend client (React + Pixi).
+- Not responsible for backend matchmaking or server-side simulation.
+
+## Imports and entry points
+- `circle-sumo/circle-sumo-game/src/main.tsx`
+- `circle-sumo/circle-sumo-game/src/app/app.tsx`
+- `circle-sumo/circle-sumo-game/src/app/hooks/use-start-match.ts`
+- `circle-sumo/circle-sumo-game/src/app/game-view/runner-provider.tsx`
+- `circle-sumo/circle-sumo-game/src/app/game-view/assets-loader.tsx`
+
+## Common tasks -> files
+- Update matchmaking flow: `src/app/hooks/use-start-match.ts`.
+- Update ECS runner wiring: `src/app/game-view/runner-provider.tsx`.
+- Add gameplay UI or Pixi components: `src/app/game-view/**`.
+- Update auth flows: `src/app/app.tsx` and `libs/react`.
+- Update routing/screens: `src/app/router.tsx` and `src/app/screens/**`.
+
+## Integration points
+- Uses `@lagless/relay-input-provider` and `@lagless/circle-sumo-simulation`.
+- Uses `@lagless/react` for auth and API access.
+- Uses `@lagless/pixi-react` and `@lagless/animate` for visuals.
+
+## Invariants and rules
+- Do not mutate ECS memory directly; always go through runner and input providers.
+- `CircleSumoInputRegistry` must match backend and simulation codegen.
+- Ensure `MathOps.init()` and asset loading complete before gameplay.
+
+## Workflow for modifications
+- Update UI or input logic, then test against the backend.
+- If simulation schema changes, regenerate code and update imports.
+- Verify with `nx lint @lagless/circle-sumo-game` and `nx typecheck @lagless/circle-sumo-game`.
+- Run locally with `nx dev @lagless/circle-sumo-game`.
+
+## Example future AI tasks
+1) Add a new HUD element: implement in `src/app/game-view/components`, update layout styles.
+2) Add a new input action: update simulation schema, regenerate, update input handling in UI.
+3) Update matchmaking UI flow: adjust `use-start-match.ts` and related screens.
+
+
+=== FILE: circle-sumo/circle-sumo-simulation/AGENTS.md ===
+# AGENTS: @lagless/circle-sumo-simulation
+
+## Purpose and boundaries
+- Implement the deterministic Circle Sumo ECS simulation (components, systems, signals, gameplay helpers).
+- Not responsible for rendering or network transport.
+
+## Imports and entry points
+- `circle-sumo/circle-sumo-simulation/src/index.ts`
+- `circle-sumo/circle-sumo-simulation/src/lib/systems/*`
+- `circle-sumo/circle-sumo-simulation/src/lib/signals/*`
+- `circle-sumo/circle-sumo-simulation/src/lib/schema/ecs.yaml`
+- `circle-sumo/circle-sumo-simulation/src/lib/schema/code-gen/*` (generated)
+- `circle-sumo/circle-sumo-simulation/src/lib/gameplay.ts`
+- `circle-sumo/circle-sumo-simulation/src/lib/players.ts`
+- `circle-sumo/circle-sumo-simulation/src/lib/map.ts`
+
+## Common tasks -> files
+- Add or change components/inputs/filters: edit `src/lib/schema/ecs.yaml`, then regenerate.
+- Add or adjust systems: `src/lib/systems/*` and `src/lib/systems/index.ts`.
+- Add or adjust signals: `src/lib/signals/*` and `src/lib/signals/index.ts`.
+- Update gameplay constants: `src/lib/gameplay.ts`.
+
+## Integration points
+- Frontend: `circle-sumo/circle-sumo-game` uses `CircleSumoRunner`, `CircleSumoSystems`, signals, and component classes.
+- Backend: `circle-sumo/circle-sumo-backend` uses `CircleSumoInputRegistry` and gameplay helpers.
+- Networking: `@lagless/relay-input-provider` expects the same input registry.
+
+## Invariants and rules
+- System ordering in `CircleSumoSystems` must remain deterministic across client and server.
+- Inputs must remain input-only; do not send ECS state over the wire.
+- Avoid nondeterministic APIs inside systems (no `Math.random`, Date, or timers).
+
+## Workflow for modifications
+- Update schema or systems, then update any dependent frontend/back-end code.
+- If the schema changes, regenerate code and update imports.
+- Verify with `nx lint @lagless/circle-sumo-simulation` and `nx typecheck @lagless/circle-sumo-simulation`.
+
+## Generated code
+- Schemas live at `circle-sumo/circle-sumo-simulation/src/lib/schema/ecs.yaml`.
+- Generated output is `circle-sumo/circle-sumo-simulation/src/lib/schema/code-gen`.
+- Regenerate with:
+  - `nx g @lagless/codegen:ecs --configPath circle-sumo/circle-sumo-simulation/src/lib/schema/ecs.yaml`
+- Do not edit files under `code-gen` manually.
+- After regenerating, ensure Circle Sumo frontend and backend still compile.
+
+## Example future AI tasks
+1) Add a new input command: update `ecs.yaml`, regenerate, update input providers and systems.
+2) Add a new gameplay system: implement in `src/lib/systems`, add to `CircleSumoSystems`, update tests.
+3) Add a new signal: implement in `src/lib/signals`, register in `CircleSumoSignals`, update frontend listeners.
+
+
+=== FILE: libs/animate/AGENTS.md ===
+# AGENTS: @lagless/animate
+
+## Purpose and boundaries
+- Provide lightweight, RAF-driven animation helpers for UI layers only.
+- Not responsible for ECS state, networking, or deterministic simulation logic.
+
+## Imports and entry points
+- `libs/animate/src/index.ts` (public exports)
+- `libs/animate/src/lib/animate.ts` (implementation)
+
+## Common tasks -> files
+- Add a timing function or helper: `libs/animate/src/lib/animate.ts`
+- Update exports or public types: `libs/animate/src/index.ts`
+- Update docs/examples: `libs/animate/README.md`
+
+## Integration points
+- Circle Sumo frontend uses `animatePromise` to animate the local player outline (`circle-sumo/circle-sumo-game/src/app/game-view/transform2d-view.tsx`).
+
+## Invariants and rules
+- Progress passed to `draw` is in the 0..1 range.
+- Animation helpers must remain side-effect free beyond the supplied callbacks.
+- Do not introduce ECS or network mutations here.
+
+## Workflow for modifications
+- Update types and exports, then update README example if the API changes.
+- If behavior changes, check callers in Circle Sumo and update usage.
+- Verify with `nx lint @lagless/animate` and `nx typecheck @lagless/animate` (and `nx build @lagless/animate` if needed).
+
+## Example future AI tasks
+1) Add a new easing curve: edit `libs/animate/src/lib/animate.ts`, export it, update README.
+2) Add AbortSignal support: extend `animate` signature, handle cancel, update README and callers.
+3) Add a cancelable promise helper: implement in `animate.ts`, export, document in README.
+
+
+=== FILE: libs/api/game/AGENTS.md ===
+# AGENTS: @lagless/game
+
+## Purpose and boundaries
+- Provide backend services for game and matchmaking session persistence.
+- Not responsible for player auth or relay networking.
+
+## Imports and entry points
+- `libs/api/game/src/index.ts`
+- `libs/api/game/src/lib/game.module.ts`
+- `libs/api/game/src/lib/game.service.ts`
+
+## Common tasks -> files
+- Add or change persistence logic: `game.service.ts`.
+- Adjust module wiring: `game.module.ts`.
+
+## Integration points
+- Depends on entities from `@lagless/schemas`.
+- Circle Sumo backend uses `GameService` in matchmaking and relay rooms.
+
+## Invariants and rules
+- `internal*` methods are backend-only and should not be exposed to clients.
+- Updates that affect both player and game session should remain transactional.
+
+## Workflow for modifications
+- Update service methods and any related schemas.
+- Update backend callers if method signatures change.
+- Verify with `nx lint @lagless/game` and `nx typecheck @lagless/game`.
+
+## Example future AI tasks
+1) Add a new game outcome field: update schemas, update `game.service.ts`, update backend usage.
+2) Add a query to fetch recent games: add method in `game.service.ts`, expose via a controller in the backend.
+3) Add analytics hooks on game completion: update `internalGameOver` and document behavior.
+
+
+=== FILE: libs/api/player/AGENTS.md ===
+# AGENTS: @lagless/player
+
+## Purpose and boundaries
+- Provide NestJS player auth, guards, and player service logic.
+- Not responsible for game-specific player data beyond core identity.
+
+## Imports and entry points
+- `libs/api/player/src/index.ts`
+- `libs/api/player/src/lib/player.module.ts`
+- `libs/api/player/src/lib/player.service.ts`
+- `libs/api/player/src/lib/auth.guard.ts`
+- `libs/api/player/src/lib/jwt.service.ts`
+- `libs/api/player/src/lib/types.ts`
+
+## Common tasks -> files
+- Add or change auth behavior: `auth.guard.ts`, `jwt.service.ts`.
+- Add or change player APIs: `player.controller.ts`, `player.service.ts`.
+- Update module wiring: `player.module.ts`.
+
+## Integration points
+- Depends on `@lagless/schemas` entities via TypeORM.
+- Circle Sumo backend uses `AuthGuard` in custom controllers.
+
+## Invariants and rules
+- `AuthGuard` must populate `req.authData` consistently.
+- JWT validation must use the configured `JWT_SECRET`.
+- Module exports must remain stable for downstream backends.
+
+## Workflow for modifications
+- Update types and services, then update any consuming controllers.
+- If auth payload changes, update `AuthenticatedRequest` and frontend expectations.
+- Verify with `nx lint @lagless/player` and `nx typecheck @lagless/player`.
+
+## Example future AI tasks
+1) Add a player profile endpoint: update controller and service, update docs and backend usage.
+2) Add a new auth claim: update JWT service, guard, and `AuthenticatedRequest` types.
+3) Add rate limiting hooks: update guard or controller and document behavior.
+
+
+=== FILE: libs/api/schemas/AGENTS.md ===
+# AGENTS: @lagless/schemas
+
+## Purpose and boundaries
+- Provide shared TypeORM entity definitions for Lagless backend modules.
+- Not responsible for service logic or API controllers.
+
+## Imports and entry points
+- `libs/api/schemas/src/index.ts`
+- `libs/api/schemas/src/lib/*.schema.ts`
+
+## Common tasks -> files
+- Add a new entity: create `libs/api/schemas/src/lib/<name>.schema.ts`, export it in `src/index.ts`.
+- Add or change columns: edit the relevant `*.schema.ts` file.
+- Update consuming modules: `circle-sumo/circle-sumo-backend/src/app/app.module.ts` (TypeOrmModule entities).
+
+## Integration points
+- `@lagless/player` and `@lagless/game` services depend on these schemas.
+- Circle Sumo backend registers these entities in its TypeORM configuration.
+
+## Invariants and rules
+- Entity names and column types must remain compatible with existing data.
+- Do not introduce frontend dependencies; keep this backend-only.
+- Always export new schemas from the package entry point.
+
+## Workflow for modifications
+- Update entity files and exports.
+- Update backend modules and migrations/synchronization policy.
+- Verify with `nx lint @lagless/schemas` and `nx typecheck @lagless/schemas`.
+
+## Example future AI tasks
+1) Add a new entity for rewards: create schema file, export it, register in backend.
+2) Add a column to `PlayerSchema`: update schema, update services, migrate data.
+3) Rename a column: update schema and backend queries, migrate data, update docs.
+
+
+=== FILE: libs/binary/AGENTS.md ===
+# AGENTS: @lagless/binary
+
+## Purpose and boundaries
+- Provide deterministic, fixed-size binary helpers for ECS inputs, snapshots, and wire protocols.
+- Not responsible for transport, networking, or higher-level schemas.
+
+## Imports and entry points
+- `libs/binary/src/index.ts` (public exports)
+- `libs/binary/src/lib/binary.ts` (FieldType, schema classes, helpers)
+- `libs/binary/src/lib/types.ts` (TypedArray and schema types)
+
+## Common tasks -> files
+- Add a new field type: update `FieldType`, `fieldTypeSizeBytes`, `typedArrayConstructors`, and read/write paths in `libs/binary/src/lib/binary.ts`.
+- Add a helper for pack/unpack: `libs/binary/src/lib/binary.ts`.
+- Update docs/examples: `libs/binary/README.md`.
+
+## Integration points
+- `libs/net-wire` builds packet schemas on top of `BinarySchema`.
+- `tools/codegen` reads `FieldType` and `MemoryTracker` for generated ECS classes.
+- Circle Sumo uses `toFloat32` in input preparation (`circle-sumo/circle-sumo-game/src/app/game-view/components/direction-arrow-view.tsx`).
+
+## Invariants and rules
+- Little-endian ordering must remain consistent across all helpers.
+- Schema byte lengths must be deterministic and stable.
+- Do not introduce variable-length fields without explicit length metadata.
+
+## Workflow for modifications
+- Update code, then update any downstream schema usage (net-wire, codegen templates).
+- Add or adjust tests if field sizes or pack/unpack behavior changes.
+- Verify with `nx lint @lagless/binary`, `nx typecheck @lagless/binary`, and `nx test @lagless/binary`.
+
+## Example future AI tasks
+1) Add an Int64 field type: implement read/write paths and size maps, then update net-wire schemas and docs.
+2) Add a schema validation helper: implement in `binary.ts`, export, document in README.
+3) Optimize `getFastHash`: update implementation and add a regression test for consistent hashes.
+
+
+=== FILE: libs/colyseus-rooms/AGENTS.md ===
+# AGENTS: @lagless/colyseus-rooms
+
+## Purpose and boundaries
+- Provide reusable Colyseus room base classes for matchmaking and relay workflows.
+- Not responsible for game-specific services or ECS systems.
+
+## Imports and entry points
+- `libs/colyseus-rooms/src/index.ts`
+- `libs/colyseus-rooms/src/lib/matchmaking.room.ts`
+- `libs/colyseus-rooms/src/lib/matchmaking.service.ts`
+- `libs/colyseus-rooms/src/lib/matchmaking.types.ts`
+- `libs/colyseus-rooms/src/lib/matchmaking.state.ts`
+- `libs/colyseus-rooms/src/lib/relay-colyseus-room.ts`
+
+## Common tasks -> files
+- Change matchmaking behavior: `matchmaking.room.ts`, `matchmaking.service.ts`, `matchmaking.types.ts`.
+- Update relay lifecycle hooks or RPC fanout: `relay-colyseus-room.ts`.
+- Update state shape for clients: `matchmaking.state.ts`.
+
+## Integration points
+- Circle Sumo backend extends `BaseMatchmakerRoom` and `RelayColyseusRoom` (`circle-sumo/circle-sumo-backend/src/colyseus/*`).
+- Uses `@lagless/net-wire` packet schemas internally for relay bytes.
+
+## Invariants and rules
+- `frameLength` must be provided to relay rooms and match clients' ECS config.
+- Auth verification must remain consistent across all rooms.
+- Relay rooms must only send input-only packets over the bytes channel.
+
+## Workflow for modifications
+- Update the base classes, then update downstream room implementations if signatures change.
+- Add or update tests for matchmaking behavior changes.
+- Verify with `nx lint @lagless/colyseus-rooms`, `nx typecheck @lagless/colyseus-rooms`, and `nx test @lagless/colyseus-rooms`.
+
+## Example future AI tasks
+1) Add a new matchmaking config field: update types, implement behavior, update Circle Sumo room configuration.
+2) Add a relay lifecycle hook: update `relay-colyseus-room.ts`, document in README, update subclass usage.
+3) Add matchmaking state fields: update `matchmaking.state.ts`, ensure serialization, update client expectations.
+
+
+=== FILE: libs/core/AGENTS.md ===
+# AGENTS: @lagless/core
+
+## Purpose and boundaries
+- Own the deterministic ECS runtime: memory layout, simulation loop, rollback/resimulation, and DI wiring.
+- Not responsible for rendering, transport, or game-specific rules (those live in simulations and frontends).
+
+## Imports and entry points
+- `libs/core/src/index.ts` (public exports)
+- `libs/core/src/lib/ecs-config.ts`
+- `libs/core/src/lib/ecs-runner.ts`
+- `libs/core/src/lib/ecs-simulation.ts`
+- `libs/core/src/lib/input/*`
+- `libs/core/src/lib/mem/*`
+- `libs/core/src/lib/signals/*`
+
+## Common tasks -> files
+- Change tick/rollback behavior: `libs/core/src/lib/ecs-simulation.ts`, `libs/core/src/lib/ecs-runner.ts`.
+- Add or adjust ECSConfig fields: `libs/core/src/lib/ecs-config.ts`.
+- Update input provider base classes: `libs/core/src/lib/input/*`.
+- Adjust memory managers or component registries: `libs/core/src/lib/mem/*`.
+- Update signal lifecycle: `libs/core/src/lib/signals/*`.
+- Update exports: `libs/core/src/index.ts`.
+
+## Integration points
+- Codegen consumes ECS schema types from `libs/core/src/lib/types/ecs-types.ts`.
+- Relay input providers use `AbstractInputProvider`, `RPC`, and `RPCHistory`.
+- Circle Sumo runner uses `ECSRunner` and `Signal` wiring (`circle-sumo/circle-sumo-game/src/app/game-view/runner-provider.tsx`).
+
+## Invariants and rules
+- Simulation must be deterministic across rollbacks and resimulation.
+- Systems must be pure with respect to ECS memory; no external mutable state.
+- Input providers are the only source of rollback requests.
+- `ECSConfig` values are session-constant; do not mutate at runtime.
+
+## Workflow for modifications
+- Update types first, then update implementation and exports.
+- If rollback or tick behavior changes, add or update tests and update README notes.
+- Check Circle Sumo integration points for any needed adjustments.
+- Verify with `nx lint @lagless/core`, `nx typecheck @lagless/core`, and `nx test @lagless/core`.
+
+## Example future AI tasks
+1) Add a new signal base class: edit `libs/core/src/lib/signals/*`, export it, update README and any simulation usage.
+2) Introduce a new input provider: implement in `libs/core/src/lib/input`, update exports, add tests.
+3) Adjust snapshot policy: update `ecs-config.ts` and `ecs-simulation.ts`, add rollback tests, update docs.
+
+
+=== FILE: libs/math/AGENTS.md ===
+# AGENTS: @lagless/math
+
+## Purpose and boundaries
+- Provide deterministic math and vector utilities for simulations and rendering layers.
+- Not responsible for simulation state, networking, or ECS memory layout.
+
+## Imports and entry points
+- `libs/math/src/index.ts`
+- `libs/math/src/lib/math-ops.ts`
+- `libs/math/src/lib/vector2.ts`
+- `libs/math/src/lib/vector2-buffers.ts`
+
+## Common tasks -> files
+- Add a new math helper: `libs/math/src/lib/math-ops.ts`.
+- Extend `Vector2`: `libs/math/src/lib/vector2.ts`.
+- Add or adjust buffers: `libs/math/src/lib/vector2-buffers.ts`.
+- Update exports: `libs/math/src/index.ts`.
+
+## Integration points
+- Circle Sumo uses `MathOps` and `Vector2` for input and camera math (`circle-sumo/circle-sumo-game/src/app/game-view/components/direction-arrow-view.tsx`).
+- Simulation systems rely on deterministic math in `circle-sumo/circle-sumo-simulation/src/lib/systems/*`.
+
+## Invariants and rules
+- `MathOps` must remain deterministic and consistent across platforms.
+- Always route trig and sqrt operations through `MathOps` once initialized.
+- Static vector constants should be treated as read-only.
+
+## Workflow for modifications
+- Update implementation, then update README examples if the API changed.
+- If deterministic behavior changes, update tests and review simulation callers.
+- Verify with `nx lint @lagless/math`, `nx typecheck @lagless/math`, and `nx test @lagless/math`.
+
+## Example future AI tasks
+1) Add a deterministic `tan` helper: update `math-ops.ts`, export it, update docs.
+2) Add a `Vector2.rotateInPlace`: implement in `vector2.ts`, add tests, update README.
+3) Add extra reusable buffers: update `vector2-buffers.ts`, document usage guidance.
+
+
+=== FILE: libs/misc/AGENTS.md ===
+# AGENTS: @lagless/misc
+
+## Purpose and boundaries
+- Provide deterministic utility primitives for clocks, snapshot history, UUIDs, and interpolation.
+- Not responsible for ECS state changes or networking.
+
+## Imports and entry points
+- `libs/misc/src/index.ts`
+- `libs/misc/src/lib/simulation-clock.ts`
+- `libs/misc/src/lib/snapshot-history.ts`
+- `libs/misc/src/lib/ring-buffer.ts`
+- `libs/misc/src/lib/uuid.ts`
+- `libs/misc/src/lib/transform2d-utils.ts`
+
+## Common tasks -> files
+- Adjust timing or nudging: `libs/misc/src/lib/simulation-clock.ts` and `libs/misc/src/lib/phase-nudger.ts`.
+- Change snapshot behavior: `libs/misc/src/lib/snapshot-history.ts`.
+- Add interpolation helpers: `libs/misc/src/lib/transform2d-utils.ts`.
+- Update UUID behavior: `libs/misc/src/lib/uuid.ts`.
+
+## Integration points
+- `@lagless/core` relies on `SimulationClock` and `SnapshotHistory`.
+- Circle Sumo uses `interpolateTransform2dCursorToRef` in the renderer (`circle-sumo/circle-sumo-game/src/app/game-view/transform2d-view.tsx`).
+- Circle Sumo backend uses `UUID.generateMasked()` for bots (`circle-sumo/circle-sumo-backend/src/colyseus/relay.ts`).
+
+## Invariants and rules
+- `SimulationClock.start()` must be called before `update()` or elapsed reads.
+- Snapshot history size must cover the max rollback window.
+- Interpolation helpers invert Y/rotation for render space; do not use them as simulation state.
+
+## Workflow for modifications
+- Update implementation and types, then update README examples if the API changes.
+- If timing or snapshot logic changes, update core docs and relevant tests.
+- Verify with `nx lint @lagless/misc`, `nx typecheck @lagless/misc`, and `nx test @lagless/misc`.
+
+## Example future AI tasks
+1) Add a fixed-step helper to `SimulationClock`: update `simulation-clock.ts`, add tests, update README.
+2) Add a new transform interpolation variant: implement in `transform2d-utils.ts`, update docs and usage.
+3) Add a UUID parser helper: implement in `uuid.ts`, export, document.
+
+
+=== FILE: libs/net-wire/AGENTS.md ===
+# AGENTS: @lagless/net-wire
+
+## Purpose and boundaries
+- Define the binary wire protocol and timing helpers for input-only networking.
+- Not responsible for transport (Colyseus) or ECS simulation itself.
+
+## Imports and entry points
+- `libs/net-wire/src/index.ts`
+- `libs/net-wire/src/lib/protocol.ts`
+- `libs/net-wire/src/lib/clock-sync.ts`
+- `libs/net-wire/src/lib/input-delay-controller.ts`
+- `libs/net-wire/src/lib/relay-room-options.ts`
+- `libs/net-wire/src/lib/tick-input-buffer.ts`
+
+## Common tasks -> files
+- Add or change a message type: `libs/net-wire/src/lib/protocol.ts`.
+- Adjust clock sync math: `libs/net-wire/src/lib/clock-sync.ts`.
+- Tune input delay behavior: `libs/net-wire/src/lib/input-delay-controller.ts`.
+- Update room option types: `libs/net-wire/src/lib/relay-room-options.ts`.
+
+## Integration points
+- Server side: `@lagless/colyseus-rooms` uses these schemas in relay rooms.
+- Client side: `@lagless/relay-input-provider` encodes/decodes messages.
+- Circle Sumo backend and frontend consume those layers.
+
+## Invariants and rules
+- All packets start with `HeaderStruct` and a valid `MsgType`.
+- Field order and sizes are stable; breaking changes require `WireVersion` bump.
+- Payloads must remain input-only per project constitution.
+
+## Workflow for modifications
+- Update protocol code, then update relay and input provider handlers.
+- Update README examples and any docs in dependent modules.
+- Verify with `nx lint @lagless/net-wire`, `nx typecheck @lagless/net-wire`, and `nx test @lagless/net-wire`.
+
+## Example future AI tasks
+1) Add a new packet type for diagnostics: update `protocol.ts`, update both server and client handlers, update docs.
+2) Adjust delay calculation: edit `input-delay-controller.ts`, add tests, document the new tuning.
+3) Add a schema for late-join sync: update `protocol.ts`, update relay rooms, update input provider.
+
+
+=== FILE: libs/pixi-react/AGENTS.md ===
+# AGENTS: @lagless/pixi-react
+
+## Purpose and boundaries
+- Provide Pixi + React helpers for VFX and virtual joystick input.
+- Not responsible for ECS simulation or network transport.
+
+## Imports and entry points
+- `libs/pixi-react/src/index.ts`
+- `libs/pixi-react/src/lib/neutrino-particles/use-vfx-container.ts`
+- `libs/pixi-react/src/lib/virtual-joystick/virtual-joystick.tsx`
+- `libs/pixi-react/src/lib/virtual-joystick/virtual-joystick-ctx.ts`
+
+## Common tasks -> files
+- Adjust VFX behavior or lifecycle: `use-vfx-container.ts`.
+- Change joystick UI or logic: `virtual-joystick.tsx`, `virtual-joystick-ctx.ts`.
+- Update exports: `src/index.ts`.
+
+## Integration points
+- Circle Sumo uses `useVFXContainer` for impact effects (`circle-sumo/circle-sumo-game/src/app/game-view/components/impact-vfx.tsx`).
+- Joystick uses `@lagless/binary` for float32 coercion.
+
+## Invariants and rules
+- `useVFXContainer` must clean up effects on unmount.
+- `spawn` should fail gracefully when assets are missing.
+- Joystick direction and axis values are float32 for deterministic input paths.
+
+## Workflow for modifications
+- Update implementation and exports, then update README examples if needed.
+- Validate integration in Circle Sumo UI if behavior changes.
+- Verify with `nx lint @lagless/pixi-react` and `nx typecheck @lagless/pixi-react`.
+
+## Example future AI tasks
+1) Add a `spawnAtContainer` helper: update `use-vfx-container.ts`, export it, update README.
+2) Make joystick size configurable: update `virtual-joystick.tsx` and `VirtualJoystickCtx`, document new props.
+3) Add a VFX preload helper: implement, export, and document usage.
+
+
+=== FILE: libs/react/AGENTS.md ===
+# AGENTS: @lagless/react
+
+## Purpose and boundaries
+- Provide React-facing auth and API helpers for Lagless web clients.
+- Not responsible for backend logic or server-side authentication.
+
+## Imports and entry points
+- `libs/react/src/index.ts`
+- `libs/react/src/lib/auth/api.ts`
+- `libs/react/src/lib/auth/auth.query.ts`
+- `libs/react/src/lib/auth/auth-token-store.ts`
+- `libs/react/src/lib/auth/instance-auth.provider.tsx`
+- `libs/react/src/lib/react-query.provider.tsx`
+
+## Common tasks -> files
+- Adjust API base URL or headers: `auth/api.ts`.
+- Change auth flow or query keys: `auth/auth.query.ts`.
+- Update token persistence: `auth/auth-token-store.ts`.
+- Adjust provider behavior: `instance-auth.provider.tsx`.
+- Update exports: `src/index.ts`.
+
+## Integration points
+- Circle Sumo frontend uses providers and `usePlayer` (`circle-sumo/circle-sumo-game/src/app/app.tsx`).
+- Backend schemas live in `libs/api/schemas` and influence the `PlayerSchema` types.
+
+## Invariants and rules
+- `api` must include auth headers derived from `AuthTokenStore`.
+- `useAuthQuery` should keep the `['auth']` query key stable.
+- Avoid breaking changes to `AuthTokenStore` without updating callers.
+
+## Workflow for modifications
+- Update implementation and types, then update Circle Sumo usage if signatures change.
+- If auth flow changes, update README and any frontend flows depending on it.
+- Verify with `nx lint @lagless/react` and `nx typecheck @lagless/react`.
+
+## Example future AI tasks
+1) Add refresh-token support: update `auth.query.ts` and `auth-token-store.ts`, update README and callers.
+2) Add a `useAuthToken` hook: implement in `auth.query.ts`, export, document.
+3) Add API error retry logic: update `api.ts` and document expected behavior.
+
+
+=== FILE: libs/relay-input-provider/AGENTS.md ===
+# AGENTS: @lagless/relay-input-provider
+
+## Purpose and boundaries
+- Provide a client-side `AbstractInputProvider` that communicates with relay servers.
+- Not responsible for server matchmaking logic or ECS systems.
+
+## Imports and entry points
+- `libs/relay-input-provider/src/index.ts`
+- `libs/relay-input-provider/src/lib/matchmaking.ts`
+- `libs/relay-input-provider/src/lib/relay-input-provider.ts`
+
+## Common tasks -> files
+- Adjust matchmaking flow or timeouts: `matchmaking.ts`.
+- Update handshake, ping, or rollback behavior: `relay-input-provider.ts`.
+- Update exports or types: `src/index.ts`.
+
+## Integration points
+- Circle Sumo frontend connects to relay via `use-start-match` (`circle-sumo/circle-sumo-game/src/app/hooks/use-start-match.ts`).
+- Server-side counterpart is `@lagless/colyseus-rooms` relay rooms.
+- Protocol schemas live in `@lagless/net-wire`.
+
+## Invariants and rules
+- Must only send/receive binary messages on `RELAY_BYTES_CHANNEL`.
+- Wait for `ServerHello` before sending inputs.
+- Input delay ticks must stay within `ECSConfig` bounds.
+
+## Workflow for modifications
+- Update provider logic, then update Circle Sumo usage if signatures change.
+- If protocol handling changes, update `@lagless/net-wire` docs and server relay rooms.
+- Verify with `nx lint @lagless/relay-input-provider`, `nx typecheck @lagless/relay-input-provider`, and `nx test @lagless/relay-input-provider`.
+
+## Example future AI tasks
+1) Add a reconnect helper: implement in `relay-input-provider.ts`, expose API, update README and Circle Sumo usage.
+2) Add matchmaking cancellation reason codes: update `matchmaking.ts`, update frontend handling and docs.
+3) Add telemetry callbacks: implement in provider, update README, add tests.
+
+
+=== FILE: libs/testbed/AGENTS.md ===
+# AGENTS: @lagless/testbed
+
+## Purpose and boundaries
+- Provide a generated ECS schema package for experiments and examples.
+- Not responsible for game-specific systems or production simulations.
+
+## Imports and entry points
+- `libs/testbed/src/index.ts` (re-exports generated code)
+- `libs/testbed/src/lib/schema/ecs.yaml` (source schema)
+- `libs/testbed/src/lib/schema/code-gen/*` (generated output)
+
+## Common tasks -> files
+- Add or change components/inputs/filters: edit `libs/testbed/src/lib/schema/ecs.yaml`.
+- Regenerate output: run `nx g @lagless/codegen:ecs --configPath libs/testbed/src/lib/schema/ecs.yaml`.
+- Update exports if needed: `libs/testbed/src/index.ts`.
+
+## Integration points
+- Uses `@lagless/codegen` templates and `@lagless/core` ECS types.
+- Can be used by local demos or tests to validate schema evolution.
+
+## Invariants and rules
+- Do not edit files in `libs/testbed/src/lib/schema/code-gen` manually.
+- Keep schema names stable unless you are prepared to update all references.
+- Regenerate whenever the YAML schema changes.
+
+## Workflow for modifications
+- Update the YAML schema.
+- Regenerate code with the Nx generator.
+- Review the generated barrel file and update any consumers.
+- Verify with `nx lint @lagless/testbed`, `nx typecheck @lagless/testbed`, and `nx test @lagless/testbed`.
+
+## Example future AI tasks
+1) Add a new component: update `ecs.yaml`, regenerate, adjust any usage in demos.
+2) Add a new input: update `ecs.yaml` inputs section, regenerate, wire into input providers.
+3) Rename a component: update `ecs.yaml`, regenerate, update all imports and usage sites.
+
+
+=== FILE: tools/codegen/AGENTS.md ===
+# AGENTS: @lagless/codegen
+
+## Purpose and boundaries
+- Generate ECS TypeScript code from YAML schemas.
+- Do not implement runtime behavior here; runtime changes belong in schemas or templates.
+
+## Imports and entry points
+- `tools/codegen/src/index.ts` (exports parser and generator)
+- `tools/codegen/src/parser.ts` (YAML parsing and validation)
+- `tools/codegen/src/generator.ts` (code generation pipeline)
+- `tools/codegen/src/template-engine.ts` (template rendering)
+- `tools/codegen/src/nx-generator.ts` (Nx generator)
+- `tools/codegen/src/cli.ts` (CLI)
+- `tools/codegen/files/*` (EJS templates)
+
+## Common tasks -> files
+- Change YAML parsing rules: `tools/codegen/src/parser.ts`.
+- Change generated output structure: `tools/codegen/src/generator.ts`.
+- Update templates: `tools/codegen/files/*`.
+- Update Nx generator options: `tools/codegen/src/nx-generator.ts`.
+
+## Integration points
+- Depends on `@lagless/core` ECS schema types and `@lagless/binary` field sizes.
+- Generates code consumed by:
+  - `circle-sumo/circle-sumo-simulation/src/lib/schema/code-gen`
+  - `libs/testbed/src/lib/schema/code-gen`
+
+## Invariants and rules
+- If you need to change runtime behavior, do NOT edit generated files; edit schemas or templates.
+- Output directory is `../code-gen` relative to the YAML schema file.
+- Field types must be supported by `@lagless/binary` (`int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `float32`, `float64`).
+
+## Workflow for modifications
+- Update the YAML schema or templates.
+- Regenerate code with Nx generator:
+  - `nx g @lagless/codegen:ecs --configPath circle-sumo/circle-sumo-simulation/src/lib/schema/ecs.yaml`
+  - `nx g @lagless/codegen:ecs --configPath libs/testbed/src/lib/schema/ecs.yaml`
+- Review generated files in `schema/code-gen` and update any simulation code or tests.
+- Verify downstream modules compile: `nx typecheck @lagless/circle-sumo-simulation` and `nx typecheck @lagless/testbed`.
+
+## Common failure modes
+- Unsupported field type or missing array length in schema.
+- Filter references a component not declared in `components`.
+- Wrong `configPath` (generator cannot locate YAML).
+
+## Example future AI tasks
+1) Add a new template output file: update `files/*`, update `generator.ts` to emit it, update docs.
+2) Support a new field type: update `@lagless/binary` and `parser.ts`, then update templates.
+3) Change output directory naming: update `generator.ts` and `nx-generator.ts`, update README references.
+
+
+=== FILE: README.md ===
+# Lagless
+
+<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+
+✨ Your new, shiny [Nx workspace](https://nx.dev) is almost ready ✨.
+
+[Learn more about this workspace setup and its capabilities](https://nx.dev/getting-started/tutorials/react-monorepo-tutorial?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+
+## Finish your CI setup
+
+[Click here to finish setting up your workspace!](https://cloud.nx.app/connect/MPMmaIyoZ3)
+
+
+## Run tasks
+
+To run the dev server for your app, use:
+
+```sh
+npx nx serve network-playground
+```
+
+To create a production bundle:
+
+```sh
+npx nx build network-playground
+```
+
+To see all available targets to run for a project, run:
+
+```sh
+npx nx show project network-playground
+```
+
+These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
+
+[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+
+## Add new projects
+
+While you could add new projects to your workspace manually, you might want to leverage [Nx plugins](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) and their [code generation](https://nx.dev/features/generate-code?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) feature.
+
+Use the plugin's generator to create new projects.
+
+To generate a new application, use:
+
+```sh
+npx nx g @nx/react:app demo
+```
+
+To generate a new library, use:
+
+```sh
+npx nx g @nx/react:lib mylib
+```
+
+You can use `npx nx list` to get a list of installed plugins. Then, run `npx nx list <plugin-name>` to learn about more specific capabilities of a particular plugin. Alternatively, [install Nx Console](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) to browse plugins and generators in your IDE.
+
+[Learn more about Nx plugins &raquo;](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) | [Browse the plugin registry &raquo;](https://nx.dev/plugin-registry?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+
+
+[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+
+## Install Nx Console
+
+Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
+
+[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+
+## Useful links
+
+Learn more:
+
+- [Learn more about this workspace setup](https://nx.dev/getting-started/tutorials/react-monorepo-tutorial?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects)
+- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+
+And join the Nx community:
+- [Discord](https://go.nx.dev/community)
+- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
+- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
+- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+
+
+=== FILE: circle-sumo/circle-sumo-backend/README.md ===
+# `@lagless/circle-sumo-backend`
+
+## What it is
+`@lagless/circle-sumo-backend` is the Colyseus + NestJS backend for Circle Sumo. It runs matchmaking, relay rooms, and persistence services for the authoritative simulation.
+
+## Why it exists / when to use it
+Use it to host Circle Sumo matches in a production-like environment. It coordinates player auth, matchmaking sessions, and relay room lifecycles.
+
+## Public API
+- Colyseus rooms: `CircleSumoMatchmakingRoom`, `CircleSumoRelayRoom`
+- Nest module: `AppModule` (internal composition)
+- Entry point: `circle-sumo/circle-sumo-backend/src/main.ts`
+
+## Typical usage
+`main.ts` registers the matchmaking and relay rooms:
+
+```ts
+import { CircleSumoMatchmakingRoom } from './colyseus/matchmaking';
+import { CircleSumoRelayRoom } from './colyseus/relay';
+
+gameServer.define('matchmaking', CircleSumoMatchmakingRoom);
+gameServer.define('relay', CircleSumoRelayRoom);
+```
+
+## Key concepts & data flow
+- Matchmaking rooms authenticate players and create game sessions via `GameService` and `PlayerService`.
+- Relay rooms extend `RelayColyseusRoom` and feed inputs to the Circle Sumo simulation using `CircleSumoInputRegistry`.
+- Nest services handle persistence (`@lagless/schemas`) while Colyseus handles WebSocket traffic.
+
+## Configuration and environment assumptions
+- `PORT` controls the server port.
+- `JWT_SECRET` is required for matchmaking auth.
+- `DB_CONNECTION_STRING` is required for TypeORM.
+- Matchmaking and relay frame length should align with frontend `ECSConfig` (60 FPS in Circle Sumo).
+
+## Pitfalls / common mistakes
+- Blocking I/O in Colyseus room callbacks (causes tick drift).
+- Mismatched frame length or input registry between backend and frontend.
+- Forgetting to register schemas in TypeORM modules.
+
+## Related modules
+- `libs/colyseus-rooms`, `libs/game`, `libs/player`, `libs/schemas`
+- `circle-sumo/circle-sumo-simulation` for the ECS ruleset
+- `libs/relay-input-provider` for the client counterpart
+
+
+=== FILE: circle-sumo/circle-sumo-game/README.md ===
+# `@lagless/circle-sumo-game`
+
+## What it is
+`@lagless/circle-sumo-game` is the Circle Sumo frontend app built with React, Pixi, and the Lagless ECS stack. It renders the simulation, handles player input, and connects to the relay backend.
+
+## Why it exists / when to use it
+Use it as the reference client for Lagless. It demonstrates how to wire auth, matchmaking, relay input providers, and deterministic rendering.
+
+## Public API
+- This is an application package; it does not expose a public library API.
+- Entry points: `circle-sumo/circle-sumo-game/src/main.tsx` and `circle-sumo/circle-sumo-game/src/app/app.tsx`.
+
+## Typical usage
+The app connects to matchmaking and relay rooms like this:
+
+```ts
+const matchmaking = new Matchmaking();
+const { client, seatReservation } = await matchmaking.connectAndFindMatch(
+  import.meta.env.VITE_RELAY_URL,
+  ecsConfig,
+  token
+);
+const inputProvider = await RelayInputProvider.connect(
+  ecsConfig,
+  CircleSumoInputRegistry,
+  client,
+  seatReservation
+);
+```
+
+## Key concepts & data flow
+- `AuthTokenStore` and React Query manage auth and API calls.
+- `RelayInputProvider` connects to the backend relay and feeds inputs into the ECS runner.
+- Pixi renders ECS state, with interpolation helpers from `@lagless/misc`.
+- Assets and deterministic math are initialized in `AssetsLoader` before gameplay.
+
+## Configuration and environment assumptions
+- `VITE_RELAY_URL` must point to the Colyseus relay backend.
+- `VITE_API_URL` is used by `@lagless/react` for REST calls.
+- Pixi assets are loaded via `AssetsLoader` before rendering.
+
+## Pitfalls / common mistakes
+- Starting a match before assets and `MathOps.init()` complete.
+- Mismatched `CircleSumoInputRegistry` between client and server.
+- Missing environment variables for relay or API endpoints.
+
+## Related modules
+- `circle-sumo/circle-sumo-simulation` for ECS logic and components.
+- `circle-sumo/circle-sumo-backend` for matchmaking and relay rooms.
+- `libs/relay-input-provider`, `libs/react`, `libs/pixi-react` for client integration.
+
+
+=== FILE: circle-sumo/circle-sumo-simulation/README.md ===
+# `@lagless/circle-sumo-simulation`
+
+## What it is
+`@lagless/circle-sumo-simulation` is the deterministic ECS simulation for Circle Sumo. It provides generated components/inputs, the system pipeline, and gameplay helpers shared by backend and frontend.
+
+## Why it exists / when to use it
+Use it anywhere you need the authoritative Circle Sumo ruleset: relay servers, prediction clients, or offline tooling. It ensures both sides run the same deterministic logic.
+
+## Public API
+- Generated ECS exports from `src/lib/schema/code-gen` (components, filters, inputs, `CircleSumoInputRegistry`, `CircleSumoRunner`)
+- `CircleSumoSystems` and `CircleSumoSignals`
+- Gameplay helpers: `CircleSumoArena`, `calculateScore`, `getSpinCost`
+- Player data helpers: `PLAYER_PRESETS`, `getRandomSkinId`, `SumoPlayerData`
+
+## Typical usage
+Circle Sumo frontend builds a runner with generated systems and signals:
+
+```ts
+import { CircleSumoRunner, CircleSumoSystems, CircleSumoSignals } from '@lagless/circle-sumo-simulation';
+
+const runner = new CircleSumoRunner(inputProvider.ecsConfig, inputProvider, CircleSumoSystems, CircleSumoSignals);
+runner.start();
+```
+
+## Key concepts & data flow
+- ECS components, inputs, and runner are generated from `src/lib/schema/ecs.yaml`.
+- Systems implement deterministic gameplay (movement, collisions, player lifecycle).
+- Signals communicate high-level events (game over, player finished) to UI or backend.
+
+## Configuration and environment assumptions
+- Codegen output lives in `src/lib/schema/code-gen` and should not be edited by hand.
+- Input providers must use `CircleSumoInputRegistry` for RPC inputs.
+- `MathOps.init()` must be called before running systems that use deterministic math.
+
+## Pitfalls / common mistakes
+- Editing generated files instead of updating `ecs.yaml`.
+- Reordering `CircleSumoSystems` without validating replay determinism.
+- Using non-deterministic APIs inside systems.
+
+## Related modules
+- `libs/core` for the ECS runtime.
+- `libs/math` and `libs/misc` for deterministic math and interpolation helpers.
+- `circle-sumo/circle-sumo-game` and `circle-sumo/circle-sumo-backend` for real usage.
+
+
+=== FILE: libs/animate/README.md ===
+# `@lagless/animate`
+
+## What it is
+`@lagless/animate` is a tiny set of requestAnimationFrame helpers and easing curves for UI layers. It is intentionally small and deterministic-friendly, but it does not run inside the ECS simulation.
+
+## Why it exists / when to use it
+Use it for UI transitions, HUD effects, or short-lived visuals that sit on top of authoritative ECS state. Do not use it to drive simulation state or network decisions.
+
+## Public API
+- `animate(draw, duration, onDone, timing?)`: core RAF loop that calls `draw(progress)`
+- `animatePromise(draw, duration, timing?)`: Promise wrapper for `animate`
+- `AnimationCancelToken`: allows canceling an in-flight animation
+- `easing`, `easingInOut`, `linear`, `TimingFunction`
+
+## Typical usage
+Circle Sumo uses it to pulse the local player outline when a round starts:
+
+```ts
+import { animatePromise } from '@lagless/animate';
+
+await animatePromise((progress) => {
+  playerOutline.scale = 1 - progress;
+}, 1000);
+```
+
+## Key concepts & data flow
+- `animate` computes a 0..1 progress value on each `requestAnimationFrame`.
+- `TimingFunction` maps the linear time fraction to an easing curve.
+- The caller owns cancellation and must stop any visuals when a component unmounts.
+
+## Configuration and environment assumptions
+- Requires `performance.now` and `requestAnimationFrame` (browser environment).
+- Duration is in milliseconds.
+- Tests or SSR need mocks for RAF and performance.
+
+## Pitfalls / common mistakes
+- Using animation callbacks to mutate ECS memory or send network input.
+- Forgetting to cancel or ignore completion after unmount.
+- Treating `duration` as frames instead of milliseconds.
+
+## Related modules
+- `libs/core` for simulation and ECS timing.
+- `libs/misc` for interpolation helpers used alongside animations.
+- `circle-sumo/circle-sumo-game` for real usage.
+
+
+=== FILE: libs/api/game/README.md ===
+# `@lagless/game`
+
+## What it is
+`@lagless/game` is a NestJS module that provides game and matchmaking session services. It coordinates persistence of games, sessions, and player results.
+
+## Why it exists / when to use it
+Use it in backend apps that need to track matchmaking sessions, game creation, and post-game results. It keeps game persistence consistent across services.
+
+## Public API
+- `LaglessGameModule`
+- `GameService`
+
+## Typical usage
+Circle Sumo uses `GameService` from relay and matchmaking rooms:
+
+```ts
+import { GameService } from '@lagless/game';
+
+const matchmakingSession = await this._GameService.internalStartMatchmakingSession(auth.id, new Date());
+```
+
+## Key concepts & data flow
+- Game and matchmaking sessions are stored in TypeORM entities from `@lagless/schemas`.
+- `internal*` methods are intended for trusted backend flows (matchmaking, relay rooms).
+
+## Configuration and environment assumptions
+- Requires TypeORM and the schema entities (`GameSchema`, `GameSessionSchema`, `MatchmakingSessionSchema`).
+- Expects database connectivity configured by the hosting backend.
+
+## Pitfalls / common mistakes
+- Skipping transactions when updating player and session state together.
+- Failing to register the schema entities in the backend module.
+- Calling internal methods from untrusted contexts.
+
+## Related modules
+- `libs/api/schemas` for game and session entities.
+- `circle-sumo/circle-sumo-backend` for real usage.
+
+
+=== FILE: libs/api/player/README.md ===
+# `@lagless/player`
+
+## What it is
+`@lagless/player` is a NestJS module that provides player auth and player data services. It wraps TypeORM entities and exposes guards, services, and controller routes for login and identity.
+
+## Why it exists / when to use it
+Use it in backend apps that need Lagless player authentication, token validation, and player lookups. It centralizes auth logic so downstream services can depend on `AuthGuard` and `PlayerService`.
+
+## Public API
+- `LaglessPlayerModule`
+- `PlayerService`
+- `AuthGuard`
+- `JwtService`
+- `AuthenticatedRequest` and related types
+
+## Typical usage
+Circle Sumo uses the guard and request type in a custom controller:
+
+```ts
+import { type AuthenticatedRequest, AuthGuard } from '@lagless/player';
+
+@UseGuards(AuthGuard)
+@Put('equipSkin/:skinId')
+public async equipSkin(@Req() req: AuthenticatedRequest) {
+  return this._SumoPlayerService.equipSkin(req.authData.id, skinId);
+}
+```
+
+## Key concepts & data flow
+- `AuthGuard` verifies JWT tokens and populates `req.authData`.
+- `PlayerService` handles player lookup and login flows.
+- Entities come from `@lagless/schemas` and are accessed via TypeORM.
+
+## Configuration and environment assumptions
+- Requires NestJS and TypeORM.
+- `JWT_SECRET` must be configured in the backend environment.
+
+## Pitfalls / common mistakes
+- Using `AuthGuard` without importing `LaglessPlayerModule`.
+- Changing auth token payload without updating `AuthenticatedRequest` types.
+- Forgetting to register `PlayerSchema` in TypeORM modules.
+
+## Related modules
+- `libs/api/schemas` for the `PlayerSchema` and `LoginLogSchema` entities.
+- `circle-sumo/circle-sumo-backend` for real usage.
+
+
+=== FILE: libs/api/schemas/README.md ===
+# `@lagless/schemas`
+
+## What it is
+`@lagless/schemas` contains the shared TypeORM entity classes used by Lagless backends. These schemas define the persistent data model for players, games, sessions, and login logs.
+
+## Why it exists / when to use it
+Use it in backend services so that entity definitions stay consistent across modules. It centralizes the database schema for Lagless services.
+
+## Public API
+- `PlayerSchema`
+- `GameSchema`
+- `LoginLogSchema`
+- `GameSessionSchema`
+- `MatchmakingSessionSchema`
+
+## Typical usage
+Circle Sumo registers these entities with TypeORM:
+
+```ts
+import { GameSchema, GameSessionSchema, LoginLogSchema, MatchmakingSessionSchema, PlayerSchema } from '@lagless/schemas';
+
+TypeOrmModule.forRootAsync({
+  useFactory: () => ({
+    type: 'postgres',
+    entities: [PlayerSchema, LoginLogSchema, GameSchema, GameSessionSchema, MatchmakingSessionSchema],
+  }),
+});
+```
+
+## Key concepts & data flow
+- Each schema is a TypeORM `@Entity` with columns and constraints.
+- Backend modules use these entities through TypeORM repositories.
+
+## Configuration and environment assumptions
+- Designed for TypeORM and PostgreSQL in current backends.
+- Requires a DB connection string at runtime (see backend app config).
+
+## Pitfalls / common mistakes
+- Changing columns without updating migrations or synchronization settings.
+- Using schema types in frontend bundles (they depend on TypeORM decorators).
+- Forgetting to export new schemas from `libs/api/schemas/src/index.ts`.
+
+## Related modules
+- `libs/api/player` and `libs/api/game` use these entities in services.
+- `circle-sumo/circle-sumo-backend` registers the schemas.
+
+
+=== FILE: libs/binary/README.md ===
+# `@lagless/binary`
+
+## What it is
+`@lagless/binary` is the low-level, deterministic serialization layer for Lagless. It provides fixed-size field types, schema helpers, and buffer utilities used by ECS components, inputs, and wire protocols.
+
+## Why it exists / when to use it
+Use it when you need stable byte layouts for inputs or component memory. It powers codegen output, net-wire packets, and snapshot serialization. Do not use it for JSON-like or variable-length payloads.
+
+## Public API
+- `FieldType`, `fieldTypeSizeBytes`, `typeToArrayConstructor`: canonical field definitions and sizes
+- `BinarySchema`, `BinarySchemaPackPipeline`, `BinarySchemaUnpackPipeline`: schema-based pack/unpack helpers
+- `binaryWrite`, `binaryRead`: endian-safe DataView helpers
+- `MemoryTracker`, `align8`: deterministic memory layout helpers for ECS data
+- `toFloat32`, `getFastHash`: utility helpers for float coercion and buffer hashing
+
+## Typical usage
+Circle Sumo coerces inputs to float32 before sending them through RPC inputs:
+
+```ts
+import { toFloat32 } from '@lagless/binary';
+
+const angle = toFloat32(MathOps.atan2(dy, dx));
+moveInput.direction = angle;
+```
+
+## Key concepts & data flow
+- All multi-byte fields are little-endian and fixed-size.
+- Schemas describe a deterministic byte layout for packing and unpacking.
+- `MemoryTracker` aligns component buffers to 8-byte boundaries for ECS memory blocks.
+- Codegen consumes `FieldType` and `MemoryTracker` to build component classes.
+
+## Configuration and environment assumptions
+- Requires TypedArray and DataView support.
+- Field sizes are fixed; changing field order or width is a breaking protocol change.
+
+## Pitfalls / common mistakes
+- Mixing endianness or field ordering between writer and reader.
+- Mutating schemas without updating `@lagless/net-wire` or codegen outputs.
+- Allocating buffers smaller than schema byte length.
+
+## Related modules
+- `libs/net-wire` for packet schemas that sit on top of these helpers.
+- `tools/codegen` for schema-driven ECS generation.
+- `circle-sumo/circle-sumo-simulation` generated components and inputs.
+
+
+=== FILE: libs/colyseus-rooms/README.md ===
+# `@lagless/colyseus-rooms`
+
+## What it is
+`@lagless/colyseus-rooms` provides base Colyseus room classes for matchmaking and relay-based gameplay. It abstracts common auth, queueing, and input fanout behavior.
+
+## Why it exists / when to use it
+Use it when building a Lagless backend that needs matchmaking and relay rooms. It keeps server-side behavior consistent across games and reduces boilerplate.
+
+## Public API
+- `BaseMatchmakerRoom`: abstract room with auth and matchmaking queue logic
+- `RelayColyseusRoom`: abstract room that relays ECS inputs to clients
+- `MatchmakingConfig`, `MatchTicket`, `MatchGroup`, `RoomAuthResult`: matchmaking types
+- `MatchmakerState`, `SearchingPlayer`: matchmaking state snapshots
+
+## Typical usage
+Circle Sumo implements matchmaking by extending the base room:
+
+```ts
+export class CircleSumoMatchmakingRoom extends BaseMatchmakerRoom {
+  protected override getMatchmakingConfig() {
+    return { virtualCapacity: 4, maxHumans: 4, /* ... */ };
+  }
+
+  protected override getGameRoomName() {
+    return 'relay';
+  }
+}
+```
+
+## Key concepts & data flow
+- `BaseMatchmakerRoom` verifies auth tokens, enqueues players, and groups tickets into matches.
+- When a match is found, it spawns a relay room via `matchMaker.createRoom` using `buildGameRoomOptions`.
+- `RelayColyseusRoom` handles RPC fanout and lifecycle hooks (player join/leave, game over).
+
+## Configuration and environment assumptions
+- Subclasses must provide JWT secret, matchmaking config, frame length, and game room name.
+- Relay rooms should align `frameLength` with `ECSConfig` values used by clients.
+
+## Pitfalls / common mistakes
+- Forgetting to propagate `frameLength` or max players into relay options.
+- Doing long-running work inside matchmaking tick callbacks.
+- Leaving auth hooks unimplemented or inconsistent with backend auth services.
+
+## Related modules
+- `libs/net-wire` for the underlying packet schemas.
+- `libs/relay-input-provider` for the client-side counterpart.
+- `circle-sumo/circle-sumo-backend` for real usage.
+
+
+=== FILE: libs/core/README.md ===
+# `@lagless/core`
+
+## What it is
+`@lagless/core` is the deterministic ECS runtime for Lagless. It owns the memory model, simulation loop, rollback/resimulation flow, and DI wiring that every game simulation depends on.
+
+## Why it exists / when to use it
+Use it when you are building a simulation, input provider, or tool that must run deterministically and support rollback. It is the authoritative source of world state; rendering and networking sit on top of it.
+
+## Public API
+- `ECSConfig`: configuration for ticks, snapshot cadence, and rollback window
+- `ECSSimulation`: deterministic loop with rollback/resimulation
+- `ECSRunner`: DI bootstrapper for systems, signals, and input provider
+- `AbstractInputProvider`, `LocalInputProvider`, `ReplayInputProvider`, `InputRegistry`
+- `RPC`, `RPCHistory`: input payload and history tracking
+- `Signal`, `ISignalConstructor`: predicted/verified/cancelled signal flow
+- `Prefab`, `EntitiesManager`, `PlayerResources`, `PRNG`: ECS memory helpers
+
+## Typical usage
+Circle Sumo wires a generated runner with relay inputs and ticks it each frame:
+
+```ts
+import { CircleSumoRunner, CircleSumoSystems, CircleSumoSignals } from '@lagless/circle-sumo-simulation';
+import { RelayInputProvider } from '@lagless/relay-input-provider';
+
+const runner = new CircleSumoRunner(inputProvider.ecsConfig, inputProvider, CircleSumoSystems, CircleSumoSignals);
+runner.start();
+useTick((ticker) => runner.update(ticker.deltaMS));
+```
+
+## Key concepts & data flow
+- `ECSRunner` builds a DI container, registers component managers, and instantiates systems and signals.
+- `ECSSimulation` advances ticks using a fixed frame length and keeps snapshots for rollback.
+- `AbstractInputProvider` supplies ordered RPC inputs and can request rollback when authoritative inputs arrive late.
+- Signals emit `Predicted`, `Verified`, and `Cancelled` events tied to rollback windows.
+
+## Configuration and environment assumptions
+- `ECSConfig` values (fps, snapshotRate, snapshotHistorySize, input delays) are fixed for a session.
+- Deterministic math must be initialized (`MathOps.init()` from `@lagless/math`) before ticking.
+- Input providers must supply inputs sorted by tick and never mutate ECS memory directly.
+
+## Pitfalls / common mistakes
+- Introducing non-determinism (`Math.random`, Date/time APIs) inside systems.
+- Keeping snapshot history smaller than the maximum rollback window.
+- Mutating component arrays outside system update methods.
+
+## Related modules
+- `libs/math` and `libs/misc` for deterministic math and snapshot helpers.
+- `tools/codegen` for generated ECS components and runners.
+- `libs/relay-input-provider` and `libs/net-wire` for networked inputs.
+
+
+=== FILE: libs/math/README.md ===
+# `@lagless/math`
+
+## What it is
+`@lagless/math` wraps deterministic math operations and vector utilities used across Lagless simulations and renderers. It provides a consistent math surface that avoids non-deterministic browser math where needed.
+
+## Why it exists / when to use it
+Use it for any math that affects simulation or visualization tied to ECS state. It ensures consistent results across clients and servers.
+
+## Public API
+- `MathOps`: deterministic math helpers (`sin`, `cos`, `atan2`, `sqrt`, `lerp`, `clamp`, `normalizeAngle`)
+- `Vector2` and `IVector2Like`: 2D vector operations
+- `VECTOR2_BUFFER_1..10`: reusable buffers to avoid allocations
+
+## Typical usage
+Circle Sumo computes a movement direction using deterministic math helpers:
+
+```ts
+import { MathOps, Vector2 } from '@lagless/math';
+
+const from = new Vector2();
+const to = new Vector2();
+const angle = MathOps.atan2(to.y - from.y, to.x - from.x);
+```
+
+## Key concepts & data flow
+- `MathOps.init()` loads deterministic math primitives; it must be called before using `sin`, `cos`, or `atan2`.
+- `Vector2` methods are allocation-friendly and designed for reuse with buffers.
+- Vector buffers are mutable and intended for temporary calculations only.
+
+## Configuration and environment assumptions
+- Deterministic math depends on `@lagless/deterministic-math` initialization.
+- Consumers should await `MathOps.init()` during app or server startup.
+
+## Pitfalls / common mistakes
+- Using `Math.sin` or `Math.cos` in simulation code instead of `MathOps`.
+- Mutating `Vector2.ZERO` or other static constants.
+- Allocating new vectors in tight loops instead of reusing buffers.
+
+## Related modules
+- `libs/core` for deterministic ECS simulation.
+- `libs/misc` for interpolation helpers that use `MathOps`.
+- `circle-sumo/circle-sumo-simulation` and `circle-sumo/circle-sumo-game` for real usage.
+
+
+=== FILE: libs/misc/README.md ===
+# `@lagless/misc`
+
+## What it is
+`@lagless/misc` is a grab bag of deterministic utilities used by Lagless simulations and renderers: clocks, snapshot history, ring buffers, UUIDs, and transform interpolation helpers.
+
+## Why it exists / when to use it
+Use it for timekeeping, rollback history, and render interpolation that must stay aligned with ECS ticks. It is shared infrastructure for `@lagless/core` and for UI layers that present ECS state.
+
+## Public API
+- `SimulationClock`, `PhaseNudger`: fixed-step clock with bounded jitter correction
+- `SnapshotHistory`: fixed-size snapshot storage for rollback
+- `RingBuffer<T>`: deterministic FIFO buffer for time-series data
+- `UUID`: UUID helpers (including masked UUIDs for bots)
+- `now()`: monotonic time helper
+- `interpolateTransform2d*`: transform interpolation helpers for render space
+
+## Typical usage
+Circle Sumo interpolates ECS transforms into render space each frame:
+
+```ts
+import { interpolateTransform2dCursorToRef } from '@lagless/misc';
+
+const cursor = transform2d.getCursor(entity);
+interpolateTransform2dCursorToRef(cursor, simulation.interpolationFactor, containerRef.current);
+```
+
+## Key concepts & data flow
+- `SimulationClock` accumulates elapsed time and hands out fixed-step updates.
+- `SnapshotHistory` stores snapshots by tick and provides nearest-tick lookup for rollback.
+- Transform interpolation helpers convert ECS cursors into render-space positions and rotations.
+
+## Configuration and environment assumptions
+- `SimulationClock.start()` must be called before reading elapsed time.
+- `now()` uses `performance.now` when available; tests can mock it.
+- UUID helpers use platform crypto when available and fall back to Math.random.
+
+## Pitfalls / common mistakes
+- Forgetting to call `SimulationClock.start()` before `update()`.
+- Setting snapshot history smaller than the maximum rollback window.
+- Using transform interpolation outputs as authoritative simulation data.
+
+## Related modules
+- `libs/core` consumes `SimulationClock` and `SnapshotHistory`.
+- `circle-sumo/circle-sumo-game` uses transform interpolation helpers.
+- `circle-sumo/circle-sumo-backend` uses `UUID` for bot IDs.
+
+
+=== FILE: libs/net-wire/README.md ===
+# `@lagless/net-wire`
+
+## What it is
+`@lagless/net-wire` defines the shared binary wire protocol for Lagless input-only networking. It includes packet schemas, clock sync helpers, and input delay logic.
+
+## Why it exists / when to use it
+Use it anywhere you need to encode or decode Lagless relay packets or compute client-side input delay. It keeps the client and server in sync on the exact byte layout and timing rules.
+
+## Public API
+- `WireVersion`, `MsgType`, `TickInputKind`, `RELAY_BYTES_CHANNEL`
+- Binary schemas: `HeaderStruct`, `ServerHelloStruct`, `TickInputStruct`, `TickInputFanoutStruct`, `CancelInputStruct`, `PingStruct`, `PongStruct`, `PlayerFinishedGameStruct`
+- `ClockSync`: RTT/jitter tracking and clock offset estimation
+- `InputDelayController`: converts RTT/jitter into target input delay
+- `TickInputBuffer`: stores recent inputs for late joiners
+- `ColyseusRelayRoomOptions`: relay room connection options
+
+## Typical usage
+Circle Sumo does not import `@lagless/net-wire` directly; the relay server and input provider do. This is the pattern used inside those layers:
+
+```ts
+import { HeaderStruct, MsgType, TickInputStruct, WireVersion } from '@lagless/net-wire';
+
+const buffer = new ArrayBuffer(HeaderStruct.byteLength + TickInputStruct.byteLength);
+const header = HeaderStruct.pack(buffer);
+header.struct.version = WireVersion.V1;
+header.struct.type = MsgType.TickInput;
+```
+
+## Key concepts & data flow
+- Every packet begins with `HeaderStruct` and a `MsgType` identifier.
+- `ClockSync` tracks RTT and jitter via Ping/Pong to align client tick timing.
+- `InputDelayController` clamps delay inside configured min/max bounds.
+
+## Configuration and environment assumptions
+- All schemas are fixed-size and little-endian via `@lagless/binary`.
+- Client and server must share the same `WireVersion` and `MsgType` list.
+
+## Pitfalls / common mistakes
+- Changing schema ordering without bumping `WireVersion`.
+- Sending ad-hoc JSON or string payloads on the relay bytes channel.
+- Using clock sync values before receiving enough Pong samples.
+
+## Related modules
+- `libs/relay-input-provider` uses these schemas on the client.
+- `libs/colyseus-rooms` uses these schemas on the server.
+- `circle-sumo/circle-sumo-backend` and `circle-sumo/circle-sumo-game` consume those layers.
+
+
+=== FILE: libs/pixi-react/README.md ===
+# `@lagless/pixi-react`
+
+## What it is
+`@lagless/pixi-react` provides small React + Pixi helpers for Lagless frontends. It includes a VFX container hook and a virtual joystick UI.
+
+## Why it exists / when to use it
+Use it when building Pixi-based UI layers for Lagless games. It keeps VFX and input helpers consistent across projects.
+
+## Public API
+- `useVFXContainer`: hook that manages NeutrinoParticles effects in a Pixi container
+- `VirtualJoystickProvider`, `useVirtualJoystick`, `loadVirtualJoystickAssets`
+
+## Typical usage
+Circle Sumo spawns VFX on high-impact signals:
+
+```ts
+import { useVFXContainer } from '@lagless/pixi-react';
+
+const { containerRef, spawn } = useVFXContainer();
+spawn('TrianglesImpact', [x, -y, 0], { scale: power, duration: 350 });
+```
+
+## Key concepts & data flow
+- `useVFXContainer` owns a Pixi `Container` and updates particle effects on each tick.
+- `spawn` looks up effect models via `Assets.get` and inserts them into the container.
+- The virtual joystick exposes axis/power/direction through a context object.
+
+## Configuration and environment assumptions
+- Requires `@pixi/react`, `pixi.js`, and `neutrinoparticles.pixi` to be available.
+- VFX aliases must be preloaded into `Assets`.
+- The joystick provider loads its texture assets at runtime.
+
+## Pitfalls / common mistakes
+- Calling `spawn` before `containerRef` is mounted.
+- Forgetting to preload effect models or joystick textures.
+- Using the joystick without wrapping the app in `VirtualJoystickProvider`.
+
+## Related modules
+- `circle-sumo/circle-sumo-game` for real usage.
+- `libs/animate` for UI animation helpers.
+
+
+=== FILE: libs/react/README.md ===
+# `@lagless/react`
+
+## What it is
+`@lagless/react` provides React helpers for Lagless frontends: a configured API client, auth hooks, token storage, and React Query wiring.
+
+## Why it exists / when to use it
+Use it in Lagless web clients to share consistent auth and API access patterns. It centralizes token handling and React Query setup.
+
+## Public API
+- `api`: Axios instance configured with `VITE_API_URL` and auth header
+- `ReactQueryProvider`, `currentQueryClient`: React Query integration
+- `AuthTokenStore`: localStorage-backed token store
+- `useAuthQuery`, `usePlayer`, `updatePlayer`, `authQuery`
+- `InstanceAuthContext`: renders children when auth is ready
+
+## Typical usage
+Circle Sumo wraps the app with providers and uses the auth context:
+
+```tsx
+import { ReactQueryProvider, InstanceAuthContext } from '@lagless/react';
+
+<ReactQueryProvider>
+  <InstanceAuthContext fallback={<LoadingScreen />}>
+    <RouterProvider router={router} />
+  </InstanceAuthContext>
+</ReactQueryProvider>
+```
+
+## Key concepts & data flow
+- `AuthTokenStore` persists tokens in localStorage.
+- `useAuthQuery` performs instant auth and caches the result in React Query.
+- `api` adds the Bearer token header for every request.
+
+## Configuration and environment assumptions
+- `VITE_API_URL` must be set in the frontend environment.
+- Requires browser APIs (`localStorage`, `window`).
+- React Query must be available in the app bundle.
+
+## Pitfalls / common mistakes
+- Using `api` without wrapping the app in `ReactQueryProvider`.
+- Running in SSR without guarding `localStorage` access.
+- Forgetting to update cached auth data after mutations.
+
+## Related modules
+- `libs/api/player`, `libs/api/game`, `libs/api/schemas` for backend contracts.
+- `circle-sumo/circle-sumo-game` for real usage.
+
+
+=== FILE: libs/relay-input-provider/README.md ===
+# `@lagless/relay-input-provider`
+
+## What it is
+`@lagless/relay-input-provider` is the client-side bridge between a Lagless ECS simulation and a Colyseus relay server. It handles matchmaking, handshake, ping/pong sync, and rollback triggers.
+
+## Why it exists / when to use it
+Use it in game frontends that connect to a relay backend. It implements `AbstractInputProvider` so you can plug networked inputs directly into an ECS runner.
+
+## Public API
+- `Matchmaking`: connects to the matchmaking room and returns a Colyseus seat reservation
+- `RelayInputProvider`: `AbstractInputProvider` implementation that speaks the Lagless wire protocol
+- `RelayInputProviderConfig`: configuration for ping interval and connection timeouts
+
+## Typical usage
+Circle Sumo uses matchmaking and relay inputs like this:
+
+```ts
+import { Matchmaking, RelayInputProvider } from '@lagless/relay-input-provider';
+import { ECSConfig } from '@lagless/core';
+import { CircleSumoInputRegistry } from '@lagless/circle-sumo-simulation';
+
+const ecsConfig = new ECSConfig({ fps: 60 });
+const matchmaking = new Matchmaking();
+const { client, seatReservation } = await matchmaking.connectAndFindMatch(relayUrl, ecsConfig, authToken);
+const inputProvider = await RelayInputProvider.connect(
+  ecsConfig,
+  CircleSumoInputRegistry,
+  client,
+  seatReservation
+);
+```
+
+## Key concepts & data flow
+- `RelayInputProvider.connect()` waits for `ServerHello` to set seeds and player slot.
+- Ping/Pong drives `ClockSync` and `InputDelayController` to keep prediction stable.
+- When authoritative inputs arrive, the provider requests rollback via `getInvalidateRollbackTick()`.
+
+## Configuration and environment assumptions
+- Requires a Colyseus relay server that uses `@lagless/net-wire` schemas.
+- `ECSConfig` and `InputRegistry` must match the server-side simulation.
+- Auth tokens must be valid for the relay and matchmaking rooms.
+
+## Pitfalls / common mistakes
+- Forgetting to call `dispose()` when leaving a match (leaks ping intervals).
+- Using mismatched `InputRegistry` definitions between client and server.
+- Ignoring rollback requests when integrating with the ECS runner.
+
+## Related modules
+- `libs/core` for `AbstractInputProvider` and ECS config types.
+- `libs/net-wire` for packet schemas and clock sync.
+- `libs/colyseus-rooms` for server-side relay rooms.
+- `circle-sumo/circle-sumo-game` for real usage.
+
+
+=== FILE: libs/testbed/README.md ===
+# `@lagless/testbed`
+
+## What it is
+`@lagless/testbed` is a generated ECS schema package used for local experimentation and examples. It re-exports codegen output from a YAML schema.
+
+## Why it exists / when to use it
+Use it as a sandbox for trying out ECS schemas or tools without touching a production simulation. It is not consumed by Circle Sumo.
+
+## Public API
+- Generated exports from `libs/testbed/src/lib/schema/code-gen/index.ts` (components, inputs, filters, runner, and input registry).
+
+## Typical usage
+Circle Sumo does not use this package. A minimal usage looks like:
+
+```ts
+import { TestbedRunner, TestbedInputRegistry } from '@lagless/testbed';
+import { ECSConfig, LocalInputProvider } from '@lagless/core';
+
+const ecsConfig = new ECSConfig();
+const inputProvider = new LocalInputProvider(ecsConfig, TestbedInputRegistry);
+const runner = new TestbedRunner(ecsConfig, inputProvider, [], []);
+```
+
+## Key concepts & data flow
+- `ecs.yaml` defines components, inputs, and filters.
+- `@lagless/codegen` generates TypeScript classes into `schema/code-gen`.
+- The package re-exports the generated barrel file.
+
+## Configuration and environment assumptions
+- Generated files are produced by `@lagless/codegen` from `libs/testbed/src/lib/schema/ecs.yaml`.
+- Do not edit generated files directly.
+
+## Pitfalls / common mistakes
+- Editing files under `schema/code-gen` instead of the YAML schema.
+- Forgetting to regenerate after updating the schema.
+
+## Related modules
+- `tools/codegen` for schema generation.
+- `libs/core` for ECS runtime integration.
+- `circle-sumo/circle-sumo-simulation` for a real simulation that uses codegen.
+
+
+=== FILE: tools/codegen/README.md ===
+# `@lagless/codegen`
+
+## What it is
+`@lagless/codegen` generates ECS boilerplate from YAML schemas. It turns component/input definitions into TypeScript classes, registries, and runners so simulations stay consistent and deterministic.
+
+## Why it exists / when to use it
+Use it whenever you add or change ECS components, inputs, or filters. Codegen keeps the memory layout and input schemas aligned across client and server.
+
+## Public API
+- `parseYamlConfig`, `parseFieldType`, `parseInputFieldType`
+- `generateCode`, `generateBarrelFileContent`
+- Nx generator: `@lagless/codegen:ecs`
+
+## Typical usage
+Circle Sumo regenerates its schema with the Nx generator:
+
+```bash
+nx g @lagless/codegen:ecs --configPath circle-sumo/circle-sumo-simulation/src/lib/schema/ecs.yaml
+```
+
+Testbed uses the same generator:
+
+```bash
+nx g @lagless/codegen:ecs --configPath libs/testbed/src/lib/schema/ecs.yaml
+```
+
+## Key concepts & data flow
+- **Schema format**: YAML with `components`, `singletons`, `playerResources`, `inputs`, and `filters` keys.
+- **Field types**: `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `float32`, `float64`, plus fixed arrays like `uint8[16]`.
+- **Pipeline**: YAML -> `parseYamlConfig` -> template engine -> generated TS files.
+- **Output location**: `../code-gen` relative to the schema file (for Circle Sumo: `circle-sumo/circle-sumo-simulation/src/lib/schema/code-gen`).
+
+## Configuration and environment assumptions
+- `projectName` can be set in YAML; if omitted it is derived from the schema path.
+- Templates live in `tools/codegen/files`.
+- Generated files include components, singletons, player resources, filters, inputs, input registry, core, runner, and a barrel `index.ts`.
+- Generated files should not be edited by hand.
+
+## How to add or extend a schema
+1) Edit or create a YAML schema file (see `circle-sumo/circle-sumo-simulation/src/lib/schema/ecs.yaml`).
+2) Run the Nx generator with `--configPath` pointing to the YAML file.
+3) Import the generated exports in your simulation and update any systems or input providers.
+
+## Pitfalls / common mistakes
+- Editing files in `code-gen` directly instead of the YAML schema.
+- Referencing a component in a filter that does not exist in `components`.
+- Using unsupported field types or array syntax.
+
+## Related modules
+- `libs/core` for ECS types consumed by the generator.
+- `libs/binary` for field type sizes and memory tracking.
+- `circle-sumo/circle-sumo-simulation` and `libs/testbed` for real usage.
+
+
+
+[2] ARCHITECTURE MAP FROM SOURCE CODE (HIGH SIGNAL)
+- **Entry points and exports**:
+  - libs/animate/src/index.ts - animation helpers
+  - libs/binary/src/index.ts - binary schemas and helpers
+  - libs/colyseus-rooms/src/index.ts - matchmaking + relay room base classes
+  - libs/core/src/index.ts - ECS config, runner, simulation, input, memory, signals
+  - libs/math/src/index.ts - deterministic math ops and vectors
+  - libs/misc/src/index.ts - simulation clock, snapshot history, UUID, interpolation
+  - libs/net-wire/src/index.ts - wire protocol structs + timing helpers
+  - libs/pixi-react/src/index.ts - Pixi + React helpers
+  - libs/react/src/index.ts - auth/API client and React Query providers
+  - libs/relay-input-provider/src/index.ts - client matchmaking + relay input provider
+  - libs/testbed/src/index.ts - re-exports generated ECS schema for testbed
+  - libs/api/schemas/src/index.ts - TypeORM entities
+  - libs/api/player/src/index.ts - player auth/services
+  - libs/api/game/src/index.ts - game/matchmaking services
+  - tools/codegen/src/index.ts - parser + generator exports
+  - tools/codegen/src/nx-generator.ts - Nx generator entry
+  - tools/codegen/src/cli.ts - CLI entrypoint
+  - circle-sumo/circle-sumo-simulation/src/index.ts - generated ECS + systems + signals
+  - circle-sumo/circle-sumo-game/src/main.tsx - frontend entry
+  - circle-sumo/circle-sumo-backend/src/main.ts - backend entry
+- **Simulation loop and tick flow**:
+  - ECSSimulation.update uses SimulationClock to compute target ticks, performs rollback when the input provider requests it, advances systems, stores snapshots, and computes interpolation.
+  - ECSRunner wires ECSConfig, input provider, memory managers, systems, and signals into a DI container.
+  - Circle Sumo drives runner.update on each Pixi frame via useTick.
+- **Input pipeline**:
+  - AbstractInputProvider.drainInputs collects inputs each frame, creates RPCs with tick/seq/ordinal/playerSlot, and records them in RPCHistory.
+  - RelayInputProvider serializes RPCs into TickInput messages (net-wire), sends them to the relay, and deserializes TickInputFanout messages into RPCs for rollback.
+  - RelayColyseusRoom validates and queues incoming TickInput, cancels late inputs, and broadcasts fanout buffers; it also keeps TickInputBuffer for late joiners.
+- **Determinism and timing**:
+  - ECSConfig defines fixed fps, frameLength, rollback window, snapshot cadence, and input delay bounds.
+  - MathOps wraps deterministic math (requires MathOps.init); Circle Sumo calls it in AssetsLoader.
+  - PRNG is seeded via server hello (seed0/seed1) and uses deterministic xoshiro state in ECS memory.
+  - SimulationClock + PhaseNudger apply drift correction based on clock sync.
+- **State representation and serialization**:
+  - Mem owns a single ArrayBuffer for all ECS state and can export/apply snapshots (full memory copy).
+  - SnapshotHistory stores snapshots by tick and supports rollback truncation.
+  - RPCHistory can export/import a binary input history for replay files.
+  - InputBinarySchema packs/unpacks input payloads into fixed-size binary buffers.
+- **Signals/events**:
+  - SignalsRegistry calls Signal lifecycle hooks each tick and before rollback.
+  - Circle Sumo signals (GameOver, PlayerFinishedGame, HighImpact) are consumed by the frontend for UI and analytics.
+- **Networking and relay**:
+  - net-wire defines the binary protocol on RELAY_BYTES_CHANNEL (99).
+  - RelayInputProvider handles Ping/Pong clock sync and adaptive input delay.
+  - RelayColyseusRoom is input-only; it never runs ECS simulation.
+- **Circle Sumo wiring**:
+  - use-start-match.ts uses Matchmaking + RelayInputProvider.connect and stores the provider for the game view.
+  - RunnerProvider builds CircleSumoRunner with CircleSumoSystems and CircleSumoSignals and hooks PlayerFinishedGameSignal to send to the server.
+  - DirectionArrowView drains local pointer inputs and emits LookAt/Move RPCs.
+- **UNKNOWN**:
+  - No existing majority-vote late-join snapshot flow; only TickInputBuffer-based input replay is present (see libs/colyseus-rooms/src/lib/relay-colyseus-room.ts and libs/relay-input-provider/src/lib/relay-input-provider.ts).
+
+Selected code excerpts:
+
+PATH: libs/core/src/lib/ecs-simulation.ts
+```ts
+export class ECSSimulation {
+  ...
+  public update(dt: number) {
+    this.clock.update(dt);
+
+    const targetTick = Math.floor(this.clock.accumulatedTime / this._frameLength);
+
+    this.checkAndRollback(this.mem.tickManager.tick);
+    this.simulationTicks(this.mem.tickManager.tick, targetTick);
+
+    this._inputProvider.update();
+
+    const simTick = this.mem.tickManager.tick;
+    const tickTime = simTick * this._frameLength;
+    const leftover = this.clock.accumulatedTime - tickTime;
+
+    this._interpolationFactor = MathOps.clamp01(leftover / this._frameLength);
+  }
+
+  private checkAndRollback(currentTick: number) {
+    const rollbackTick = this._inputProvider.getInvalidateRollbackTick();
+
+    if (rollbackTick === undefined || rollbackTick > currentTick) return;
+
+    this.rollback(rollbackTick);
+  }
+
+  private simulationTicks(currentTick: number, toTick: number): void {
+    if (toTick - currentTick > 1) {
+      console.warn(`Simulation ticks: ${currentTick} -> ${toTick} (simulate ${toTick - currentTick})`);
+    }
+
+    while (currentTick < toTick) {
+      this.mem.tickManager.setTick(++currentTick);
+      this.simulate(currentTick);
+      this._signalsRegistry.onTick(currentTick);
+      this.storeSnapshotIfNeeded(currentTick);
+      for (const handler of this._onTickHandlers) handler(currentTick);
+    }
+  }
+
+  ...
+  private storeSnapshotIfNeeded(tick: number): void {
+    if (this._snapshotRate === 0) return;
+
+    if (tick % this._snapshotRate === 0) {
+      this.saveSnapshot(tick);
+    }
+
+    if (tick % 200 === 0) {
+      console.log(`Mem Hash at tick ${tick}: ${this.mem.getHash()}`);
+    }
+  }
+}
+```
+
+PATH: libs/core/src/lib/input/abstract-input-provider.ts
+```ts
+export abstract class AbstractInputProvider {
+  private _nextSeq = 1;
+  private _nextOrdinal = 1;
+  private readonly _inputDrainers: Set<InputDrainerFn> = new Set();
+  protected _frameRPCBuffer: Array<RPC> = [];
+  protected _frameLength: number;
+
+  protected _disposed = false;
+  protected _currentInputDelay: number;
+  protected _simulation!: ECSSimulation;
+  protected readonly _rpcHistory = new RPCHistory();
+
+  public abstract playerSlot: number;
+
+  public abstract getInvalidateRollbackTick(): void | number;
+
+  constructor(
+    public readonly ecsConfig: ECSConfig,
+    protected readonly _inputRegistry: InputRegistry,
+  ) {
+    this._frameLength = this.ecsConfig.frameLength;
+    this._currentInputDelay = this.ecsConfig.initialInputDelayTick;
+  }
+
+  public getUpdateOrdinal(): number {
+    return this._nextOrdinal++;
+  }
+
+  public update(): void {
+    this._frameRPCBuffer.length = 0;
+    this._inputDrainers.forEach((drainFn) => drainFn(this.addRpc));
+
+    if (this._frameRPCBuffer.length > 0) this._nextSeq++; // Only increment seq if we have inputs this frame
+  }
+
+  public init(simulation: ECSSimulation): void {
+    this._simulation = simulation;
+  }
+
+  private addRpc = <TInputCtor extends IAbstractInputConstructor>(
+    InputCtor: TInputCtor,
+    data: InputData<InstanceType<TInputCtor>>,
+  ): void => {
+    const newRPCMeta: InputMeta = {
+      tick: this._simulation.tick + this._currentInputDelay,
+      seq: this._nextSeq,
+      ordinal: this.getUpdateOrdinal(),
+      playerSlot: this.playerSlot,
+    };
+    const rpc = new RPC(InputCtor.id, newRPCMeta, data);
+    this._frameRPCBuffer.push(rpc);
+    this._rpcHistory.addRPC(rpc);
+    console.log(`Added RPC for tick ${newRPCMeta.tick} (${this._currentInputDelay}), seq ${newRPCMeta.seq} slot ${newRPCMeta.playerSlot}, inputId ${InputCtor.id}`);
+  };
+
+  public drainInputs(fn: InputDrainerFn): () => void {
+    this._inputDrainers.add(fn);
+
+    return () => {
+      this._inputDrainers.delete(fn);
+    };
+  }
+
+  ...
+}
+```
+
+PATH: libs/binary/src/lib/binary.ts
+```ts
+export class InputBinarySchema {
+  public static packBatch(
+    registry: { get(id: number): { id: number; fields: ReadonlyArray<InputFieldDefinition>; byteLength: number } },
+    data: ReadonlyArray<{ inputId: number; ordinal: number; values: { [key: string]: number | ArrayLike<number> } }>
+  ): ArrayBuffer {
+    const totalByteLength = data.reduce((acc, { inputId }) => {
+      const struct = registry.get(inputId);
+      return (
+        acc +
+        fieldTypeSizeBytes[FieldType.Uint8] + // input id
+        fieldTypeSizeBytes[FieldType.Uint32] + // ordinal
+        struct.byteLength // size of payload for this struct
+      );
+    }, 0);
+
+    const buffer = new ArrayBuffer(totalByteLength);
+    const dataView = new DataView(buffer);
+    let offset = 0;
+
+    for (const { inputId, ordinal, values } of data) {
+      const struct = registry.get(inputId);
+
+      // write input id
+      binaryWrite(dataView, offset, FieldType.Uint8, struct.id);
+      offset += fieldTypeSizeBytes[FieldType.Uint8];
+
+      // write ordinal
+      binaryWrite(dataView, offset, FieldType.Uint32, ordinal);
+      offset += fieldTypeSizeBytes[FieldType.Uint32];
+
+      // write struct fields
+      for (const field of struct.fields) {
+        if (field.isArray) {
+          const rawValue = values[field.name] as ArrayLike<number>;
+          if (!rawValue || rawValue.length === undefined) throw new Error(`Expected array for field ${field.name}`);
+
+          const arrayLength = rawValue.length;
+          const expectedLength = field.arrayLength;
+
+          if (expectedLength === undefined) {
+            throw new Error(`Cannot pack variable-length array without declared arrayLength for field ${field.name}`);
+          }
+          if (arrayLength > expectedLength) {
+            throw new Error(
+              `Array length for field ${field.name} exceeds expected length (${arrayLength} > ${expectedLength})`
+            );
+          }
+
+          // Ensure we have room for the *declared* payload (writer may underfill; zero-init covers the rest)
+          ensureCapacity(dataView, offset, field.byteLength, `InputBinarySchema.packBatch field ${field.name}`);
+
+          // Write provided elements
+          for (let j = 0; j < arrayLength; j++) {
+            const rawElement = rawValue[j];
+            if (rawElement === undefined || rawElement === null || !Number.isFinite(rawElement) || isNaN(rawElement))
+              throw new Error(`Unexpected value "${rawElement}" at index ${j} for field ${field.name}`);
+            const element = throwIfOutOfBounds(`${field.name}[${j}]`, field.type, rawElement);
+            binaryWrite(dataView, offset, field.type, element);
+            offset += fieldTypeSizeBytes[field.type];
+          }
+
+          // Skip remaining bytes for padding (buffer is zero-initialized)
+          const elementSize = fieldTypeSizeBytes[field.type];
+          const padCount = expectedLength - arrayLength;
+          offset += padCount * elementSize;
+        } else {
+          const rawValue = values[field.name];
+          if (typeof rawValue !== 'number') throw new Error(`Expected number for field ${field.name}`);
+          if (!Number.isFinite(rawValue) || isNaN(rawValue))
+            throw new Error(`Unexpected value "${rawValue}" for field ${field.name}`);
+          const element = throwIfOutOfBounds(field.name, field.type, rawValue);
+          ensureCapacity(
+            dataView,
+            offset,
+            fieldTypeSizeBytes[field.type],
+            `InputBinarySchema.packBatch field ${field.name}`
+          );
+          binaryWrite(dataView, offset, field.type, element);
+          offset += fieldTypeSizeBytes[field.type];
+        }
+      }
+    }
+
+    return buffer;
+  }
+
+  public static unpackBatch(
+    registry: { get(id: number): { id: number; fields: ReadonlyArray<InputFieldDefinition>; byteLength: number } },
+    buffer: ArrayBuffer,
+  ): Array<{ inputId: number; ordinal: number; values: { [key: string]: number | TypedArray } }> {
+    const dataView = new DataView(buffer);
+    const results: Array<{ inputId: number; ordinal: number; values: { [key: string]: number | TypedArray } }> = [];
+
+    let offset = 0;
+    const idSize = fieldTypeSizeBytes[FieldType.Uint8];
+
+    while (offset < buffer.byteLength) {
+      ...
+    }
+
+    return results;
+  }
+}
+```
+
+PATH: libs/net-wire/src/lib/protocol.ts
+```ts
+export const RELAY_BYTES_CHANNEL = 99;
+
+export const enum WireVersion {
+  V1 = 1,
+}
+
+export const enum MsgType {
+  ServerHello,
+  TickInput,
+  TickInputFanout,
+  PlayerFinishedGame,
+  CancelInput,
+  Ping,
+  Pong,
+}
+
+export const HeaderStruct = new BinarySchema({
+  version: FieldType.Uint8,
+  type: FieldType.Uint8,
+});
+
+export const ServerHelloStruct = new BinarySchema({
+  seed0: FieldType.Float64,
+  seed1: FieldType.Float64,
+  playerSlot: FieldType.Uint8,
+});
+
+export enum TickInputKind {
+  Client,
+  Server,
+}
+
+export const TickInputStruct = new BinarySchema({
+  tick: FieldType.Uint32,
+  playerSlot: FieldType.Uint8,
+  kind: FieldType.Uint8,
+  seq: FieldType.Uint32,
+});
+
+export const TickInputFanoutStruct = new BinarySchema({
+  serverTick: FieldType.Uint32,
+});
+
+export const CancelInputStruct = new BinarySchema({
+  tick: FieldType.Uint32,
+  playerSlot: FieldType.Uint8,
+  seq: FieldType.Uint32,
+});
+```
+
+PATH: libs/relay-input-provider/src/lib/relay-input-provider.ts
+```ts
+  private handleTickInputFanout(pipeline: BinarySchemaUnpackPipeline): void {
+    pipeline.unpack(TickInputFanoutStruct);
+    const inputsBuffer = pipeline.sliceRemaining();
+
+    if (inputsBuffer.byteLength === 0) return;
+
+    const unpackedBuffers = unpackBatchBuffers(inputsBuffer);
+    const receivedRpcs: RPC[] = [];
+    let minReceivedTick = Number.MAX_SAFE_INTEGER;
+
+    for (const buf of unpackedBuffers) {
+      const bufPipeline = new BinarySchemaUnpackPipeline(buf);
+      const tickInput = bufPipeline.unpack(TickInputStruct);
+
+      // Skip own client inputs (we already have them in local history)
+      if (tickInput.playerSlot === this.playerSlot && tickInput.kind === TickInputKind.Client) {
+        continue;
+      }
+
+      // Track minimum tick for rollback calculation
+      if (tickInput.tick < minReceivedTick) {
+        minReceivedTick = tickInput.tick;
+      }
+
+      // Unpack input payload
+      const payloadBuffer = bufPipeline.sliceRemaining();
+      const rawInputs = InputBinarySchema.unpackBatch(this._inputRegistry, payloadBuffer);
+
+      for (const rawInput of rawInputs) {
+        const rpc = new RPC(
+          rawInput.inputId,
+          {
+            tick: tickInput.tick,
+            playerSlot: tickInput.playerSlot,
+            seq: tickInput.seq,
+            ordinal: rawInput.ordinal,
+          },
+          rawInput.values
+        );
+        receivedRpcs.push(rpc);
+      }
+    }
+
+    // Add to history and trigger rollback if needed
+    if (receivedRpcs.length > 0) {
+      this._rpcHistory.addBatch(receivedRpcs);
+
+      if (minReceivedTick < Number.MAX_SAFE_INTEGER) {
+        this.requestRollback(minReceivedTick);
+      }
+    }
+  }
+
+  ...
+
+  private sendFrameInputs(): void {
+    if (this._frameRPCBuffer.length === 0) return;
+
+    const firstRpc = this._frameRPCBuffer[0];
+
+    // Pack all inputs from this frame
+    const packedInputs = InputBinarySchema.packBatch(
+      this._inputRegistry,
+      this._frameRPCBuffer.map(rpc => ({
+        inputId: rpc.inputId,
+        ordinal: rpc.meta.ordinal,
+        values: rpc.data,
+      }))
+    );
+
+    const pipeline = new BinarySchemaPackPipeline();
+    pipeline.pack(HeaderStruct, { version: WireVersion.V1, type: MsgType.TickInput });
+    pipeline.pack(TickInputStruct, {
+      tick: firstRpc.meta.tick,
+      playerSlot: this.playerSlot,
+      kind: TickInputKind.Client,
+      seq: firstRpc.meta.seq,
+    });
+    pipeline.appendBuffer(packedInputs);
+
+    this._room.send(RELAY_BYTES_CHANNEL, pipeline.toUint8Array());
+  }
+```
+
+PATH: libs/colyseus-rooms/src/lib/relay-colyseus-room.ts
+```ts
+  public override onJoin(client: Client): void {
+    const playerSlot = this._nextPlayerSlot++;
+    const currentTick = this.serverTick;
+
+    // Send server hello
+    this.sendServerHello(client, playerSlot);
+
+    // Register player
+    const playerInfo: PlayerInfo = {
+      playerSlot,
+      playerId: client.auth?.playerId,
+      displayName: client.auth?.displayName,
+      connectedAt: Date.now(),
+      isConnected: true,
+      joinedAtTick: currentTick,
+    };
+
+    this._sessionIdToPlayerSlot.set(client.sessionId, playerSlot);
+    this._players.set(client.sessionId, playerInfo);
+    this._playerSlotToClient.set(playerSlot, client);
+
+    // Send buffered inputs to late joiner
+    this.sendBufferedInputsToClient(client, playerInfo);
+
+    // Notify subclass
+    this.onPlayerJoined(this._gameId, playerInfo).catch(err => {
+      console.error(`[RelayRoom] onPlayerJoined error:`, err);
+    });
+
+    console.log(`[RelayRoom] Player ${playerSlot} joined at tick ${currentTick}`);
+  }
+
+  ...
+
+  private handleTickInput(
+    client: Client,
+    pipeline: BinarySchemaUnpackPipeline,
+    fullBuffer: ArrayBuffer
+  ): void {
+    const tickInput = pipeline.unpack(TickInputStruct);
+    const currentTick = this.serverTick;
+
+    // Validate sender
+    if (!this.validateTickInput(client, tickInput)) {
+      console.warn(`[RelayRoom] Invalid tick input from ${client.sessionId}`);
+      return;
+    }
+
+    // Check if input arrived too late
+    if (tickInput.tick <= currentTick) {
+      this.sendCancelInput(client, tickInput);
+      console.warn(
+        `[RelayRoom] Late input cancelled: tick ${tickInput.tick} <= server ${currentTick}`
+      );
+      return;
+    }
+
+    // Extract raw input buffer (includes TickInputStruct + payload)
+    const inputBuffer = new Uint8Array(fullBuffer.slice(HeaderStruct.byteLength));
+
+    // Store for late joiners
+    this._inputBuffer.add(tickInput.tick, inputBuffer);
+
+    // Queue for broadcast
+    this._pendingBroadcastBuffer.push(inputBuffer);
+
+    const rawInputsBuffer = pipeline.sliceRemaining();
+    const rawRPCs = InputBinarySchema.unpackBatch(
+      this._InputRegistry,
+      rawInputsBuffer,
+    );
+    const rpcs = rawRPCs.map((raw) => {
+      return new RPC(
+        raw.inputId,
+        { tick: tickInput.tick, playerSlot: tickInput.playerSlot, seq: tickInput.seq, ordinal: raw.ordinal },
+        raw.values,
+      );
+    });
+
+    this._RPCHistory.addBatch(rpcs);
+  }
+
+  ...
+
+  private sendBufferedInputsToClient(client: Client, playerInfo: PlayerInfo): void {
+    const minTick = this.getMinBufferedTickForLateJoiner(playerInfo);
+    const bufferedInputs = this._inputBuffer.getFlattenedFromTick(minTick);
+
+    if (bufferedInputs.length === 0) return;
+
+    const pipeline = new BinarySchemaPackPipeline();
+    pipeline.pack(HeaderStruct, { version: WireVersion.V1, type: MsgType.TickInputFanout });
+    pipeline.pack(TickInputFanoutStruct, { serverTick: this.serverTick });
+    pipeline.appendBuffer(packBatchBuffers(bufferedInputs));
+
+    client.send(RELAY_BYTES_CHANNEL, pipeline.toUint8Array());
+
+    console.log(
+      `[RelayRoom] Sent ${bufferedInputs.length} buffered inputs to late joiner (slot ${playerInfo.playerSlot})`
+    );
+  }
+```
+
+PATH: circle-sumo/circle-sumo-game/src/app/game-view/runner-provider.tsx
+```tsx
+  useEffect(() => {
+    let disposed = false;
+    let _runner: CircleSumoRunner;
+    const inputProvider = ProviderStore.getInvalidate();
+
+    if (!inputProvider) {
+      navigate('/');
+      return;
+    }
+
+    (async () => {
+      if (disposed) {
+        inputProvider.dispose();
+        return;
+      }
+
+      _runner = new CircleSumoRunner(inputProvider.ecsConfig, inputProvider, CircleSumoSystems, CircleSumoSignals);
+
+      _runner.start();
+
+      const _PlayerFinishedGameSignal = _runner.DIContainer.resolve(PlayerFinishedGameSignal);
+      _PlayerFinishedGameSignal.Predicted.subscribe(({ data }) => {
+        if (inputProvider instanceof RelayInputProvider) {
+          inputProvider.sendPlayerFinishedGame(data);
+        }
+      });
+
+      const _GameOverSignal = _runner.DIContainer.resolve(GameOverSignal);
+      _GameOverSignal.Cancelled.subscribe((e) => console.log(`Cancelled Game Over at tick ${e.tick}`));
+      _GameOverSignal.Verified.subscribe((e) => console.log(`Verified Game Over at tick ${e.tick}`));
+      _GameOverSignal.Predicted.subscribe((e) => console.log(`Predicted Game Over at tick ${e.tick}`));
+      _GameOverSignal.Verified.subscribe((data) => {
+        console.log(`Game over signal received at tick ${data.tick}`);
+        inputProvider.dispose();
+      });
+
+      setRunner(_runner);
+    })();
+
+    return () => {
+      disposed = true;
+      _runner?.dispose();
+    };
+  }, [v, navigate]);
+
+  ...
+
+export const RunnerTicker: FC<{ children: ReactNode }> = ({ children }) => {
+  const runner = useRunner();
+  useTick((ticker) => {
+    runner.update(ticker.deltaMS);
+  });
+
+  return children;
+};
+```
+
+PATH: circle-sumo/circle-sumo-game/src/app/game-view/components/direction-arrow-view.tsx
+```tsx
+  useEffect(() => {
+    const state = stateRef.current;
+
+    const unsubscribe = runner.InputProviderInstance.drainInputs((addRPC) => {
+      // state.lookAtDirection is angle in sim-space,
+      // keep the original sign convention with minus if your sim expects it.
+      if (state.prevLookAtDirection !== state.lookAtDirection) {
+        addRPC(LookAt, { direction: toFloat32(-state.lookAtDirection) });
+        state.prevLookAtDirection = state.lookAtDirection;
+      }
+
+      if (state.pendingMoveInput) {
+        addRPC(Move, {
+          direction: toFloat32(-state.pendingMoveInput.direction),
+          speed: toFloat32(state.pendingMoveInput.power),
+        });
+        state.pendingMoveInput = null;
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [runner.InputProviderInstance]);
+```
+
+PATH: circle-sumo/circle-sumo-simulation/src/lib/schema/code-gen/CircleSumo.core.ts
+```ts
+// Generated by @lagless/codegen. Do not edit manually.
+import { ECSDeps } from '@lagless/core';
+
+import { Skin } from './Skin.js';
+import { Transform2d } from './Transform2d.js';
+import { Velocity2d } from './Velocity2d.js';
+import { CircleBody } from './CircleBody.js';
+import { PendingImpulse } from './PendingImpulse.js';
+import { LastHit } from './LastHit.js';
+import { LastAssist } from './LastAssist.js';
+import { Bot } from './Bot.js';
+import { GameState } from './GameState.js';
+import { PlayerResource } from './PlayerResource.js';
+import { Transform2dFilter } from './Transform2dFilter.js';
+import { PendingImpulseFilter } from './PendingImpulseFilter.js';
+import { Velocity2dFilter } from './Velocity2dFilter.js';
+import { DampingFilter } from './DampingFilter.js';
+import { SumoCharacterFilter } from './SumoCharacterFilter.js';
+import { BotFilter } from './BotFilter.js';
+import { PlayerJoined } from './PlayerJoined.js';
+import { PlayerLeft } from './PlayerLeft.js';
+import { Move } from './Move.js';
+import { LookAt } from './LookAt.js';
+
+export const CircleSumoCore: ECSDeps = {
+  components: [Skin, Transform2d, Velocity2d, CircleBody, PendingImpulse, LastHit, LastAssist, Bot],
+  singletons: [GameState],
+  playerResources: [PlayerResource],
+  filters: [Transform2dFilter, PendingImpulseFilter, Velocity2dFilter, DampingFilter, SumoCharacterFilter, BotFilter],
+  inputs: [PlayerJoined, PlayerLeft, Move, LookAt],
+};
+```
+
+[3] CODEGEN (tools/codegen) — MUST BE VERY DETAILED
+- **Schema locations**:
+  - circle-sumo/circle-sumo-simulation/src/lib/schema/ecs.yaml
+  - libs/testbed/src/lib/schema/ecs.yaml
+- **Schema format**:
+  - YAML keys: projectName, components, singletons, playerResources, inputs, filters.
+  - Field types map to @lagless/binary FieldType sizes and must be fixed-size (arrays require explicit length).
+  - Inputs are defined in YAML and become generated classes plus an InputRegistry used by net and replay code.
+- **Output directories and naming**:
+  - Output folder is ../code-gen relative to the YAML file.
+  - Generated files include:
+    - Component classes: <ComponentName>.ts
+    - Singleton classes: <SingletonName>.ts
+    - Player resources: <PlayerResourceName>.ts
+    - Filters: <FilterName>.ts
+    - Inputs: <InputName>.ts
+    - Input registry: <ProjectName>InputRegistry.ts
+    - ECS core deps: <ProjectName>.core.ts
+    - Runner class: <ProjectName>.runner.ts
+    - Barrel export: index.ts
+  - Templates live in tools/codegen/files/* and are rendered with EJS.
+- **How to run codegen (repo commands)**:
+  - Circle Sumo:
+    - nx g @lagless/codegen:ecs --configPath circle-sumo/circle-sumo-simulation/src/lib/schema/ecs.yaml
+  - Testbed:
+    - nx g @lagless/codegen:ecs --configPath libs/testbed/src/lib/schema/ecs.yaml
+  - CLI entry exists at tools/codegen/src/cli.ts (requires a build or ts-node; verify locally before using).
+- **What should NEVER be edited by hand**:
+  - Any file under */schema/code-gen/* (generated output).
+  - If you need changes, edit the YAML schema or codegen templates and regenerate.
+- **How downstream modules use generated code**:
+  - circle-sumo/circle-sumo-simulation/src/index.ts re-exports code-gen outputs.
+  - circle-sumo/circle-sumo-game and circle-sumo/circle-sumo-backend import CircleSumoInputRegistry and CircleSumoRunner from the generated folder.
+  - libs/testbed re-exports its generated index for experiments.
+- **Multiplayer impact (what is generated vs hand-written)**:
+  - Input schemas (PlayerJoined/Move/LookAt/etc) are generated from YAML; they must stay in sync across client/server.
+  - Network protocol structs (net-wire) are hand-written and must be updated manually for new multiplayer messages.
+  - If Multiplayer V2 needs new ECS inputs (e.g., PlayerReady, SyncReady), add them to the YAML and regenerate.
+
+Schema excerpt (Circle Sumo ECS YAML):
+
+PATH: circle-sumo/circle-sumo-simulation/src/lib/schema/ecs.yaml
+```yaml
+# nx g @lagless/codegen:ecs --configPath circle-sumo/circle-sumo-simulation/src/lib/schema/ecs.yaml
+projectName: CircleSumo
+components:
+  Skin:
+    skinId: uint16
+  Transform2d:
+    positionX: float32
+    positionY: float32
+    rotation: float32
+    prevPositionX: float32
+    prevPositionY: float32
+    prevRotation: float32
+  Velocity2d:
+    velocityX: float32
+    velocityY: float32
+    angularVelocity: float32
+  CircleBody:
+    playerSlot: uint8
+    radius: float32
+    mass: float32
+    restitution: float32
+    linearDamping: float32
+    angularDamping: float32
+  PendingImpulse:
+    impulseX: float32
+    impulseY: float32
+  LastHit:
+    hasAttacker: uint8
+    attackerEntity: uint32
+    atTick: uint32
+    impulse: float32
+  LastAssist:
+    hasAssister: uint8
+    assisterEntity: uint32
+    atTick: uint32
+  Bot:
+    lastPanicTick: uint32
+    nextDecisionTick: uint32
+    aggressiveness: float32
+singletons:
+  GameState:
+    playerFinishedCount: uint8
+    startedAtTick: uint32
+    finishedAtTick: uint32
+playerResources:
+  PlayerResource:
+    id: uint8[16]
+    mmr: uint32
+    entity: uint32
+    connected: uint8
+    initialRotation: float32
+    finishedAtTick: uint32
+    positionInTop: uint8
+    kills: uint16
+    assists: uint16
+    mmrChange: int32
+    wasInDangerZoneTimes: uint16
+    isInDangerZone: uint8
+inputs:
+  PlayerJoined:
+    playerId: uint8[16]
+    skinId: uint16
+    mmr: uint32
+  PlayerLeft:
+    reason: uint8
+  Move:
+    direction: float32
+    speed: float32
+  LookAt:
+    direction: float32
+filters:
+  Transform2dFilter:
+    include:
+      - Transform2d
+  PendingImpulseFilter:
+    include:
+      - PendingImpulse
+      - Velocity2d
+  Velocity2dFilter:
+    include:
+      - Velocity2d
+      - Transform2d
+  DampingFilter:
+    include:
+      - Velocity2d
+      - CircleBody
+  SumoCharacterFilter:
+    include:
+      - Transform2d
+      - Velocity2d
+      - CircleBody
+  BotFilter:
+    include:
+      - Bot
+      - Transform2d
+      - CircleBody
+```
+
+Codegen pipeline excerpt:
+
+PATH: tools/codegen/src/nx-generator.ts
+```ts
+  const { schema, projectName } = parseYamlConfig(configContent, configPath);
+
+  // Generate output directory from config path (../code-gen)
+  const outputDir = joinPathFragments(configPath, '../code-gen');
+  const templateDir = joinPathFragments(DIRNAME, '..', 'files');
+
+  // Create file operations adapter for NX Tree
+  const fileOperations: FileOperations = {
+    writeFile: (path: string, content: string) => tree.write(path, content),
+    // Only writeFile uses tree, other methods use fs
+    readFile: (path: string) => fs.readFileSync(path, 'utf-8'),
+    joinPath: (...segments: string[]) => joinPathFragments(...segments),
+    exists: (path: string) => {
+      try {
+        fs.accessSync(path, fs.constants.F_OK);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    readDir: (path: string) => {
+      try {
+        return fs.readdirSync(path);
+      } catch {
+        return [];
+      }
+    },
+    isDirectory: (path: string) => {
+      try {
+        return fs.statSync(path).isDirectory();
+      } catch {
+        return false;
+      }
+    },
+  };
+
+  if (!tree.exists(outputDir)) {
+    tree.write(joinPathFragments(outputDir, '.gitkeep'), '');
+  }
+
+  // Generate code using the unified template engine
+  await generateCode({
+    schema,
+    projectName,
+    outputDir,
+    templateDir,
+    fileOperations,
+  });
+```
+
+[4] MULTIPLAYER V2 DESIGN (SPEC + API)
+A) Concepts & Goals
+- Input-sync lockstep: gameplay traffic is input-only; the only non-input payloads are late-join snapshots.
+- Server is coordinator only: matchmaking, slot assignment, input relay, and late-join snapshot arbitration (no ECS simulation).
+- Latency strategy: delay-based local input (ECSConfig.initialInputDelayTick) plus rollback on late authoritative inputs, matching the existing RelayInputProvider/ECSSimulation model.
+- Fairness and stability: fixed tick cadence, ordered RPCs (tick + playerSlot + ordinal), late input cancellation on the server, and optional state hash checks for desync detection.
+
+B) Roles & Components
+- Client runtime
+  - MultiplayerClient (new wrapper) manages matchmaking/session lifecycle, exposes connection state, and owns a MultiplayerInputProvider (AbstractInputProvider implementation).
+  - MultiplayerInputProvider handles binary protocol, ping/pong timing, adaptive input delay, rollback requests, and snapshot request/response.
+  - Optional spectator mode: read-only client that receives snapshot + input fanout but never sends TickInput.
+- Server relay/matchmaking
+  - Matchmaking room (Colyseus) supports quick match, create room, join by code, and filters.
+  - Relay room (Colyseus) relays TickInput messages, maintains TickInputBuffer, and executes late-join snapshot vote aggregation.
+
+C) Data Model
+- InputFrame (wire-level unit of simulation)
+  - tick: number (simulation tick index)
+  - playerSlot: number
+  - seq: number (monotonic per-client sequence)
+  - ordinal: number (order within a tick)
+  - kind: 'client' | 'server'
+  - payload: Uint8Array (InputBinarySchema pack of one or more inputs)
+- Server room state (no simulation state stored)
+  - gameId, frameLength, maxPlayers, roomStartTime
+  - players: sessionId -> { playerSlot, isConnected, joinedAtTick, lastPingMs, version, flags }
+  - inputBuffer: TickInputBuffer (recent inputs for late joiners)
+  - rpcHistory: RPCHistory (optional for replay persistence)
+  - snapshotVotes: Map<requestId, Map<hash, { tick, count, senders[] }>>
+- Late-join snapshot model (client-provided)
+  - SnapshotCandidate:
+    - requestId: string
+    - tick: number (snapshot tick)
+    - hash32: number (hash of snapshot bytes or Mem.getHash)
+    - sizeBytes: number
+    - senderSlot: number
+    - bytes: Uint8Array (full Mem snapshot or compressed chunk)
+  - LateJoinBundle:
+    - snapshotTick: number
+    - snapshotHash: number
+    - snapshotBytes: Uint8Array
+    - serverTick: number
+    - inputsFromTick: Uint8Array[] (TickInput buffers from snapshotTick+1..serverTick)
+
+D) Protocol
+- Client -> server (binary on RELAY_BYTES_CHANNEL)
+  - TickInput (existing)
+  - Ping (existing)
+  - PlayerFinishedGame (existing)
+  - SnapshotResponse (new): requestId, snapshotTick, hash32, chunkIndex/chunkCount, snapshotBytes
+  - ClientReady (new, optional): client version, schema hash, requested role (player/spectator)
+- Server -> client (binary on RELAY_BYTES_CHANNEL)
+  - ServerHelloV2 (new): seed0/seed1, playerSlot, serverTick, roomConfig, wireVersion
+  - TickInputFanout (existing)
+  - CancelInput (existing)
+  - Pong (existing)
+  - SnapshotRequest (new): requestId, targetTick or targetWindow, maxBytes, preferredChunkSize
+  - LateJoinBundle (new): snapshotTick, snapshotHash, snapshotBytes, inputsFromTick
+  - RoomClosing (new): reason, finalTick
+- Heartbeats and disconnects
+  - Ping/Pong already drive ClockSync and InputDelayController.
+  - Server maintains lastPingMs and disconnect timeout; mark player as disconnected, allow rejoin within a grace window (same auth token + slot).
+- Backpressure and rate limiting
+  - Server drops TickInput that exceed rate limits (per-client max inputs per tick) and logs warnings.
+  - SnapshotResponse is chunked and capped by maxBytes per message; late join request rejects overly large snapshots.
+- Idempotency and ordering
+  - TickInput ordering uses tick + playerSlot + ordinal (RPCHistory sorts by slot+ordinal).
+  - SnapshotRequest/Response use requestId to dedupe and ignore stale chunks.
+  - LateJoinBundle is only applied once per join attempt; subsequent bundles are ignored unless requestId changes.
+
+E) Late-Join via Majority Vote (CORE)
+- Snapshot production (clients)
+  - On SnapshotRequest, each client chooses a snapshot tick that it already has stored (e.g., latest tick % snapshotRate == 0) and within server input buffer retention.
+  - Client serializes state using ECSSimulation.mem.exportSnapshot() and computes hash32 (Mem.getHash or fast hash of snapshot bytes).
+  - Client sends SnapshotResponse with (tick, hash, bytes) in chunks if needed.
+- Majority selection (server)
+  - Server groups SnapshotResponse messages by (snapshotTick, hash32).
+  - Majority threshold: at least floor(connectedPlayers/2) + 1, with a configurable minimum (e.g., minVotes = 2).
+  - Tie-breakers: prefer the candidate with highest tick (more recent), then earliest complete arrival, then lowest hash (deterministic fallback).
+  - If no candidate reaches threshold within timeout, server retries once with a new request or rejects the late join with a clear error.
+- Malicious/buggy client handling (lightweight)
+  - Ignore snapshots with size mismatches, invalid tick window, or hash/byte length inconsistencies.
+  - Track offenders and exclude them from future snapshot requests for this room.
+  - No heavy crypto required; rely on majority and simple validation.
+- Late joiner catch-up
+  - Late joiner receives LateJoinBundle with snapshot at tick T and input buffers from T+1..serverTick.
+  - Client applies snapshot via mem.applySnapshot(), then replays buffered inputs into RPCHistory and advances simulation to serverTick.
+  - After catch-up, client enters normal TickInputFanout flow and begins sending its own inputs at serverTick + inputDelay.
+
+F) Matchmaking (CONFIGURABLE BUT SIMPLE)
+- Minimal modes
+  1) Create room: generates a private code, returns a seat reservation.
+  2) Join by code: validates code and returns a seat reservation.
+  3) Quick match: uses MatchmakingService queue with optional filters.
+- Configuration knobs
+  - maxPlayers, region, ruleset, version, allowLateJoin, private/public, roomCodeLength, roomTTL, preferredInputDelay.
+  - For quick match: reuse MatchmakingConfig (mmr/ping windows, startDelayByHumans, virtualCapacity).
+- End of game flow
+  - Clients emit PlayerFinishedGame (existing) with verifiedTick.
+  - Relay room waits for all connected players to finish or disconnect timeout, then triggers onBeforeDispose and broadcasts RoomClosing.
+  - Persist results in GameService (existing Circle Sumo pattern) and close room.
+
+G) Integration Points with lagless
+- Input capture: use AbstractInputProvider.drainInputs (circle-sumo direction-arrow-view.tsx is the pattern).
+- Input buffer: AbstractInputProvider stores local RPCs in RPCHistory; RelayInputProvider adds remote RPCs to the same history.
+- Applying remote inputs: RelayInputProvider.handleTickInputFanout unpacks InputBinarySchema and adds to RPCHistory, then requests rollback.
+- Tick advancement gating: ECSSimulation.update calls inputProvider.getInvalidateRollbackTick to trigger rollback and resim.
+- Optional checksum verification: use Mem.getHash per N ticks and exchange via a lightweight MsgType.StateHash (new) for desync detection.
+- Circle Sumo adoption steps (high level)
+  - Update use-start-match.ts to use MultiplayerClient (create/join/quick match) and return MultiplayerInputProvider.
+  - Update RunnerProvider to handle late-join bootstrap (apply snapshot + replay inputs before starting ticks).
+  - Update backend relay to use the V2 relay room and enable allowLateJoin.
+
+H) Public API Proposal (TypeScript)
+- Client API
+```ts
+export interface MultiplayerClientConfig {
+  relayUrl: string;
+  authToken: string;
+  ecsConfig: ECSConfig;
+  inputRegistry: InputRegistry;
+  version: string;
+  allowLateJoin?: boolean;
+}
+
+export type MatchRequest =
+  | { mode: 'quick'; filters?: Record<string, string | number> }
+  | { mode: 'create'; maxPlayers: number; roomCodeLength?: number; filters?: Record<string, string | number> }
+  | { mode: 'join'; code: string };
+
+export interface MultiplayerSession {
+  inputProvider: AbstractInputProvider;
+  roomId: string;
+  playerSlot: number;
+}
+
+export interface MultiplayerClient {
+  connect(request: MatchRequest): Promise<MultiplayerSession>;
+  submitLocalInput<TInputCtor extends IAbstractInputConstructor>(ctor: TInputCtor, data: InputData<InstanceType<TInputCtor>>): void;
+  onRemoteInputs(handler: (rpcs: RPC[]) => void): () => void;
+  getConnectionState(): 'idle' | 'connecting' | 'connected' | 'rejoining' | 'closed';
+  leave(reason?: string): Promise<void>;
+  endGame(payload: Omit<InferBinarySchemaValues<typeof PlayerFinishedGameStruct>, 'verifiedTick'>): void;
+}
+
+export function createMultiplayerClient(config: MultiplayerClientConfig): MultiplayerClient;
+```
+- Server API/events (Colyseus)
+  - Matchmaking room messages: create_room, join_room, quick_match, cancel_match
+  - Relay room bytes channel: ServerHelloV2, TickInput, TickInputFanout, CancelInput, Ping/Pong, SnapshotRequest, SnapshotResponse, LateJoinBundle, RoomClosing
+
+I) Testing & Verification Plan
+- Determinism checks
+  - Send periodic state hashes and assert majority match across clients.
+  - Unit test that Mem.exportSnapshot/applySnapshot round-trips with identical hash.
+- Simulated latency/jitter tests
+  - Use mocked ping/pong jitter to ensure InputDelayController stays within bounds.
+  - Simulate late TickInput to confirm rollback triggers and state hash converges.
+- Late-join tests
+  - Start a match, request late join, verify snapshot majority selection and replay to serverTick.
+  - Inject a bad snapshot from one client and confirm majority vote rejects it.
+- End-game lifecycle tests
+  - Verify PlayerFinishedGame triggers room close after verifiedTick + grace.
+  - Verify disconnect handling: one player drops, room waits for timeout or remaining players finish.
+
+[5] IMPLEMENTATION PLAN (STEP-BY-STEP)
+1) Add V2 wire protocol structs and messages
+   - Modify: libs/net-wire/src/lib/protocol.ts (add WireVersion.V2, SnapshotRequest/Response/LateJoinBundle/RoomClosing structs)
+   - Add: libs/net-wire/src/lib/snapshot-buffer.ts (chunking helpers)
+   - Update: libs/net-wire/src/index.ts exports
+2) Implement majority snapshot voting on the server
+   - Add: libs/colyseus-rooms/src/lib/late-join-vote.ts (vote aggregation + timeouts)
+   - Modify: libs/colyseus-rooms/src/lib/relay-colyseus-room.ts (handle SnapshotRequest/Response, build LateJoinBundle, allowLateJoin config)
+   - Add tests: libs/colyseus-rooms/src/lib/late-join-vote.spec.ts
+3) Implement MultiplayerInputProvider V2 on the client
+   - Add: libs/relay-input-provider/src/lib/relay-input-provider-v2.ts (snapshot response + late join apply)
+   - Modify: libs/relay-input-provider/src/index.ts (export V2 provider)
+   - Add tests: libs/relay-input-provider/src/lib/relay-input-provider-v2.spec.ts
+4) Extend matchmaking for room codes and filters
+   - Modify: libs/colyseus-rooms/src/lib/matchmaking.room.ts (create/join code flows)
+   - Modify: libs/relay-input-provider/src/lib/matchmaking.ts (create/join/quick API)
+   - Add: libs/colyseus-rooms/src/lib/room-code.service.ts (code generation + lookup)
+5) Integrate with Circle Sumo (reference implementation)
+   - Modify: circle-sumo/circle-sumo-game/src/app/hooks/use-start-match.ts (new matchmaking modes)
+   - Modify: circle-sumo/circle-sumo-game/src/app/game-view/runner-provider.tsx (late join bootstrap)
+   - Modify: circle-sumo/circle-sumo-backend/src/colyseus/relay.ts (use V2 relay room features)
+6) Update codegen if new ECS inputs are needed
+   - Modify: circle-sumo/circle-sumo-simulation/src/lib/schema/ecs.yaml
+   - Run: nx g @lagless/codegen:ecs --configPath circle-sumo/circle-sumo-simulation/src/lib/schema/ecs.yaml
+7) Update documentation
+   - Update: libs/net-wire/README.md, libs/relay-input-provider/README.md, libs/colyseus-rooms/README.md
+   - Update: circle-sumo/circle-sumo-game/README.md, circle-sumo/circle-sumo-backend/README.md, AGENTS.md if workflows change
+8) Validate
+   - nx lint @lagless/net-wire @lagless/relay-input-provider @lagless/colyseus-rooms @lagless/circle-sumo-game @lagless/circle-sumo-backend
+   - nx test @lagless/net-wire @lagless/relay-input-provider @lagless/colyseus-rooms
+   - nx typecheck @lagless/circle-sumo-game @lagless/circle-sumo-backend

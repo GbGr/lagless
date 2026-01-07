@@ -2,18 +2,24 @@
 
 import {
   CancelInputStruct,
+  ClientReadyStruct,
   HeaderStruct,
+  LateJoinBundleStruct,
   MsgType,
   PingStruct,
+  PlayerFinishedGameStruct,
   PongStruct,
   RELAY_BYTES_CHANNEL,
   ServerHelloStruct,
+  ServerHelloV2Struct,
+  SnapshotRequestStruct,
+  SnapshotResponseStruct,
   TickInputFanoutStruct,
   TickInputKind,
   TickInputStruct,
   WireVersion,
-  PlayerFinishedGameStruct,
   TickInputBuffer,
+  RoomClosingStruct,
 } from '@lagless/net-wire';
 import { Client, Room } from 'colyseus';
 import {
@@ -21,10 +27,13 @@ import {
   BinarySchemaUnpackPipeline,
   InferBinarySchemaValues,
   InputBinarySchema,
+  getFastHash,
   packBatchBuffers,
 } from '@lagless/binary';
 import { now, UUID } from '@lagless/misc';
 import { InputRegistry, pack128BufferTo2x64, RPC, RPCHistory } from '@lagless/core';
+import { LateJoinVote, SnapshotVoteCandidate } from './late-join-vote.js';
+import { SnapshotAssembler } from '@lagless/net-wire';
 
 export interface RelayRoomOptions {
   readonly gameId: string;
@@ -32,6 +41,11 @@ export interface RelayRoomOptions {
   readonly frameLength: number;
   readonly seatReservationTimeSec?: number;
   readonly inputBufferRetentionTicks?: number;
+  readonly allowLateJoin?: boolean;
+  readonly lateJoinMinVotes?: number;
+  readonly lateJoinRequestTimeoutMs?: number;
+  readonly lateJoinMaxSnapshotBytes?: number;
+  readonly lateJoinPreferredChunkSize?: number;
 }
 
 export interface PlayerInfo {
@@ -42,6 +56,10 @@ export interface PlayerInfo {
   isConnected: boolean;
   joinedAtTick: number;
   finishedGameData?: PlayerFinishedData;
+  lastPingMs?: number;
+  clientVersionHash?: number;
+  schemaHash?: number;
+  role?: number;
 }
 
 export interface PlayerFinishedData {
@@ -54,6 +72,31 @@ export interface PlayerFinishedData {
 
 const DEFAULT_SEAT_RESERVATION_SEC = 5;
 const DEFAULT_INPUT_BUFFER_RETENTION_TICKS = 600;
+const DEFAULT_LATE_JOIN_TIMEOUT_MS = 4000;
+const DEFAULT_LATE_JOIN_MIN_VOTES = 2;
+const DEFAULT_LATE_JOIN_MAX_SNAPSHOT_BYTES = 2_000_000;
+const DEFAULT_LATE_JOIN_CHUNK_SIZE = 16_384;
+
+interface LateJoinRequestState {
+  readonly requestId: number;
+  readonly joiner: Client;
+  readonly joinerSlot: number;
+  readonly minTick: number;
+  readonly maxTick: number;
+  readonly maxBytes: number;
+  readonly preferredChunkSize: number;
+  readonly createdAt: number;
+  attempts: number;
+  timeoutId: NodeJS.Timeout | null;
+  vote: LateJoinVote;
+  perSenderState: Map<number, SenderSnapshotState>;
+}
+
+interface SenderSnapshotState {
+  readonly assembler: SnapshotAssembler;
+  readonly snapshotTick: number;
+  readonly hash32: number;
+}
 
 export abstract class RelayColyseusRoom extends Room {
   protected _gameId!: string;
@@ -72,6 +115,15 @@ export abstract class RelayColyseusRoom extends Room {
   private _inputBuffer!: TickInputBuffer;
   private _pendingBroadcastBuffer: Uint8Array[] = [];
   private _seatReservationTimeSec: number = DEFAULT_SEAT_RESERVATION_SEC;
+  private _allowLateJoin = false;
+  private _lateJoinMinVotes = DEFAULT_LATE_JOIN_MIN_VOTES;
+  private _lateJoinTimeoutMs = DEFAULT_LATE_JOIN_TIMEOUT_MS;
+  private _lateJoinMaxSnapshotBytes = DEFAULT_LATE_JOIN_MAX_SNAPSHOT_BYTES;
+  private _lateJoinPreferredChunkSize = DEFAULT_LATE_JOIN_CHUNK_SIZE;
+  private _lateJoinRequestSeq = 1;
+  private readonly _lateJoinRequests: Map<number, LateJoinRequestState> = new Map();
+  private readonly _lateJoinBySession: Map<string, number> = new Map();
+  private readonly _lateJoinSnapshotBlacklist: Set<number> = new Set();
 
   protected abstract _InputRegistry: InputRegistry;
 
@@ -168,6 +220,11 @@ export abstract class RelayColyseusRoom extends Room {
     this._frameLength = options.frameLength;
     this._seatReservationTimeSec = options.seatReservationTimeSec ?? DEFAULT_SEAT_RESERVATION_SEC;
     this._roomStartedAt = now();
+    this._allowLateJoin = options.allowLateJoin ?? false;
+    this._lateJoinMinVotes = options.lateJoinMinVotes ?? DEFAULT_LATE_JOIN_MIN_VOTES;
+    this._lateJoinTimeoutMs = options.lateJoinRequestTimeoutMs ?? DEFAULT_LATE_JOIN_TIMEOUT_MS;
+    this._lateJoinMaxSnapshotBytes = options.lateJoinMaxSnapshotBytes ?? DEFAULT_LATE_JOIN_MAX_SNAPSHOT_BYTES;
+    this._lateJoinPreferredChunkSize = options.lateJoinPreferredChunkSize ?? DEFAULT_LATE_JOIN_CHUNK_SIZE;
 
     this._inputBuffer = new TickInputBuffer(
       options.inputBufferRetentionTicks ?? DEFAULT_INPUT_BUFFER_RETENTION_TICKS
@@ -191,6 +248,7 @@ export abstract class RelayColyseusRoom extends Room {
 
     // Send server hello
     this.sendServerHello(client, playerSlot);
+    this.sendServerHelloV2(client, playerSlot, currentTick);
 
     // Register player
     const playerInfo: PlayerInfo = {
@@ -206,8 +264,13 @@ export abstract class RelayColyseusRoom extends Room {
     this._players.set(client.sessionId, playerInfo);
     this._playerSlotToClient.set(playerSlot, client);
 
-    // Send buffered inputs to late joiner
-    this.sendBufferedInputsToClient(client, playerInfo);
+    const isLateJoiner = this._allowLateJoin && this._isGameStarted && currentTick > 0;
+    if (isLateJoiner) {
+      this.initiateLateJoin(client, playerInfo);
+    } else {
+      // Send buffered inputs to late joiner
+      this.sendBufferedInputsToClient(client, playerInfo);
+    }
 
     // Notify subclass
     this.onPlayerJoined(this._gameId, playerInfo).catch(err => {
@@ -219,6 +282,7 @@ export abstract class RelayColyseusRoom extends Room {
 
   public override async onLeave(client: Client, consented: boolean): Promise<void> {
     const playerInfo = this._players.get(client.sessionId);
+    const lateJoinRequestId = this._lateJoinBySession.get(client.sessionId);
 
     if (playerInfo) {
       playerInfo.isConnected = false;
@@ -226,6 +290,10 @@ export abstract class RelayColyseusRoom extends Room {
       await this.onPlayerLeave(this._gameId, playerInfo).catch(err => {
         console.error(`[RelayRoom] onPlayerLeave error:`, err);
       });
+    }
+
+    if (lateJoinRequestId !== undefined) {
+      this.clearLateJoinRequest(lateJoinRequestId);
     }
 
     console.log(`[RelayRoom] Player left (consented: ${consented})`);
@@ -241,6 +309,7 @@ export abstract class RelayColyseusRoom extends Room {
 
     this.stopTickLoop();
     this._inputBuffer.clear();
+    this.clearAllLateJoinRequests();
 
     console.log(`[RelayRoom] Room ${this._gameId} disposed`);
   }
@@ -331,32 +400,42 @@ export abstract class RelayColyseusRoom extends Room {
     const pipeline = new BinarySchemaUnpackPipeline(buffer);
     const header = pipeline.unpack(HeaderStruct);
 
-    if (header.version !== WireVersion.V1) {
+    if (header.version !== WireVersion.V1 && header.version !== WireVersion.V2) {
       console.warn(`[RelayRoom] Unsupported wire version ${header.version}`);
       return;
     }
 
     switch (header.type) {
       case MsgType.Ping:
-        this.handlePing(client, pipeline);
+        this.handlePing(client, pipeline, header.version);
         break;
       case MsgType.TickInput:
-        this.handleTickInput(client, pipeline, buffer);
+        this.handleTickInput(client, pipeline, buffer, header.version);
         break;
       case MsgType.PlayerFinishedGame:
         this.handlePlayerFinished(client, pipeline);
+        break;
+      case MsgType.SnapshotResponse:
+        this.handleSnapshotResponse(client, pipeline);
+        break;
+      case MsgType.ClientReady:
+        this.handleClientReady(client, pipeline);
         break;
       default:
         this.onUnknownMessage(client, header.type, pipeline);
     }
   }
 
-  private handlePing(client: Client, pipeline: BinarySchemaUnpackPipeline): void {
+  private handlePing(
+    client: Client,
+    pipeline: BinarySchemaUnpackPipeline,
+    version: WireVersion
+  ): void {
     const ping = pipeline.unpack(PingStruct);
     const serverNow = now();
 
     const pongPipeline = new BinarySchemaPackPipeline();
-    pongPipeline.pack(HeaderStruct, { version: WireVersion.V1, type: MsgType.Pong });
+    pongPipeline.pack(HeaderStruct, { version, type: MsgType.Pong });
     pongPipeline.pack(PongStruct, {
       cSend: ping.cSend,
       sRecv: serverNow,
@@ -370,7 +449,8 @@ export abstract class RelayColyseusRoom extends Room {
   private handleTickInput(
     client: Client,
     pipeline: BinarySchemaUnpackPipeline,
-    fullBuffer: ArrayBuffer
+    fullBuffer: ArrayBuffer,
+    version: WireVersion
   ): void {
     const tickInput = pipeline.unpack(TickInputStruct);
     const currentTick = this.serverTick;
@@ -383,7 +463,7 @@ export abstract class RelayColyseusRoom extends Room {
 
     // Check if input arrived too late
     if (tickInput.tick <= currentTick) {
-      this.sendCancelInput(client, tickInput);
+      this.sendCancelInput(client, tickInput, version);
       console.warn(
         `[RelayRoom] Late input cancelled: tick ${tickInput.tick} <= server ${currentTick}`
       );
@@ -457,12 +537,32 @@ export abstract class RelayColyseusRoom extends Room {
     client.send(RELAY_BYTES_CHANNEL, pipeline.toUint8Array());
   }
 
+  private sendServerHelloV2(client: Client, playerSlot: number, serverTick: number): void {
+    const { seed0, seed1 } = this.getGameSeeds();
+
+    const pipeline = new BinarySchemaPackPipeline();
+    pipeline.pack(HeaderStruct, { version: WireVersion.V2, type: MsgType.ServerHelloV2 });
+    pipeline.pack(ServerHelloV2Struct, {
+      seed0,
+      seed1,
+      playerSlot,
+      serverTick,
+      frameLengthMs: this._frameLength,
+      maxPlayers: this.maxClients,
+      allowLateJoin: this._allowLateJoin ? 1 : 0,
+      wireVersion: WireVersion.V2,
+    });
+
+    client.send(RELAY_BYTES_CHANNEL, pipeline.toUint8Array());
+  }
+
   private sendCancelInput(
     client: Client,
-    tickInput: InferBinarySchemaValues<typeof TickInputStruct>
+    tickInput: InferBinarySchemaValues<typeof TickInputStruct>,
+    version: WireVersion
   ): void {
     const pipeline = new BinarySchemaPackPipeline();
-    pipeline.pack(HeaderStruct, { version: WireVersion.V1, type: MsgType.CancelInput });
+    pipeline.pack(HeaderStruct, { version, type: MsgType.CancelInput });
     pipeline.pack(CancelInputStruct, {
       tick: tickInput.tick,
       playerSlot: tickInput.playerSlot,
@@ -479,7 +579,7 @@ export abstract class RelayColyseusRoom extends Room {
     if (bufferedInputs.length === 0) return;
 
     const pipeline = new BinarySchemaPackPipeline();
-    pipeline.pack(HeaderStruct, { version: WireVersion.V1, type: MsgType.TickInputFanout });
+    pipeline.pack(HeaderStruct, { version: WireVersion.V2, type: MsgType.TickInputFanout });
     pipeline.pack(TickInputFanoutStruct, { serverTick: this.serverTick });
     pipeline.appendBuffer(packBatchBuffers(bufferedInputs));
 
@@ -494,13 +594,274 @@ export abstract class RelayColyseusRoom extends Room {
     if (inputBuffers.length === 0) return;
 
     const pipeline = new BinarySchemaPackPipeline();
-    pipeline.pack(HeaderStruct, { version: WireVersion.V1, type: MsgType.TickInputFanout });
+    pipeline.pack(HeaderStruct, { version: WireVersion.V2, type: MsgType.TickInputFanout });
     pipeline.pack(TickInputFanoutStruct, { serverTick: this.serverTick });
     pipeline.appendBuffer(packBatchBuffers(inputBuffers));
 
     this.broadcast(RELAY_BYTES_CHANNEL, pipeline.toUint8Array());
   }
 
+  private initiateLateJoin(client: Client, playerInfo: PlayerInfo): void {
+    if (this._lateJoinBySession.has(client.sessionId)) return;
+
+    const connectedSenders = Math.max(this.connectedPlayerCount - 1, 0);
+    if (connectedSenders <= 0) {
+      console.warn('[RelayRoom] No connected players to provide late-join snapshot.');
+      this.failLateJoin(client, 1);
+      return;
+    }
+
+    const requestId = this.nextLateJoinRequestId();
+    const minTick = this._inputBuffer.oldestTick;
+    const maxTick = this.serverTick;
+    const vote = this.createLateJoinVote(connectedSenders);
+
+    const request: LateJoinRequestState = {
+      requestId,
+      joiner: client,
+      joinerSlot: playerInfo.playerSlot,
+      minTick,
+      maxTick,
+      maxBytes: this._lateJoinMaxSnapshotBytes,
+      preferredChunkSize: this._lateJoinPreferredChunkSize,
+      createdAt: Date.now(),
+      attempts: 0,
+      timeoutId: null,
+      vote,
+      perSenderState: new Map(),
+    };
+
+    this._lateJoinRequests.set(requestId, request);
+    this._lateJoinBySession.set(client.sessionId, requestId);
+
+    this.sendSnapshotRequest(request);
+  }
+
+  private sendSnapshotRequest(request: LateJoinRequestState): void {
+    const pipeline = new BinarySchemaPackPipeline();
+    pipeline.pack(HeaderStruct, { version: WireVersion.V2, type: MsgType.SnapshotRequest });
+    pipeline.pack(SnapshotRequestStruct, {
+      requestId: request.requestId,
+      minTick: request.minTick,
+      maxTick: request.maxTick,
+      maxBytes: request.maxBytes,
+      preferredChunkSize: request.preferredChunkSize,
+    });
+
+    const payload = pipeline.toUint8Array();
+    let recipients = 0;
+
+    for (const player of this._players.values()) {
+      if (!player.isConnected) continue;
+      if (player.playerSlot === request.joinerSlot) continue;
+      if (this._lateJoinSnapshotBlacklist.has(player.playerSlot)) continue;
+
+      const target = this._playerSlotToClient.get(player.playerSlot);
+      if (!target) continue;
+      recipients += 1;
+      target.send(RELAY_BYTES_CHANNEL, payload);
+    }
+
+    if (recipients === 0) {
+      console.warn('[RelayRoom] No eligible snapshot senders for late join.');
+      this.failLateJoin(request.joiner, 1);
+      return;
+    }
+
+    request.attempts += 1;
+    if (request.timeoutId !== null) {
+      clearTimeout(request.timeoutId);
+    }
+
+    request.timeoutId = setTimeout(
+      () => this.handleLateJoinTimeout(request.requestId),
+      this._lateJoinTimeoutMs
+    );
+  }
+
+  private handleLateJoinTimeout(requestId: number): void {
+    const request = this._lateJoinRequests.get(requestId);
+    if (!request) return;
+
+    if (request.attempts >= 2) {
+      console.warn('[RelayRoom] Late join snapshot vote timed out.');
+      this.failLateJoin(request.joiner, 2);
+      return;
+    }
+
+    const connectedSenders = Math.max(this.connectedPlayerCount - 1, 0);
+    request.vote = this.createLateJoinVote(connectedSenders);
+    request.perSenderState.clear();
+    this.sendSnapshotRequest(request);
+  }
+
+  private handleSnapshotResponse(client: Client, pipeline: BinarySchemaUnpackPipeline): void {
+    const response = pipeline.unpack(SnapshotResponseStruct);
+    const request = this._lateJoinRequests.get(response.requestId);
+    if (!request) {
+      return;
+    }
+
+    const senderSlot = this._sessionIdToPlayerSlot.get(client.sessionId);
+    if (senderSlot === undefined) {
+      return;
+    }
+
+    if (this._lateJoinSnapshotBlacklist.has(senderSlot)) {
+      return;
+    }
+
+    if (response.snapshotTick < request.minTick || response.snapshotTick > request.maxTick) {
+      this._lateJoinSnapshotBlacklist.add(senderSlot);
+      return;
+    }
+
+    if (response.totalBytes > request.maxBytes) {
+      this._lateJoinSnapshotBlacklist.add(senderSlot);
+      return;
+    }
+
+    const chunkBytes = pipeline.sliceRemaining();
+    if (chunkBytes.byteLength === 0) return;
+
+    let senderState = request.perSenderState.get(senderSlot);
+    if (!senderState) {
+      const assembler = new SnapshotAssembler(response.chunkCount, response.totalBytes);
+      senderState = {
+        assembler,
+        snapshotTick: response.snapshotTick,
+        hash32: response.hash32,
+      };
+      request.perSenderState.set(senderSlot, senderState);
+    } else {
+      if (senderState.snapshotTick !== response.snapshotTick || senderState.hash32 !== response.hash32) {
+        this._lateJoinSnapshotBlacklist.add(senderSlot);
+        request.perSenderState.delete(senderSlot);
+        return;
+      }
+    }
+
+    try {
+      const complete = senderState.assembler.addChunk(response.chunkIndex, new Uint8Array(chunkBytes));
+      if (!complete) return;
+    } catch (err) {
+      console.warn('[RelayRoom] Snapshot chunk rejected:', err);
+      this._lateJoinSnapshotBlacklist.add(senderSlot);
+      request.perSenderState.delete(senderSlot);
+      return;
+    }
+
+    let snapshotBytes: Uint8Array;
+    try {
+      snapshotBytes = senderState.assembler.assemble();
+    } catch (err) {
+      console.warn('[RelayRoom] Snapshot assembly failed:', err);
+      this._lateJoinSnapshotBlacklist.add(senderSlot);
+      request.perSenderState.delete(senderSlot);
+      return;
+    }
+
+    const computedHash = getFastHash(snapshotBytes.buffer);
+    if (computedHash !== response.hash32) {
+      this._lateJoinSnapshotBlacklist.add(senderSlot);
+      request.perSenderState.delete(senderSlot);
+      return;
+    }
+
+    const winner = request.vote.addVote(
+      senderSlot,
+      response.snapshotTick,
+      response.hash32,
+      snapshotBytes,
+      Date.now()
+    );
+
+    if (winner) {
+      this.completeLateJoin(request, winner);
+    }
+  }
+
+  private completeLateJoin(request: LateJoinRequestState, winner: SnapshotVoteCandidate): void {
+    const joiner = request.joiner;
+    const serverTick = this.serverTick;
+
+    const inputsByTick = this._inputBuffer.getFromTick(winner.tick + 1);
+    const inputBuffers: Uint8Array[] = [];
+    const ticks = [...inputsByTick.keys()].sort((a, b) => a - b);
+
+    for (const tick of ticks) {
+      if (tick > serverTick) continue;
+      const bucket = inputsByTick.get(tick);
+      if (bucket) inputBuffers.push(...bucket);
+    }
+
+    const pipeline = new BinarySchemaPackPipeline();
+    pipeline.pack(HeaderStruct, { version: WireVersion.V2, type: MsgType.LateJoinBundle });
+    pipeline.pack(LateJoinBundleStruct, {
+      snapshotTick: winner.tick,
+      snapshotHash: winner.hash32,
+      snapshotByteLength: winner.bytes.byteLength,
+      serverTick,
+    });
+    pipeline.appendBuffer(
+      winner.bytes.buffer.slice(
+        winner.bytes.byteOffset,
+        winner.bytes.byteOffset + winner.bytes.byteLength
+      )
+    );
+    pipeline.appendBuffer(packBatchBuffers(inputBuffers));
+
+    joiner.send(RELAY_BYTES_CHANNEL, pipeline.toUint8Array());
+
+    this.clearLateJoinRequest(request.requestId);
+  }
+
+  private handleClientReady(client: Client, pipeline: BinarySchemaUnpackPipeline): void {
+    const ready = pipeline.unpack(ClientReadyStruct);
+    const playerInfo = this._players.get(client.sessionId);
+    if (!playerInfo) return;
+
+    playerInfo.clientVersionHash = ready.clientVersionHash;
+    playerInfo.schemaHash = ready.schemaHash;
+    playerInfo.role = ready.role;
+  }
+
+  private failLateJoin(client: Client, reason: number): void {
+    const pipeline = new BinarySchemaPackPipeline();
+    pipeline.pack(HeaderStruct, { version: WireVersion.V2, type: MsgType.RoomClosing });
+    pipeline.pack(RoomClosingStruct, { reason, finalTick: this.serverTick });
+
+    client.send(RELAY_BYTES_CHANNEL, pipeline.toUint8Array());
+    client.leave();
+  }
+
+  private nextLateJoinRequestId(): number {
+    return (this._lateJoinRequestSeq++ & 0xffff_ffff) >>> 0;
+  }
+
+  private createLateJoinVote(connectedSenders: number): LateJoinVote {
+    const majority = Math.floor(connectedSenders / 2) + 1;
+    const minVotes = Math.max(Math.min(this._lateJoinMinVotes, connectedSenders), 1);
+    return new LateJoinVote(majority, minVotes);
+  }
+
+  private clearLateJoinRequest(requestId: number): void {
+    const request = this._lateJoinRequests.get(requestId);
+    if (!request) return;
+
+    if (request.timeoutId !== null) {
+      clearTimeout(request.timeoutId);
+    }
+
+    this._lateJoinRequests.delete(requestId);
+    this._lateJoinBySession.delete(request.joiner.sessionId);
+  }
+
+  private clearAllLateJoinRequests(): void {
+    for (const requestId of this._lateJoinRequests.keys()) {
+      this.clearLateJoinRequest(requestId);
+    }
+  }
   private processFinishedGameStates(currentTick: number): void {
     // Notify about newly verified finishes
     for (const playerInfo of this._players.values()) {
@@ -545,11 +906,21 @@ export abstract class RelayColyseusRoom extends Room {
     this._isDisposed = true;
     console.log(`[RelayRoom] All players finished. Initiating graceful dispose.`);
 
+    this.broadcastRoomClosing(0, this.serverTick);
+
     await this.onBeforeDispose(this._gameId, false).catch(err => {
       console.error(`[RelayRoom] onBeforeDispose error:`, err);
     });
 
     await this.disconnect();
+  }
+
+  private broadcastRoomClosing(reason: number, finalTick: number): void {
+    const pipeline = new BinarySchemaPackPipeline();
+    pipeline.pack(HeaderStruct, { version: WireVersion.V2, type: MsgType.RoomClosing });
+    pipeline.pack(RoomClosingStruct, { reason, finalTick });
+
+    this.broadcast(RELAY_BYTES_CHANNEL, pipeline.toUint8Array());
   }
 
   protected calculateServerTick(nowMs: number): number {

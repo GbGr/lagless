@@ -7,6 +7,7 @@ export const RELAY_BYTES_CHANNEL = 99;
 
 export const enum WireVersion {
   V1 = 1,
+  V2 = 2,
 }
 
 export const enum MsgType {
@@ -17,6 +18,12 @@ export const enum MsgType {
   CancelInput,
   Ping,
   Pong,
+  ServerHelloV2,
+  SnapshotRequest,
+  SnapshotResponse,
+  LateJoinBundle,
+  RoomClosing,
+  ClientReady,
 }
 
 export const HeaderStruct = new BinarySchema({
@@ -28,6 +35,17 @@ export const ServerHelloStruct = new BinarySchema({
   seed0: FieldType.Float64,
   seed1: FieldType.Float64,
   playerSlot: FieldType.Uint8,
+});
+
+export const ServerHelloV2Struct = new BinarySchema({
+  seed0: FieldType.Float64,
+  seed1: FieldType.Float64,
+  playerSlot: FieldType.Uint8,
+  serverTick: FieldType.Uint32,
+  frameLengthMs: FieldType.Float32,
+  maxPlayers: FieldType.Uint8,
+  allowLateJoin: FieldType.Uint8,
+  wireVersion: FieldType.Uint8,
 });
 
 export enum TickInputKind {
@@ -71,4 +89,43 @@ export const PlayerFinishedGameStruct = new BinarySchema({
   mmrChange: FieldType.Int32,
 });
 
+export const SnapshotRequestStruct = new BinarySchema({
+  requestId: FieldType.Uint32,
+  minTick: FieldType.Uint32,
+  maxTick: FieldType.Uint32,
+  maxBytes: FieldType.Uint32,
+  preferredChunkSize: FieldType.Uint32,
+});
+
+export const SnapshotResponseStruct = new BinarySchema({
+  requestId: FieldType.Uint32,
+  snapshotTick: FieldType.Uint32,
+  hash32: FieldType.Uint32,
+  chunkIndex: FieldType.Uint16,
+  chunkCount: FieldType.Uint16,
+  totalBytes: FieldType.Uint32,
+});
+
+export const LateJoinBundleStruct = new BinarySchema({
+  snapshotTick: FieldType.Uint32,
+  snapshotHash: FieldType.Uint32,
+  snapshotByteLength: FieldType.Uint32,
+  serverTick: FieldType.Uint32,
+});
+
+export const RoomClosingStruct = new BinarySchema({
+  reason: FieldType.Uint8,
+  finalTick: FieldType.Uint32,
+});
+
+export const ClientReadyStruct = new BinarySchema({
+  clientVersionHash: FieldType.Uint32,
+  schemaHash: FieldType.Uint32,
+  role: FieldType.Uint8,
+});
+
+export enum ClientRole {
+  Player = 0,
+  Spectator = 1,
+}
 

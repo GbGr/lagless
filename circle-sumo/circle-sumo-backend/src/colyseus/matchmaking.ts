@@ -7,6 +7,7 @@ import {
   MatchTicket,
   RoomAuthResult,
 } from '@lagless/colyseus-rooms';
+import { ColyseusRelayRoomOptions } from '@lagless/net-wire';
 import { NestDI } from '../nest-di';
 import { ConfigService } from '@nestjs/config';
 import { Client } from 'colyseus';
@@ -80,5 +81,19 @@ export class CircleSumoMatchmakingRoom extends BaseMatchmakerRoom {
 
   protected override getGameRoomName(): string {
     return 'relay';
+  }
+
+  protected override buildGameRoomOptions(
+    group: MatchGroup<Client>,
+    overrides: Partial<ColyseusRelayRoomOptions> = {}
+  ) {
+    return super.buildGameRoomOptions(group, {
+      ...overrides,
+      allowLateJoin: true,
+      lateJoinMinVotes: 2,
+      lateJoinRequestTimeoutMs: 4000,
+      lateJoinPreferredChunkSize: 16_384,
+      lateJoinMaxSnapshotBytes: 2_000_000,
+    });
   }
 }

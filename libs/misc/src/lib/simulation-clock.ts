@@ -4,6 +4,7 @@ import { PhaseNudger } from './phase-nudger.js';
 export class SimulationClock {
   private _startedTime = 0;
   private _accumulatedTime = 0;
+  private readonly _frameLength: number;
 
   public readonly phaseNudger: PhaseNudger;
 
@@ -11,6 +12,7 @@ export class SimulationClock {
     frameLength: number,
     maxNudgePerFrame: number,
   ) {
+    this._frameLength = frameLength;
     this.phaseNudger = new PhaseNudger(frameLength, maxNudgePerFrame);
   }
 
@@ -35,6 +37,17 @@ export class SimulationClock {
     }
     this._startedTime = now();
     this._accumulatedTime = 0;
+  }
+
+  public syncToTick(tick: number): void {
+    if (!Number.isFinite(tick) || tick < 0) {
+      throw new Error('tick must be a non-negative number');
+    }
+
+    this._accumulatedTime = tick * this._frameLength;
+    if (this._startedTime !== 0) {
+      this._startedTime = now() - this._accumulatedTime;
+    }
   }
 
   public update(dt: number): void {

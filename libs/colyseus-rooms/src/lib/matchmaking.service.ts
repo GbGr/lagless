@@ -33,6 +33,7 @@ export class MatchmakingService<TSession> {
       mmr: number;
       pingMs: number;
       matchmakingSessionId?: string;
+      filters?: Record<string, string | number>;
     }
   ): MatchTicket<TSession> {
     const ticket: MatchTicket<TSession> = {
@@ -44,6 +45,7 @@ export class MatchmakingService<TSession> {
       pingMs: params.pingMs,
       createdAt: Date.now(),
       matchmakingSessionId: params.matchmakingSessionId,
+      filters: params.filters,
     };
 
     this._queue.push(ticket);
@@ -162,6 +164,10 @@ export class MatchmakingService<TSession> {
         continue;
       }
 
+      if (!filtersCompatible(anchor.filters, candidate.filters)) {
+        continue;
+      }
+
       group.push(candidate);
     }
 
@@ -186,4 +192,21 @@ export class MatchmakingService<TSession> {
 
     return waitMs >= delay;
   }
+}
+
+function filtersCompatible(
+  a?: Record<string, string | number>,
+  b?: Record<string, string | number>
+): boolean {
+  if (!a || !b) return true;
+
+  for (const key of Object.keys(a)) {
+    if (key in b && a[key] !== b[key]) return false;
+  }
+
+  for (const key of Object.keys(b)) {
+    if (key in a && a[key] !== b[key]) return false;
+  }
+
+  return true;
 }

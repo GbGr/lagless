@@ -7,7 +7,7 @@ import {
 } from '@lagless/circle-sumo-simulation';
 import { createContext, FC, ReactNode, useContext, useEffect, useState } from 'react';
 import { useTick } from '@pixi/react';
-import { RelayInputProvider } from '@lagless/relay-input-provider';
+import { RelayInputProvider, RelayInputProviderV2 } from '@lagless/relay-input-provider';
 import { useNavigate } from 'react-router-dom';
 import { ProviderStore } from '../hooks/use-start-match';
 
@@ -54,9 +54,17 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
 
       _runner.start();
 
+      if (inputProvider instanceof RelayInputProviderV2) {
+        await inputProvider.waitForReady();
+        if (disposed) {
+          inputProvider.dispose();
+          return;
+        }
+      }
+
       const _PlayerFinishedGameSignal = _runner.DIContainer.resolve(PlayerFinishedGameSignal);
       _PlayerFinishedGameSignal.Predicted.subscribe(({ data }) => {
-        if (inputProvider instanceof RelayInputProvider) {
+        if (inputProvider instanceof RelayInputProvider || inputProvider instanceof RelayInputProviderV2) {
           inputProvider.sendPlayerFinishedGame(data);
         }
       });

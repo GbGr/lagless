@@ -46,6 +46,7 @@ export interface MatchTicket<TSession> {
   readonly createdAt: number; // timestamp in ms
 
   readonly matchmakingSessionId?: string;
+  readonly filters?: Record<string, string | number>;
 }
 
 /**
