@@ -40,4 +40,13 @@ export class SimulationClock {
   public update(dt: number): void {
     this._accumulatedTime += dt + this.phaseNudger.drain();
   }
+
+  /**
+   * Set accumulated time directly (used for late-join alignment).
+   * This resets the phase nudger to prevent drift after hard sync.
+   */
+  public setAccumulatedTime(time: number): void {
+    this._accumulatedTime = time;
+    this.phaseNudger.reset();
+  }
 }

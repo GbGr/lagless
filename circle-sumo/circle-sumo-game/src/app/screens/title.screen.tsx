@@ -15,13 +15,11 @@ export const TitleScreen: FC = () => {
   const navigate = useNavigate();
   const player = usePlayer();
   const data = player.data as SumoPlayerData;
-  const { isBusy, startMatch } = useStartMatch();
+  const { isBusy, startQuickMatch } = useStartMatch();
 
   return (
     <div className="screen title-screen">
-      <div className="title-screen__title">
-        Circle Sumo
-      </div>
+      <div className="title-screen__title">Circle Sumo</div>
       <Balance />
       <div className="title-screen__character">
         <LockerSvg className="title-screen__locker" onClick={() => navigate('/locker')} />
@@ -32,8 +30,14 @@ export const TitleScreen: FC = () => {
         <Button mode="secondary" size="medium" onClick={() => navigate('/roulette')}>
           Get Skins
         </Button>
-        <Button mode="primary" size="large" onClick={startMatch}>
-          {isBusy ? <small>Connecting <Dots /></small> : 'Play'}
+        <Button mode="primary" size="large" onClick={startQuickMatch}>
+          {isBusy ? (
+            <small>
+              Connecting <Dots />
+            </small>
+          ) : (
+            'Play'
+          )}
         </Button>
       </div>
     </div>

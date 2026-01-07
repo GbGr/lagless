@@ -94,6 +94,129 @@ export class SnapshotHistory<T> {
   }
 
   /**
+   * Get the latest snapshot in the given tick range [minTick, maxTick].
+   * Returns null if no snapshot exists in the range.
+   *
+   * Used for late-join snapshot voting.
+   */
+  public getLatestInRange(minTick: number, maxTick: number): { tick: number; snapshot: T } | null {
+    if (this._count === 0) {
+      return null;
+    }
+
+    // Binary search for the largest tick <= maxTick
+    let left = 0;
+    let right = this._count - 1;
+    let resultLogicalIndex = -1;
+
+    while (left <= right) {
+      const mid = (left + right) >>> 1;
+      const midTick = this._ticks[this.indexAt(mid)];
+
+      if (midTick <= maxTick) {
+        // Candidate: move right to find a closer one to maxTick
+        resultLogicalIndex = mid;
+        left = mid + 1;
+      } else {
+        // midTick > maxTick, we need smaller ticks
+        right = mid - 1;
+      }
+    }
+
+    if (resultLogicalIndex === -1) {
+      return null;
+    }
+
+    const idx = this.indexAt(resultLogicalIndex);
+    const foundTick = this._ticks[idx];
+
+    // Check if the found tick is within range
+    if (foundTick < minTick) {
+      return null;
+    }
+
+    return {
+      tick: foundTick,
+      snapshot: this._snapshots[idx] as T,
+    };
+  }
+
+  /**
+   * Get the most recent snapshot.
+   * Returns null if history is empty.
+   */
+  public getLatest(): { tick: number; snapshot: T } | null {
+    if (this._count === 0) {
+      return null;
+    }
+
+    const idx = this.indexAt(this._count - 1);
+    return {
+      tick: this._ticks[idx],
+      snapshot: this._snapshots[idx] as T,
+    };
+  }
+
+  /**
+   * Get snapshot at exact tick.
+   * Returns undefined if no snapshot exists at that tick.
+   */
+  public getSnapshotAtTick(tick: number): T | undefined {
+    if (this._count === 0) {
+      return undefined;
+    }
+
+    // Binary search for exact tick
+    let left = 0;
+    let right = this._count - 1;
+
+    while (left <= right) {
+      const mid = (left + right) >>> 1;
+      const midTick = this._ticks[this.indexAt(mid)];
+
+      if (midTick === tick) {
+        const idx = this.indexAt(mid);
+        return this._snapshots[idx] as T;
+      } else if (midTick < tick) {
+        left = mid + 1;
+      } else {
+        right = mid - 1;
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Get the oldest tick in history.
+   * Returns undefined if history is empty.
+   */
+  public get oldestTick(): number | undefined {
+    if (this._count === 0) {
+      return undefined;
+    }
+    return this._ticks[this.indexAt(0)];
+  }
+
+  /**
+   * Get the newest tick in history.
+   * Returns undefined if history is empty.
+   */
+  public get newestTick(): number | undefined {
+    if (this._count === 0) {
+      return undefined;
+    }
+    return this._ticks[this.indexAt(this._count - 1)];
+  }
+
+  /**
+   * Get the number of snapshots in history.
+   */
+  public get count(): number {
+    return this._count;
+  }
+
+  /**
    * Remove all snapshots with tick >= given tick.
    * After this call you can safely write new snapshots starting from that tick.
    */

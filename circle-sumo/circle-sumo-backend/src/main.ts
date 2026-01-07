@@ -8,6 +8,7 @@ import { playground } from '@colyseus/playground';
 import { matchMaker, LocalDriver, LocalPresence } from 'colyseus';
 import { CircleSumoMatchmakingRoom } from './colyseus/matchmaking';
 import { CircleSumoRelayRoom } from './colyseus/relay';
+import { CircleSumoRoomCodeMatchmaker } from './colyseus/room-code-matchmaking';
 import { NestDI } from './nest-di';
 
 const port = Number(process.env.PORT || 3000);
@@ -30,6 +31,7 @@ const colyseusApp = config({
   initializeGameServer: (gameServer) => {
     gameServer.define('matchmaking', CircleSumoMatchmakingRoom);
     gameServer.define('relay', CircleSumoRelayRoom);
+    gameServer.define('room_code_matchmaking', CircleSumoRoomCodeMatchmaker);
 
     gameServer.simulateLatency(200);
   },

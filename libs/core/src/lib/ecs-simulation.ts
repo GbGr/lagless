@@ -27,6 +27,13 @@ export class ECSSimulation {
     return this._interpolationFactor;
   }
 
+  /**
+   * Get the snapshot history for external access (e.g., late-join voting).
+   */
+  public get snapshotHistory(): SnapshotHistory<ArrayBuffer> {
+    return this._snapshotHistory;
+  }
+
   constructor(
     private readonly _ECSConfig: ECSConfig,
     private readonly _ECSDeps: ECSDeps,
@@ -143,5 +150,47 @@ export class ECSSimulation {
 
   protected saveSnapshot(tick: number): void {
     this._snapshotHistory.set(tick, this.mem.exportSnapshot());
+  }
+
+  /**
+   * Apply an external snapshot (e.g., from server late-join bundle).
+   *
+   * This is used for late-joining clients that receive a snapshot
+   * from the server instead of simulating from tick 0.
+   *
+   * After calling this method:
+   * 1. The simulation state is replaced with the snapshot
+   * 2. The tick is set to the snapshot tick
+   * 3. The snapshot history is rolled back to allow re-simulation
+   * 4. Signals are notified of the rollback
+   *
+   * @param snapshot - The snapshot bytes to apply
+   * @param tick - The tick at which the snapshot was taken
+   */
+  public applyExternalSnapshot(snapshot: ArrayBuffer, tick: number): void {
+    console.log(`[ECSSimulation] Applying external snapshot at tick ${tick}`);
+
+    // 1. Apply snapshot to memory
+    this.mem.applySnapshot(snapshot);
+
+    // 2. Set the tick
+    this.mem.tickManager.setTick(tick);
+
+    // 3. Rollback snapshot history (clear anything >= tick)
+    this._snapshotHistory.rollback(tick);
+
+    // 4. Save this snapshot as the new baseline
+    this._snapshotHistory.set(tick, snapshot);
+
+    // 5. Notify signals of rollback
+    this._signalsRegistry.onBeforeRollback(tick);
+
+    // 6. Align the clock to match the new tick
+    this.clock.setAccumulatedTime(tick * this._frameLength);
+
+    console.log(
+      `[ECSSimulation] External snapshot applied: tick=${tick}, ` +
+      `size=${snapshot.byteLength}, hash=${this.mem.getHash()}`
+    );
   }
 }

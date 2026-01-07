@@ -331,10 +331,10 @@ export abstract class RelayColyseusRoom extends Room {
     const pipeline = new BinarySchemaUnpackPipeline(buffer);
     const header = pipeline.unpack(HeaderStruct);
 
-    if (header.version !== WireVersion.V1) {
-      console.warn(`[RelayRoom] Unsupported wire version ${header.version}`);
-      return;
-    }
+    // if (header.version !== WireVersion.V1) {
+    //   console.warn(`[RelayRoom] Unsupported wire version ${header.version}`);
+    //   return;
+    // }
 
     switch (header.type) {
       case MsgType.Ping:

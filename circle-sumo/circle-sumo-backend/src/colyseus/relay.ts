@@ -1,6 +1,10 @@
 // circle-sumo/circle-sumo-backend/src/colyseus/relay.ts
 
-import { PlayerInfo, RelayColyseusRoom, RelayRoomOptions } from '@lagless/colyseus-rooms';
+import {
+  PlayerInfo,
+  RelayColyseusRoomV2,
+  RelayRoomV2Options,
+} from '@lagless/colyseus-rooms';
 import { RPC, ReplayInputProvider } from '@lagless/core';
 import { UUID } from '@lagless/misc';
 import { Client, Delayed } from 'colyseus';
@@ -16,7 +20,15 @@ import fs from 'node:fs/promises';
 
 const FULL_LOBBY_SIZE = 6;
 
-export class CircleSumoRelayRoom extends RelayColyseusRoom {
+/**
+ * Circle Sumo relay room using V2 protocol.
+ *
+ * Supports:
+ * - Late-join via snapshot voting
+ * - Reconnection within grace period
+ * - Room codes (via RoomCodeMatchmaker)
+ */
+export class CircleSumoRelayRoom extends RelayColyseusRoomV2 {
   private readonly _gameService = NestDI.resolve(GameService);
   private _allPlayersConnectedTimeout: Delayed | null = null;
   private _hasGameStarted = false;
@@ -29,7 +41,7 @@ export class CircleSumoRelayRoom extends RelayColyseusRoom {
   // Lifecycle overrides
   // ─────────────────────────────────────────────────────────────────────────
 
-  public override async onCreate(options: RelayRoomOptions): Promise<void> {
+  public override async onCreate(options: RelayRoomV2Options): Promise<void> {
     await super.onCreate(options);
 
     // Schedule game start after seat reservation expires
