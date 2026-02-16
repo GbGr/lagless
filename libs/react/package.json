@@ -12,7 +12,6 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@lagless/schemas": "workspace:*"
   },
   "peerDependencies": {
     "@tanstack/react-query": "^5.90.9"
