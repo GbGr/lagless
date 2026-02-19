@@ -49,7 +49,7 @@ export abstract class ECSRunner {
     const signalInstances = this.Signals.map((SignalConstructor) => {
       return this.DIContainer.resolve(SignalConstructor);
     });
-    this.Simulation._signalsRegistry.init(signalInstances);
+    this.Simulation.initSignals(signalInstances);
 
     // systems
     const systemInstances = this.Systems.map((SystemConstructor) => {
@@ -68,9 +68,9 @@ export abstract class ECSRunner {
   }
 
   public dispose(): void {
-    console.log('ECSRunner disposed');
+    // ECSRunner disposed
     this.InputProviderInstance.dispose();
-    this.Simulation._signalsRegistry.dispose();
+    this.Simulation.disposeSignals();
 
   }
 }

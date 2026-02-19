@@ -1,3 +1,7 @@
+import { createLogger } from '@lagless/misc';
+
+const log = createLogger('InputDelayController');
+
 export class InputDelayController {
   private _deltaTicks: number;
 
@@ -34,12 +38,10 @@ export class InputDelayController {
     this._deltaTicks = Math.max(this._minTicks, Math.min(this._deltaTicks, this._maxTicks));
 
     if (this._deltaTicks !== prevDelta) {
-      console.log(
-        `[InputDelayController] Recomputed deltaTicks: ${prevDelta} -> ${
-          this._deltaTicks
-        } (want: ${want}, needMs: ${needMs.toFixed(2)} ms, RTT_EWMA: ${rttEwmaMs.toFixed(
-          2
-        )} ms, JITTER_EWMA: ${jitterEwmaMs.toFixed(2)} ms)`
+      log.info(
+        `Recomputed deltaTicks: ${prevDelta} -> ${this._deltaTicks} ` +
+        `(want: ${want}, needMs: ${needMs.toFixed(2)}ms, ` +
+        `RTT: ${rttEwmaMs.toFixed(2)}ms, JITTER: ${jitterEwmaMs.toFixed(2)}ms)`
       );
     }
 

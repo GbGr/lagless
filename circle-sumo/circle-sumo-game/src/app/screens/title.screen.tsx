@@ -9,6 +9,7 @@ import { usePlayer } from '@lagless/react';
 import { SumoPlayerData } from '@lagless/circle-sumo-simulation';
 import LockerSvg from '../../assets/svg/locker.svg?react';
 import { useStartMatch } from '../hooks/use-start-match';
+import { useStartMultiplayerMatch } from '../hooks/use-start-multiplayer-match';
 import { Dots } from '../components/dots';
 
 export const TitleScreen: FC = () => {
@@ -16,6 +17,9 @@ export const TitleScreen: FC = () => {
   const player = usePlayer();
   const data = player.data as SumoPlayerData;
   const { isBusy, startMatch } = useStartMatch();
+  const multiplayer = useStartMultiplayerMatch();
+
+  const isMultiplayerBusy = multiplayer.state !== 'idle';
 
   return (
     <div className="screen title-screen">
@@ -32,8 +36,23 @@ export const TitleScreen: FC = () => {
         <Button mode="secondary" size="medium" onClick={() => navigate('/roulette')}>
           Get Skins
         </Button>
-        <Button mode="primary" size="large" onClick={startMatch}>
-          {isBusy ? <small>Connecting <Dots /></small> : 'Play'}
+        <Button mode="primary" size="large" onClick={startMatch} disabled={isMultiplayerBusy}>
+          {isBusy ? <small>Connecting <Dots /></small> : 'Play Local'}
+        </Button>
+        <Button
+          mode="primary"
+          size="large"
+          onClick={isMultiplayerBusy ? multiplayer.cancel : multiplayer.startMatch}
+          disabled={isBusy}
+        >
+          {multiplayer.state === 'queuing' && (
+            <small>
+              In Queue{multiplayer.queuePosition ? ` #${multiplayer.queuePosition}` : ''} <Dots />
+            </small>
+          )}
+          {multiplayer.state === 'connecting' && <small>Connecting <Dots /></small>}
+          {multiplayer.state === 'error' && <small>Error: {multiplayer.error}</small>}
+          {multiplayer.state === 'idle' && 'Play Online'}
         </Button>
       </div>
     </div>

@@ -31,16 +31,25 @@ export abstract class AbstractFilter {
   }
 
   public addEntityToFilter(entity: number) {
-    const entityIdx = this._entities.indexOf(entity);
-    if (entityIdx !== -1 && entityIdx < this.length) return; // Entity already in filter
+    // Scan only the active portion [0..length)
+    for (let i = 0; i < this.length; i++) {
+      if (this._entities[i] === entity) return; // Already in filter
+    }
 
     this._entities[this.length] = entity;
     this.length++;
   }
 
   public removeEntityFromFilter(entity: number) {
-    const entityIdx = this._entities.indexOf(entity);
-    if (entityIdx === -1 || entityIdx >= this.length) return; // Entity not in filter
+    // Scan only the active portion [0..length)
+    let entityIdx = -1;
+    for (let i = 0; i < this.length; i++) {
+      if (this._entities[i] === entity) {
+        entityIdx = i;
+        break;
+      }
+    }
+    if (entityIdx === -1) return; // Not in filter
 
     const lastIndex = this.length - 1;
 

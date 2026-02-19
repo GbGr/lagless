@@ -462,32 +462,42 @@ export class MemoryTracker {
 }
 
 export const packBatchBuffers = (buffers: Uint8Array[]): ArrayBuffer => {
-  const metaLength = fieldTypeSizeBytes[FieldType.Uint32] * buffers.length;
+  const lengthPrefixSize = fieldTypeSizeBytes[FieldType.Uint32];
+  const metaLength = lengthPrefixSize * buffers.length;
   const totalLength = buffers.reduce((acc, buf) => acc + buf.byteLength, metaLength);
-  const result = new Uint8Array(totalLength);
+  const result = new ArrayBuffer(totalLength);
+  const dataView = new DataView(result);
+  const uint8View = new Uint8Array(result);
 
   let offset = 0;
 
   for (let i = 0; i < buffers.length; i++) {
     const buffer = buffers[i];
-    result[offset] = buffer.byteLength;
-    offset += fieldTypeSizeBytes[FieldType.Uint32];
-    result.set(buffer, offset);
+    dataView.setUint32(offset, buffer.byteLength, LE);
+    offset += lengthPrefixSize;
+    uint8View.set(buffer, offset);
     offset += buffer.byteLength;
   }
 
-  return result.buffer;
+  return result;
 }
 
 export const unpackBatchBuffers = (buffer: ArrayBuffer): ArrayBuffer[] => {
   const buffers: ArrayBuffer[] = [];
-  let offset = 0;
-
+  const lengthPrefixSize = fieldTypeSizeBytes[FieldType.Uint32];
   const dataView = new DataView(buffer);
 
+  let offset = 0;
+
   while (offset < buffer.byteLength) {
-    const length = dataView.getUint8(offset);
-    offset += fieldTypeSizeBytes[FieldType.Uint32];
+    if (offset + lengthPrefixSize > buffer.byteLength) {
+      throw new Error(`Truncated buffer: cannot read length prefix at offset ${offset}`);
+    }
+    const length = dataView.getUint32(offset, LE);
+    offset += lengthPrefixSize;
+    if (offset + length > buffer.byteLength) {
+      throw new Error(`Truncated buffer: need ${length} bytes at offset ${offset}, have ${buffer.byteLength - offset}`);
+    }
     const buf = buffer.slice(offset, offset + length);
     buffers.push(buf);
     offset += length;

@@ -26,6 +26,12 @@
   "include": ["src/**/*.js", "src/**/*.jsx", "src/**/*.ts", "src/**/*.tsx"],
   "references": [
     {
+      "path": "../../libs/net-wire/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/relay-client/tsconfig.lib.json"
+    },
+    {
       "path": "../circle-sumo-simulation/tsconfig.lib.json"
     },
     {

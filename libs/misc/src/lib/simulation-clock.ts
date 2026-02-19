@@ -40,4 +40,13 @@ export class SimulationClock {
   public update(dt: number): void {
     this._accumulatedTime += dt + this.phaseNudger.drain();
   }
+
+  /**
+   * Jump accumulated time to a specific value.
+   * Used for late-join to sync with server tick.
+   */
+  public setAccumulatedTime(ms: number): void {
+    this._accumulatedTime = ms;
+    this.phaseNudger.reset();
+  }
 }

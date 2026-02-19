@@ -1,15 +1,17 @@
 import { MathOps } from '@lagless/math';
 import { Mem } from './mem/index.js';
 import { ECSConfig } from './ecs-config.js';
-import { SimulationClock, SnapshotHistory } from '@lagless/misc';
+import { SimulationClock, SnapshotHistory, createLogger } from '@lagless/misc';
 import { ECSDeps, IECSSystem } from './types/index.js';
 import { AbstractInputProvider } from './input/index.js';
 import { SignalsRegistry } from './signals/signals.registry.js';
 
+const log = createLogger('ECSSimulation');
+
 export class ECSSimulation {
   public readonly mem: Mem;
   public readonly clock: SimulationClock;
-  public readonly _signalsRegistry: SignalsRegistry;
+  private readonly _signalsRegistry: SignalsRegistry;
   private readonly _frameLength: number;
   private readonly _snapshotRate: number;
   private readonly _initialSnapshot!: ArrayBuffer;
@@ -60,14 +62,52 @@ export class ECSSimulation {
     }
   }
 
+  public initSignals(signals: import('./signals/signal.js').Signal[]): void {
+    this._signalsRegistry.init(signals);
+  }
+
+  public disposeSignals(): void {
+    this._signalsRegistry.dispose();
+  }
+
   public throwIfSystemsNotRegistered(): void {
     if (this._systems.length === 0) {
       throw new Error('No systems registered.');
     }
   }
 
+  public get frameLength(): number {
+    return this._frameLength;
+  }
+
   public start(): void {
     this.clock.start();
+  }
+
+  /**
+   * Apply external state received from another client (late-join / reconnect).
+   * Replaces the entire simulation state, sets the tick, and resets history.
+   */
+  public applyExternalState(state: ArrayBuffer, tick: number): void {
+    log.info(`Applying external state at tick ${tick} (${state.byteLength} bytes)`);
+
+    // Apply the snapshot to memory
+    this.mem.applySnapshot(state);
+
+    // Set tick (snapshot may have been taken at a different tick than requested)
+    this.mem.tickManager.setTick(tick);
+
+    // Reset snapshot history — old snapshots are from a different timeline
+    this._snapshotHistory = new SnapshotHistory<ArrayBuffer>(this._ECSConfig.snapshotHistorySize);
+
+    // Save the received state as the new baseline snapshot
+    this.saveSnapshot(tick);
+
+    // Adjust clock to match the new tick
+    this.clock.setAccumulatedTime(tick * this._frameLength);
+
+    // Reset signals — old predictions are invalid
+    this._signalsRegistry.dispose();
   }
 
   public update(dt: number) {
@@ -97,7 +137,7 @@ export class ECSSimulation {
 
   private simulationTicks(currentTick: number, toTick: number): void {
     if (toTick - currentTick > 1) {
-      console.warn(`Simulation ticks: ${currentTick} -> ${toTick} (simulate ${toTick - currentTick})`);
+      log.warn(`Simulation ticks: ${currentTick} -> ${toTick} (simulate ${toTick - currentTick})`);
     }
 
     while (currentTick < toTick) {
@@ -115,10 +155,10 @@ export class ECSSimulation {
 
     try {
       snapshot = this._snapshotHistory.getNearest(tick);
-      console.warn(`Rollback to tick ${tick} succeeded`);
+      log.warn(`Rollback to tick ${tick} succeeded`);
     } catch {
       snapshot = this._initialSnapshot;
-      console.warn(`Rollback to tick ${tick} failed, using initial snapshot`);
+      log.warn(`Rollback to tick ${tick} failed, using initial snapshot`);
     }
 
     this.mem.applySnapshot(snapshot);
@@ -126,7 +166,9 @@ export class ECSSimulation {
   }
 
   protected simulate(tick: number): void {
-    this._systems.forEach((system) => system.update(tick));
+    for (let i = 0; i < this._systems.length; i++) {
+      this._systems[i].update(tick);
+    }
   }
 
   private storeSnapshotIfNeeded(tick: number): void {
@@ -137,7 +179,7 @@ export class ECSSimulation {
     }
 
     if (tick % 200 === 0) {
-      console.log(`Mem Hash at tick ${tick}: ${this.mem.getHash()}`);
+      log.debug(`Mem Hash at tick ${tick}: ${this.mem.getHash()}`);
     }
   }
 

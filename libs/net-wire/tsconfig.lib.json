@@ -15,6 +15,9 @@
   "references": [
     {
       "path": "../binary/tsconfig.lib.json"
+    },
+    {
+      "path": "../misc/tsconfig.lib.json"
     }
   ],
   "exclude": [

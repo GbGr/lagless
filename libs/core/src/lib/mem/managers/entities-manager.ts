@@ -6,11 +6,14 @@ import { Prefab } from '../../prefab.js';
 import { IComponentConstructor } from '../../types/index.js';
 import { MemoryTracker } from '@lagless/binary';
 
+/** Sentinel value indicating an entity slot is unused / removed. */
+export const ENTITY_REMOVED_MASK = 0xFFFFFFFF;
+
 export class EntitiesManager implements IAbstractMemory {
   private _nextEntityId!: Uint32Array;
   private _removedEntitiesLength!: Uint32Array;
   private _removedEntities!: Uint32Array;
-  private _entitiesComponentsMasks!: Int32Array;
+  private _entitiesComponentsMasks!: Uint32Array;
 
   constructor(
     private readonly _ECSConfig: ECSConfig,
@@ -28,7 +31,7 @@ export class EntitiesManager implements IAbstractMemory {
       throw new Error(`Maximum number of entities (${this._ECSConfig.maxEntities}) exceeded`);
     }
 
-    this._entitiesComponentsMasks[entity] = 0; // Initialize the entity's component mask to 0
+    this._entitiesComponentsMasks[entity] = 0;
 
     if (prefab) {
       for (const [ ComponentConstructor, Values ] of prefab) {
@@ -52,14 +55,23 @@ export class EntitiesManager implements IAbstractMemory {
       throw new Error(`Entity ID ${entity} is out of bounds`);
     }
 
-    // Clear the entity's component mask
-    this._entitiesComponentsMasks[entity] = -1;
+    // Guard against double removal
+    if (this._entitiesComponentsMasks[entity] === ENTITY_REMOVED_MASK) {
+      return;
+    }
+
+    this._entitiesComponentsMasks[entity] = ENTITY_REMOVED_MASK;
 
     // Add the entity to the removed entities stack
     this._removedEntities[this._removedEntitiesLength[0]] = entity;
     this._removedEntitiesLength[0]++;
 
-    this.updateFilters(entity, this._entitiesComponentsMasks[entity]);
+    this.updateFilters(entity, ENTITY_REMOVED_MASK);
+  }
+
+  public isEntityAlive(entity: number): boolean {
+    if (entity < 0 || entity >= this._ECSConfig.maxEntities) return false;
+    return this._entitiesComponentsMasks[entity] !== ENTITY_REMOVED_MASK;
   }
 
   public addComponent(entity: number, ComponentConstructor: IComponentConstructor): void {
@@ -82,7 +94,7 @@ export class EntitiesManager implements IAbstractMemory {
   public hasPrefab(entity: number, prefab: Prefab): boolean {
     for (const [ ComponentConstructor ] of prefab) {
       if ((this._entitiesComponentsMasks[entity] & ComponentConstructor.ID) === 0) {
-        return false; // If any component in the prefab is not present, return false
+        return false;
       }
     }
 
@@ -90,7 +102,7 @@ export class EntitiesManager implements IAbstractMemory {
   }
 
   private updateFilters(entity: number, componentMask: number): void {
-    if (componentMask < 1) {
+    if (componentMask === ENTITY_REMOVED_MASK || componentMask === 0) {
       this._FiltersMemory.removeEntityFromAllFilters(entity);
     } else {
       this._FiltersMemory.updateEntityInAllFilters(entity, componentMask);
@@ -99,7 +111,7 @@ export class EntitiesManager implements IAbstractMemory {
 
   private popRemovedEntities(): number | undefined {
     if (this._removedEntitiesLength[0] === 0) {
-      return undefined; // No removed entities to pop
+      return undefined;
     }
 
     const entity = this._removedEntities[this._removedEntitiesLength[0] - 1];
@@ -118,15 +130,15 @@ export class EntitiesManager implements IAbstractMemory {
     this._removedEntities = new Uint32Array(arrayBuffer, tracker.ptr, this._ECSConfig.maxEntities);
     tracker.add(this._removedEntities.byteLength);
 
-    this._entitiesComponentsMasks = new Int32Array(arrayBuffer, tracker.ptr, this._ECSConfig.maxEntities);
-    this._entitiesComponentsMasks.fill(-1);
+    this._entitiesComponentsMasks = new Uint32Array(arrayBuffer, tracker.ptr, this._ECSConfig.maxEntities);
+    this._entitiesComponentsMasks.fill(ENTITY_REMOVED_MASK);
     tracker.add(this._entitiesComponentsMasks.byteLength);
   }
 
   public calculateSize(tracker: MemoryTracker): void {
-    tracker.add(Uint32Array.BYTES_PER_ELEMENT); // for nextEntityId
-    tracker.add(Uint32Array.BYTES_PER_ELEMENT); // for removedEntitiesLength
-    tracker.add(this._ECSConfig.maxEntities * Uint32Array.BYTES_PER_ELEMENT); // for removedEntities
-    tracker.add(this._ECSConfig.maxEntities * Uint32Array.BYTES_PER_ELEMENT); // for entitiesComponentsMasks
+    tracker.add(Uint32Array.BYTES_PER_ELEMENT); // nextEntityId
+    tracker.add(Uint32Array.BYTES_PER_ELEMENT); // removedEntitiesLength
+    tracker.add(this._ECSConfig.maxEntities * Uint32Array.BYTES_PER_ELEMENT); // removedEntities
+    tracker.add(this._ECSConfig.maxEntities * Uint32Array.BYTES_PER_ELEMENT); // entitiesComponentsMasks
   }
 }

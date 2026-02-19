@@ -1,0 +1,30 @@
+{
+  "name": "@circle-sumo/game-server",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run src/main.ts",
+    "start": "bun run src/main.ts"
+  },
+  "nx": {
+    "sourceRoot": "circle-sumo/game-server/src",
+    "targets": {
+      "serve": {
+        "command": "bun --conditions @lagless/source run {projectRoot}/src/main.ts",
+        "options": {
+          "cwd": "{workspaceRoot}"
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "@lagless/relay-server": "workspace:*",
+    "@lagless/matchmaking": "workspace:*",
+    "@lagless/misc": "workspace:*",
+    "@lagless/circle-sumo-simulation": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

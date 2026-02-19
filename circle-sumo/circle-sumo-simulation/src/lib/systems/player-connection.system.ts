@@ -47,7 +47,9 @@ export class PlayerConnectionSystem implements IECSSystem {
 
     for (const rpc of playerJoinedRPC) {
       hasNewPlayer = true;
-      const lookOriginAngle = angleStep * rpc.meta.playerSlot + MathOps.PI;
+      console.log('Player joined:', rpc.data);
+      const playerSlot = rpc.data.slot;
+      const lookOriginAngle = angleStep * playerSlot + MathOps.PI;
       const playerEntity = this._EntitiesManager.createEntity(this._playerPrefab);
 
       const isMasked = UUID.isMaskedUint8(rpc.data.playerId);
@@ -59,15 +61,15 @@ export class PlayerConnectionSystem implements IECSSystem {
         this._Bot.unsafe.aggressiveness[playerEntity] = this._PRNG.getFloat53();
       }
 
-      this._CircleBody.unsafe.playerSlot[playerEntity] = rpc.meta.playerSlot;
+      this._CircleBody.unsafe.playerSlot[playerEntity] = playerSlot;
       this._Skin.unsafe.skinId[playerEntity] = rpc.data.skinId;
 
-      this._Transform2d.unsafe.positionX[playerEntity] = MathOps.cos(angleStep * rpc.meta.playerSlot) * 350;
-      this._Transform2d.unsafe.positionY[playerEntity] = MathOps.sin(angleStep * rpc.meta.playerSlot) * 350;
+      this._Transform2d.unsafe.positionX[playerEntity] = MathOps.cos(angleStep * playerSlot) * 350;
+      this._Transform2d.unsafe.positionY[playerEntity] = MathOps.sin(angleStep * playerSlot) * 350;
       this._Transform2d.unsafe.rotation[playerEntity] = lookOriginAngle;
 
 
-      const playerResource = this._PlayerResources.get(PlayerResource, rpc.meta.playerSlot);
+      const playerResource = this._PlayerResources.get(PlayerResource, playerSlot);
       playerResource.safe.entity = playerEntity;
       playerResource.safe.connected = 1;
       playerResource.safe.initialRotation = lookOriginAngle + MathOps.PI;

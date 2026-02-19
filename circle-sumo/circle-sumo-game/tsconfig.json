@@ -3,6 +3,12 @@
   "include": [],
   "references": [
     {
+      "path": "../../libs/net-wire"
+    },
+    {
+      "path": "../../libs/relay-client"
+    },
+    {
       "path": "../circle-sumo-simulation"
     },
     {

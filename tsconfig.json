@@ -22,6 +22,15 @@
       "path": "./libs/net-wire"
     },
     {
+      "path": "./libs/relay-server"
+    },
+    {
+      "path": "./libs/relay-client"
+    },
+    {
+      "path": "./libs/matchmaking"
+    },
+    {
       "path": "./libs/pixi-react"
     },
     {
@@ -35,6 +44,9 @@
     },
     {
       "path": "./circle-sumo/circle-sumo-game"
+    },
+    {
+      "path": "./circle-sumo/game-server"
     }
   ]
 }

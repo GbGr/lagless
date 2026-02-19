@@ -41,38 +41,16 @@ export class FiltersManager implements IAbstractMemory {
 
   public updateEntityInAllFilters(entity: number, componentsMask: number): void {
     for (const filterInstance of this._filtersInstances.values()) {
-      if (filterInstance.includeMask && filterInstance.excludeMask) {
-        if (
-          this.checkComponentsMaskInclusion(componentsMask, filterInstance.includeMask) &&
-          this.checkComponentsMaskExclusion(componentsMask, filterInstance.excludeMask)
-        ) {
-          filterInstance.addEntityToFilter(entity);
-        } else {
-          filterInstance.removeEntityFromFilter(entity);
-        }
-      } else if (filterInstance.includeMask) {
-        if (this.checkComponentsMaskInclusion(componentsMask, filterInstance.includeMask)) {
-          filterInstance.addEntityToFilter(entity);
-        } else {
-          filterInstance.removeEntityFromFilter(entity);
-        }
-      } else if (filterInstance.excludeMask) {
-        if (this.checkComponentsMaskExclusion(componentsMask, filterInstance.excludeMask)) {
-          filterInstance.addEntityToFilter(entity);
-        } else {
-          filterInstance.removeEntityFromFilter(entity);
-        }
+      const includeOk = !filterInstance.includeMask
+        || (componentsMask & filterInstance.includeMask) === filterInstance.includeMask;
+      const excludeOk = !filterInstance.excludeMask
+        || (componentsMask & filterInstance.excludeMask) === 0;
+
+      if (includeOk && excludeOk) {
+        filterInstance.addEntityToFilter(entity);
       } else {
-        throw new Error(`Filter ${filterInstance.constructor.name} has no include or exclude mask`);
+        filterInstance.removeEntityFromFilter(entity);
       }
     }
-  }
-
-  private checkComponentsMaskInclusion(componentsMask: number, includeMask: number) {
-    return (includeMask & componentsMask) === includeMask;
-  }
-
-  private checkComponentsMaskExclusion(componentsMask: number, excludeMask: number) {
-    return (componentsMask & excludeMask) === 0;
   }
 }

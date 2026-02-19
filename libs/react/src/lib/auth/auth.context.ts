@@ -1,5 +1,12 @@
 import { createContext } from 'react';
-import { type PlayerSchema } from '@lagless/schemas';
+
+export type PlayerSchema = {
+  id: string;
+  username: string;
+  score: number;
+  data: Record<string, unknown>;
+  ownedSkins: number[];
+};
 
 export type AuthContextType = { player: PlayerSchema; token: string };
 

@@ -58,10 +58,12 @@ playerResources:
     isInDangerZone: uint8
 inputs:
   PlayerJoined:
+    slot: uint8
     playerId: uint8[16]
     skinId: uint16
     mmr: uint32
   PlayerLeft:
+    slot: uint8
     reason: uint8
   Move:
     direction: float32

@@ -1,0 +1,27 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "rootDir": "src",
+    "outDir": "dist",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "types": ["bun-types"],
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts"],
+  "references": [
+    {
+      "path": "../circle-sumo-simulation"
+    },
+    {
+      "path": "../../libs/misc"
+    },
+    {
+      "path": "../../libs/matchmaking"
+    },
+    {
+      "path": "../../libs/relay-server"
+    }
+  ]
+}

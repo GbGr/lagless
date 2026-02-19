@@ -11,6 +11,7 @@ import { StartGameCountdown } from './components/start-game-countdown';
 import { PlayerWorld } from './player-world';
 import { HUD } from './components/hud/hud';
 import { GameOver } from './components/game-over/game-over';
+import { NetDebug } from './components/net-debug/net-debug';
 
 extend({
   Container,
@@ -29,6 +30,7 @@ export const GameView: FC = () => {
       <div className="game-view-wrapper" ref={containerRef}>
         <HUD />
         <GameOver />
+        <NetDebug />
         <Application
           autoDensity
           resolution={devicePixelRatio || 1}

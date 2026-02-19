@@ -43,8 +43,7 @@ export class PRNGManager implements IAbstractMemory {
     // Accept various seed inputs:
     // - this._ECSConfig.seed may be: number | Uint32Array(4) | Uint8Array(16) | string (UUID)
     this.seed128(this._ECSConfig.seed);
-    console.log(`this._ECSConfig.seed ${this._ECSConfig.seed}`);
-    console.log(`Seed hash ${this.getSeedHash()}`);
+    // Seed initialized: hash ${this.getSeedHash()}
   }
 
   public calculateSize(tracker: MemoryTracker): void {
@@ -134,7 +133,7 @@ export class PRNGManager implements IAbstractMemory {
     return out >>> 0;
   }
 
-  private getSeedHash(): string {
+  public getSeedHash(): string {
     // Simple hash of the seed state for logging/identification.
     const s = this._state;
     const hash = mix32(s[0] ^ rotl32(s[1], 8) ^ rotl32(s[2], 16) ^ rotl32(s[3], 24));

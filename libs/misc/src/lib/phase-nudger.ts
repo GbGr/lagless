@@ -1,3 +1,6 @@
+import { createLogger } from './logger.js';
+
+const log = createLogger('PhaseNudger');
 const LARGE_DEBT_THRESHOLD_MS = 50;
 const MAX_SINGLE_CORRECTION_MS = 5_000;
 
@@ -23,7 +26,7 @@ export class PhaseNudger {
    */
   public activate(): void {
     this._isActive = true;
-    console.log('[PhaseNudger] Activated');
+    log.info('Activated');
   }
 
   /**
@@ -39,10 +42,7 @@ export class PhaseNudger {
 
     // Reject unreasonably large corrections (likely bad data)
     if (Math.abs(correctionMs) > MAX_SINGLE_CORRECTION_MS) {
-      console.warn(
-        `[PhaseNudger] Rejected large correction: ${correctionMs.toFixed(0)}ms ` +
-        `(${dTicks} ticks)`
-      );
+      log.warn(`Rejected large correction: ${correctionMs.toFixed(0)}ms (${dTicks} ticks)`);
       return;
     }
 

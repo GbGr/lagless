@@ -1,5 +1,8 @@
 import { InferBinarySchemaValues } from '@lagless/binary';
-import { PongStruct } from './protocol.js';
+import { createLogger } from '@lagless/misc';
+import { PongSchema } from './protocol.js';
+
+const log = createLogger('ClockSync');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -90,13 +93,13 @@ export class ClockSync {
    */
   public updateFromPong(
     clientReceiveMs: number,
-    pong: InferBinarySchemaValues<typeof PongStruct>,
+    pong: InferBinarySchemaValues<typeof PongSchema>,
   ): boolean {
     const rtt = clientReceiveMs - pong.cSend;
 
     // Sanity check: reject negative or impossibly large RTT
     if (rtt < 0 || rtt > 10000) {
-      console.warn(`[ClockSync] Invalid RTT ${rtt}ms, skipping sample`);
+      log.warn(`Invalid RTT ${rtt}ms, skipping sample`);
       return false;
     }
 
@@ -172,8 +175,8 @@ export class ClockSync {
     this._isReady = true;
     this._warmupSamples.length = 0; // Free memory
 
-    console.log(
-      `[ClockSync] Ready: RTT=${this._rttEwmaMs.toFixed(1)}ms, ` +
+    log.info(
+      `Ready: RTT=${this._rttEwmaMs.toFixed(1)}ms, ` +
       `offset=${this._serverTimeOffsetMs.toFixed(1)}ms, ` +
       `jitter=${this._jitterEwmaMs.toFixed(1)}ms`
     );

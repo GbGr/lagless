@@ -66,8 +66,7 @@ export class RPCHistory {
       tickRPCs = [];
       this._history.set(rpc.meta.tick, tickRPCs);
     }
-    tickRPCs.push(rpc);
-    tickRPCs.sort(this.orderBySlotAndOrdinal);
+    this.insertSorted(tickRPCs, rpc);
   }
 
   public addBatch(rpcs: ReadonlyArray<RPC>): void {
@@ -90,19 +89,26 @@ export class RPCHistory {
       const existing = this._history.get(tick);
 
       if (!existing) {
-        newRPCs.sort(this.orderBySlotAndOrdinal);
+        newRPCs.sort(this.compareRPCs);
         this._history.set(tick, newRPCs);
       } else {
         existing.push(...newRPCs);
-        existing.sort(this.orderBySlotAndOrdinal);
+        existing.sort(this.compareRPCs);
       }
     }
   }
 
+  /**
+   * Returns RPCs matching the given input type at the specified tick.
+   *
+   * **WARNING: The returned array is an internal buffer reused across calls.**
+   * Do NOT store the reference — copy it if you need to keep the data.
+   * The array is valid only until the next call to `getTickRPCs`.
+   */
   public getTickRPCs<TInputCtor extends IAbstractInputConstructor>(
     tick: number,
     InputCtor: TInputCtor
-  ): RPC<InstanceType<TInputCtor>>[] {
+  ): ReadonlyArray<RPC<InstanceType<TInputCtor>>> {
     this._resultBuffer.length = 0;
 
     const rpcs = this._history.get(tick);
@@ -114,7 +120,7 @@ export class RPCHistory {
       }
     }
 
-    return this._resultBuffer as RPC<InstanceType<TInputCtor>>[];
+    return this._resultBuffer as unknown as ReadonlyArray<RPC<InstanceType<TInputCtor>>>;
   }
 
   public removePlayerInputsAtTick(playerSlot: number, tick: number, seq: number): void {
@@ -226,7 +232,7 @@ export class RPCHistory {
       offset = result.nextOffset;
 
       if (result.rpcs.length > 0) {
-        result.rpcs.sort(this.orderBySlotAndOrdinal);
+        result.rpcs.sort(this.compareRPCs);
         this._history.set(result.tick, result.rpcs);
       }
     }
@@ -387,8 +393,19 @@ export class RPCHistory {
   // Private: Sorting
   // ─────────────────────────────────────────────────────────────────────────
 
-  private orderBySlotAndOrdinal(a: RPC, b: RPC): number {
-    return a.meta.playerSlot - b.meta.playerSlot || a.meta.ordinal - b.meta.ordinal;
+  /** Insert rpc into arr maintaining sorted order by (playerSlot, ordinal). */
+  private insertSorted(arr: RPC[], rpc: RPC): void {
+    let i = arr.length;
+    while (i > 0 && this.compareRPCs(arr[i - 1], rpc) > 0) {
+      i--;
+    }
+    arr.splice(i, 0, rpc);
+  }
+
+  private compareRPCs(a: RPC, b: RPC): number {
+    return a.meta.playerSlot - b.meta.playerSlot
+      || a.meta.ordinal - b.meta.ordinal
+      || a.meta.seq - b.meta.seq;
   }
 }
 

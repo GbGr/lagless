@@ -1,5 +1,5 @@
 import { AuthTokenStore } from './auth-token-store';
-import { type PlayerSchema } from '@lagless/schemas';
+import { type PlayerSchema } from './auth.context';
 import { api } from './api';
 import { useQuery } from '@tanstack/react-query';
 import { currentQueryClient } from '../react-query.provider';

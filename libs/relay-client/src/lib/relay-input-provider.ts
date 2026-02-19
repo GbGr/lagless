@@ -1,0 +1,264 @@
+import { AbstractInputProvider, RPC, type InputRegistry, type ECSConfig } from '@lagless/core';
+// eslint-disable-next-line @nx/enforce-module-boundaries -- direct dep, used for input payload packing
+import { InputBinarySchema } from '@lagless/binary';
+import {
+  ClockSync, InputDelayController,
+  TickInputKind,
+  type FanoutData, type CancelInputData, type PongData, type TickInputData,
+} from '@lagless/net-wire';
+import { createLogger } from '@lagless/misc';
+import type { RelayConnection } from './relay-connection.js';
+
+const log = createLogger('RelayInputProvider');
+
+/**
+ * Input provider for relay-based multiplayer.
+ *
+ * Handles:
+ * - Local input prediction (adds to history + sends to server)
+ * - Remote input injection (from TickInputFanout)
+ * - CancelInput rollback
+ * - Clock synchronization
+ * - Adaptive input delay
+ * - State transfer for late-join
+ */
+export class RelayInputProvider extends AbstractInputProvider {
+  public override playerSlot: number;
+
+  private readonly _clockSync: ClockSync;
+  private readonly _inputDelayController: InputDelayController;
+  private _connection: RelayConnection | null = null;
+  private _rollbackCount = 0;
+
+  /**
+   * Minimum tick that needs rollback. Consumed (reset) each frame by
+   * `getInvalidateRollbackTick()`.
+   */
+  private _invalidateRollbackTick: number | undefined = undefined;
+
+  constructor(
+    playerSlot: number,
+    ecsConfig: ECSConfig,
+    inputRegistry: InputRegistry,
+  ) {
+    super(ecsConfig, inputRegistry);
+    this.playerSlot = playerSlot;
+    this._clockSync = new ClockSync();
+    this._inputDelayController = new InputDelayController(
+      ecsConfig.minInputDelayTick,
+      ecsConfig.maxInputDelayTick,
+      ecsConfig.initialInputDelayTick,
+    );
+  }
+
+  // ─── Public Getters ─────────────────────────────────────
+
+  public get clockSync(): ClockSync {
+    return this._clockSync;
+  }
+
+  public get inputDelayController(): InputDelayController {
+    return this._inputDelayController;
+  }
+
+  public get rollbackCount(): number {
+    return this._rollbackCount;
+  }
+
+  // ─── Connection ─────────────────────────────────────────
+
+  public setConnection(connection: RelayConnection): void {
+    this._connection = connection;
+  }
+
+  // ─── AbstractInputProvider overrides ────────────────────
+
+  public override getInvalidateRollbackTick(): number | undefined {
+    const tick = this._invalidateRollbackTick;
+    this._invalidateRollbackTick = undefined;
+    return tick;
+  }
+
+  public override update(): void {
+    super.update();
+    this.sendBufferedInputs();
+  }
+
+  // ─── Network Event Handlers ─────────────────────────────
+  // Called by RelayConnection (or directly in tests)
+
+  /**
+   * Handle TickInputFanout from server.
+   * Adds remote inputs to history, triggers rollback if needed.
+   */
+  public handleTickInputFanout(data: FanoutData): void {
+    const currentTick = this._simulation?.tick ?? 0;
+
+    for (const input of data.inputs) {
+      // Skip our own client inputs — already in history from prediction
+      if (input.kind === TickInputKind.Client && input.playerSlot === this.playerSlot) {
+        continue;
+      }
+
+      const rpc = this.tickInputToRPC(input);
+      this.addRemoteRpc(rpc);
+
+      // If remote input is for a tick we already simulated → need rollback
+      if (input.tick <= currentTick) {
+        this.requestRollback(input.tick);
+      }
+    }
+
+    // Update PhaseNudger with server's authoritative tick
+    if (this._simulation) {
+      this._simulation.clock.phaseNudger.onServerTickHint(
+        data.serverTick,
+        this._simulation.tick,
+      );
+    }
+  }
+
+  /**
+   * Handle CancelInput from server.
+   * Removes the rejected input and triggers rollback.
+   */
+  public handleCancelInput(data: CancelInputData): void {
+    log.warn(
+      `Input cancelled: tick=${data.tick} seq=${data.seq} reason=${data.reason}`
+    );
+
+    this.removeRpcAt(data.playerSlot, data.tick, data.seq);
+    this.requestRollback(data.tick);
+  }
+
+  /**
+   * Handle Pong from server.
+   * Updates clock sync and input delay.
+   */
+  public handlePong(data: PongData): void {
+    const clientReceiveMs = performance.now();
+    const becameReady = this._clockSync.updateFromPong(clientReceiveMs, data);
+
+    if (becameReady && this._simulation) {
+      this._simulation.clock.phaseNudger.activate();
+    }
+
+    // Recompute input delay based on network conditions
+    if (this._clockSync.isReady) {
+      const newDelay = this._inputDelayController.recompute(
+        this._frameLength,
+        this._clockSync.rttEwmaMs,
+        this._clockSync.jitterEwmaMs,
+      );
+      this.setInputDelay(newDelay);
+    }
+  }
+
+  /**
+   * Handle StateRequest from server (for late-join state transfer).
+   * Exports current simulation state and sends to server.
+   */
+  public handleStateRequest(requestId: number): void {
+    if (!this._simulation) {
+      log.warn('StateRequest received but simulation not initialized');
+      return;
+    }
+
+    const state = this._simulation.mem.exportSnapshot();
+    const tick = this._simulation.tick;
+    const hash = this._simulation.mem.getHash();
+
+    log.info(`Responding to StateRequest #${requestId}: tick=${tick}, hash=0x${hash.toString(16)}`);
+
+    this._connection?.sendStateResponse({
+      requestId,
+      tick,
+      hash,
+      state,
+    });
+  }
+
+  // ─── Private ──────────────────────────────────────────
+
+  /**
+   * Send this frame's local inputs to the server.
+   */
+  private sendBufferedInputs(): void {
+    if (!this._connection) return;
+
+    const buffer = this.getFrameRPCBuffer();
+    for (const rpc of buffer) {
+      this._connection.sendTickInput({
+        tick: rpc.meta.tick,
+        playerSlot: rpc.meta.playerSlot,
+        seq: rpc.meta.seq,
+        kind: TickInputKind.Client,
+        payload: this.packRpcPayload(rpc),
+      });
+    }
+  }
+
+  /**
+   * Convert a TickInputData (from network) to an RPC (for history).
+   */
+  private tickInputToRPC(input: TickInputData): RPC {
+    // Unpack the payload to get inputId, ordinal, and values
+    // The payload is an InputBinarySchema-packed batch
+    const unpacked = this.unpackInputPayload(input.payload);
+
+    return new RPC(
+      unpacked.inputId,
+      {
+        tick: input.tick,
+        seq: input.seq,
+        ordinal: unpacked.ordinal,
+        playerSlot: input.playerSlot,
+      },
+      unpacked.values,
+    );
+  }
+
+  /**
+   * Pack an RPC's data into binary payload for network transmission.
+   */
+  private packRpcPayload(rpc: RPC): Uint8Array {
+    const buffer = InputBinarySchema.packBatch(this.inputRegistry, [{
+      inputId: rpc.inputId,
+      ordinal: rpc.meta.ordinal,
+      values: rpc.data as Record<string, number | ArrayLike<number>>,
+    }]);
+    return new Uint8Array(buffer);
+  }
+
+  /**
+   * Unpack binary payload into input data.
+   */
+  private unpackInputPayload(payload: Uint8Array): {
+    inputId: number;
+    ordinal: number;
+    values: Record<string, number | import('@lagless/binary').TypedArray>;
+  } {
+    const buffer = payload.buffer.byteLength === payload.byteLength
+      ? payload.buffer
+      : payload.buffer.slice(payload.byteOffset, payload.byteOffset + payload.byteLength);
+
+    const unpacked = InputBinarySchema.unpackBatch(this.inputRegistry, buffer as ArrayBuffer);
+
+    if (unpacked.length !== 1) {
+      throw new Error(`Expected 1 input in payload, got ${unpacked.length}`);
+    }
+
+    return unpacked[0];
+  }
+
+  /**
+   * Request a rollback to a specific tick.
+   * Keeps the minimum (earliest) tick that needs rollback.
+   */
+  private requestRollback(tick: number): void {
+    this._rollbackCount++;
+    if (this._invalidateRollbackTick === undefined || tick < this._invalidateRollbackTick) {
+      this._invalidateRollbackTick = tick;
+    }
+  }
+}

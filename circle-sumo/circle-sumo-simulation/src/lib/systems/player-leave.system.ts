@@ -13,9 +13,8 @@ export class PlayerLeaveSystem implements IECSSystem {
     const leaveRPCs = this._InputProvider.getTickRPCs(tick, PlayerLeft);
 
     for (const rpc of leaveRPCs) {
-      const player = this._PlayerResources.get(PlayerResource, rpc.meta.playerSlot);
+      const player = this._PlayerResources.get(PlayerResource, rpc.data.slot);
       player.safe.connected = 0;
-      player.safe.score = 0;
       player.safe.mmrChange = -1;
       this._EntitiesManager.removeEntity(player.safe.entity);
     }

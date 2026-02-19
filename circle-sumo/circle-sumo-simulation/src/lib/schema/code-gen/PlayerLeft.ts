@@ -5,12 +5,18 @@ export class PlayerLeft {
   public static readonly id = 2;
   public readonly id = 2;
 
-  // 1 = 1;
-  public readonly byteLength = 1;
+  // 1 + 1 = 2;
+  public readonly byteLength = 2;
 
-  public readonly fields = [{ name: 'reason', type: FieldType.Uint8, isArray: false, byteLength: 1 }] as const;
+  public readonly fields = [
+    { name: 'slot', type: FieldType.Uint8, isArray: false, byteLength: 1 },
+
+    { name: 'reason', type: FieldType.Uint8, isArray: false, byteLength: 1 },
+  ] as const;
 
   public readonly schema!: {
+    slot: number;
+
     reason: number;
   };
 }
