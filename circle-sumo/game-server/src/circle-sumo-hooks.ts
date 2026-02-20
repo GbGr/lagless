@@ -28,15 +28,11 @@ export const circleSumoHooks: RoomHooks<CircleSumoResult> = {
   onPlayerJoin(ctx: RoomContext, player: PlayerInfo) {
     log.info(`[${ctx.matchId}] Player joined: slot=${player.slot} bot=${player.isBot} id=${player.playerId.slice(0, 8)}`);
 
-    // Emit PlayerJoined server event for this player
-    // The simulation's PlayerConnectionSystem will process this
-    // Payload: playerId (16 bytes Uint8), skinId (Uint16), mmr (Uint32)
-    // For now, emit minimal — the actual payload packing depends on InputBinarySchema
-    // which the server doesn't have access to (raw forwarding design).
-    // Instead, we emit a raw event that clients will understand.
     ctx.emitServerEvent(PlayerJoined.id, {
-      playerId: UUID.fromString(player.playerId).asUint8(),
-      skinId: 1,
+      playerId: player.isBot
+        ? UUID.generateMasked().asUint8()
+        : UUID.fromString(player.playerId).asUint8(),
+      skinId: player.isBot ? Math.floor(Math.random() * 27) : 1,
       mmr: 1000,
       slot: player.slot,
     } satisfies PlayerJoined['schema']);

@@ -193,6 +193,19 @@ export class BinarySchemaPackPipeline {
     this._offset += buffer.byteLength;
   }
 
+  /**
+   * Append a Uint8Array view, correctly handling views that are
+   * a slice of a larger ArrayBuffer (only the view's portion is copied).
+   */
+  public appendView(view: Uint8Array): void {
+    const buf = view.buffer as ArrayBuffer;
+    const buffer = view.byteOffset === 0 && view.byteLength === buf.byteLength
+      ? buf
+      : buf.slice(view.byteOffset, view.byteOffset + view.byteLength);
+    this._chunks.push(buffer);
+    this._offset += buffer.byteLength;
+  }
+
   public toUint8Array(): Uint8Array {
     const totalLength = this._offset;
     const result = new Uint8Array(totalLength);

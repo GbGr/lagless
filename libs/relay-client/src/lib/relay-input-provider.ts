@@ -4,6 +4,7 @@ import { InputBinarySchema } from '@lagless/binary';
 import {
   ClockSync, InputDelayController,
   TickInputKind,
+  type ServerHelloData,
   type FanoutData, type CancelInputData, type PongData, type TickInputData,
 } from '@lagless/net-wire';
 import { createLogger } from '@lagless/misc';
@@ -88,6 +89,22 @@ export class RelayInputProvider extends AbstractInputProvider {
   // Called by RelayConnection (or directly in tests)
 
   /**
+   * Handle ServerHello from server.
+   * Syncs the simulation clock to the server's tick so client inputs
+   * are not rejected as TooOld.
+   */
+  public handleServerHello(data: ServerHelloData): void {
+    if (!this._simulation) {
+      log.warn(`handleServerHello: _simulation is NULL, cannot sync clock! serverTick=${data.serverTick}`);
+      return;
+    }
+
+    const beforeTick = this._simulation.tick;
+    this._simulation.clock.setAccumulatedTime(data.serverTick * this._frameLength);
+    log.info(`Clock synced: beforeTick=${beforeTick} → serverTick=${data.serverTick} (${(data.serverTick * this._frameLength).toFixed(0)}ms) playerSlot=${this.playerSlot}`);
+  }
+
+  /**
    * Handle TickInputFanout from server.
    * Adds remote inputs to history, triggers rollback if needed.
    */
@@ -97,14 +114,17 @@ export class RelayInputProvider extends AbstractInputProvider {
     for (const input of data.inputs) {
       // Skip our own client inputs — already in history from prediction
       if (input.kind === TickInputKind.Client && input.playerSlot === this.playerSlot) {
+        log.debug(`Fanout SKIP own: tick=${input.tick} slot=${input.playerSlot} seq=${input.seq}`);
         continue;
       }
 
       const rpc = this.tickInputToRPC(input);
       this.addRemoteRpc(rpc);
+      const needsRollback = input.tick <= currentTick;
+      log.info(`Fanout REMOTE: inputId=${rpc.inputId} tick=${input.tick} slot=${input.playerSlot} kind=${input.kind} seq=${input.seq} localTick=${currentTick} rollback=${needsRollback}`);
 
       // If remote input is for a tick we already simulated → need rollback
-      if (input.tick <= currentTick) {
+      if (needsRollback) {
         this.requestRollback(input.tick);
       }
     }
@@ -123,8 +143,9 @@ export class RelayInputProvider extends AbstractInputProvider {
    * Removes the rejected input and triggers rollback.
    */
   public handleCancelInput(data: CancelInputData): void {
+    const reasonNames = ['TooOld', 'TooFarFuture', 'InvalidSlot'];
     log.warn(
-      `Input cancelled: tick=${data.tick} seq=${data.seq} reason=${data.reason}`
+      `CANCEL received: tick=${data.tick} seq=${data.seq} slot=${data.playerSlot} reason=${reasonNames[data.reason] ?? data.reason}`
     );
 
     this.removeRpcAt(data.playerSlot, data.tick, data.seq);
@@ -133,7 +154,7 @@ export class RelayInputProvider extends AbstractInputProvider {
 
   /**
    * Handle Pong from server.
-   * Updates clock sync and input delay.
+   * Updates clock sync, corrects clock drift, and adjusts input delay.
    */
   public handlePong(data: PongData): void {
     const clientReceiveMs = performance.now();
@@ -141,6 +162,31 @@ export class RelayInputProvider extends AbstractInputProvider {
 
     if (becameReady && this._simulation) {
       this._simulation.clock.phaseNudger.activate();
+    }
+
+    // Correct clock drift using server tick from Pong
+    if (this._simulation) {
+      const rtt = clientReceiveMs - data.cSend;
+      const oneWayTicks = Math.round((rtt / 2) / this._frameLength);
+      const estimatedServerTick = data.sTick + oneWayTicks;
+      const localTargetTick = Math.floor(this._simulation.clock.accumulatedTime / this._frameLength);
+      const drift = estimatedServerTick - localTargetTick;
+
+      if (this._simulation.clock.phaseNudger.isActive) {
+        // PhaseNudger active: feed it server tick hints from Pong
+        // (breaks deadlock where rejected inputs → no fanout → no hints)
+        this._simulation.clock.phaseNudger.onServerTickHint(
+          estimatedServerTick,
+          this._simulation.tick,
+        );
+      } else if (Math.abs(drift) > 1) {
+        // PhaseNudger not yet active: hard sync if drifted more than 1 tick
+        const correctionMs = drift * this._frameLength;
+        log.info(`Pong clock correction: drift=${drift} ticks, localTarget=${localTargetTick} estServer=${estimatedServerTick} rtt=${rtt.toFixed(1)}ms`);
+        this._simulation.clock.setAccumulatedTime(
+          this._simulation.clock.accumulatedTime + correctionMs,
+        );
+      }
     }
 
     // Recompute input delay based on network conditions
@@ -181,14 +227,18 @@ export class RelayInputProvider extends AbstractInputProvider {
   // ─── Private ──────────────────────────────────────────
 
   /**
-   * Send this frame's local inputs to the server.
+   * Send this frame's local inputs to the server as a single batch.
    */
   private sendBufferedInputs(): void {
     if (!this._connection) return;
 
     const buffer = this.getFrameRPCBuffer();
+    if (buffer.length === 0) return;
+
+    const inputs: TickInputData[] = [];
     for (const rpc of buffer) {
-      this._connection.sendTickInput({
+      log.info(`SEND: inputId=${rpc.inputId} tick=${rpc.meta.tick} slot=${rpc.meta.playerSlot} seq=${rpc.meta.seq} simTick=${this._simulation?.tick ?? '?'}`);
+      inputs.push({
         tick: rpc.meta.tick,
         playerSlot: rpc.meta.playerSlot,
         seq: rpc.meta.seq,
@@ -196,6 +246,9 @@ export class RelayInputProvider extends AbstractInputProvider {
         payload: this.packRpcPayload(rpc),
       });
     }
+
+    log.info(`SEND BATCH: ${inputs.length} inputs, wsOpen=${this._connection.isConnected}`);
+    this._connection.sendTickInputBatch(inputs);
   }
 
   /**

@@ -12,6 +12,7 @@ export class FinishGameSystem implements IECSSystem {
   ) {}
 
   public update(tick: number): void {
+    return;
     if (tick < 500) return;
     if (this._GameState.safe.finishedAtTick !== 0) return;
 

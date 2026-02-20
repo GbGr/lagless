@@ -1,10 +1,16 @@
 import 'reflect-metadata';
 import { RoomRegistry, LatencySimulator, type RoomTypeConfig } from '@lagless/relay-server';
-import { MatchmakingService, InMemoryQueueStore, type FormedMatch, type MatchFoundPlayerData } from '@lagless/matchmaking';
-import { createLogger, setLogLevel, LogLevel } from '@lagless/misc';
+import {
+  MatchmakingService,
+  InMemoryQueueStore,
+  type FormedMatch,
+  type MatchFoundPlayerData,
+} from '@lagless/matchmaking';
+import { createLogger, setLogLevel, LogLevel, UUID } from '@lagless/misc';
 import { CircleSumoInputRegistry } from '@lagless/circle-sumo-simulation';
 import { circleSumoHooks } from './circle-sumo-hooks.js';
 import { createWsRouter, type MatchTokenPayload } from './ws-router.js';
+import { pack128BufferTo2x64 } from '@lagless/core';
 
 setLogLevel(LogLevel.Debug);
 
@@ -67,7 +73,7 @@ function validateToken(token: string): MatchTokenPayload | null {
 const matchmaking = new MatchmakingService(new InMemoryQueueStore());
 
 matchmaking.registerScope('circle-sumo', {
-  minPlayersToStart: 1,  // allow solo play (filled with bots)
+  minPlayersToStart: 1, // allow solo play (filled with bots)
   maxPlayers: 4,
   waitTimeoutMs: 7_000,
 });
@@ -78,7 +84,7 @@ matchmaking.setOnMatchFormed(async (match: FormedMatch) => {
 
   // Build player list
   const allPlayers = [
-    ...players.map(p => ({
+    ...players.map((p) => ({
       playerId: p.playerId,
       isBot: false,
       metadata: p.metadata as Record<string, unknown>,
@@ -91,15 +97,14 @@ matchmaking.setOnMatchFormed(async (match: FormedMatch) => {
   ];
 
   // Seed from match UUID
-  const hex = matchId.replace(/-/g, '');
-  const seed0 = parseInt(hex.slice(0, 13), 16) / 0x1FFFFFFFFFFFFF;
-  const seed1 = parseInt(hex.slice(13, 26), 16) / 0x1FFFFFFFFFFFFF;
+  const { seed0, seed1 } = pack128BufferTo2x64(UUID.fromString(matchId).asUint8());
 
   // Create room
   roomRegistry.createRoom(
     { matchId, roomType: scope, players: allPlayers },
-    seed0, seed1,
-    JSON.stringify({ gameType: scope }),
+    seed0,
+    seed1,
+    JSON.stringify({ gameType: scope })
   );
 
   // Return per-player data with tokens
@@ -124,10 +129,12 @@ matchmaking.start();
 
 // ─── Latency Simulator ───────────────────────────────────────
 
-let latencySimulator: LatencySimulator | null = null;
+let latencySimulator: LatencySimulator | null = new LatencySimulator({ delayMs: 200, jitterMs: 50, packetLossPercent: 0 });
 
 function applySimulatorToAllRooms(sim: LatencySimulator | null): void {
-  roomRegistry.forEachRoom((room) => { room.latencySimulator = sim; });
+  roomRegistry.forEachRoom((room) => {
+    room.latencySimulator = sim;
+  });
 }
 
 // Hook into room creation so new rooms get the simulator too
@@ -231,7 +238,7 @@ Bun.serve({
       }
 
       if (req.method === 'POST') {
-        const body = await req.json() as Record<string, unknown>;
+        const body = (await req.json()) as Record<string, unknown>;
         const delayMs = Number(body.delayMs ?? 0);
         const jitterMs = Number(body.jitterMs ?? 0);
         const packetLossPercent = Number(body.packetLossPercent ?? 0);

@@ -20,7 +20,7 @@ const consoleSink: LogSink = {
   error: (tag, msg, ...args) => console.error(`[${tag}]`, msg, ...args),
 };
 
-let globalLevel: LogLevel = LogLevel.Info;
+let globalLevel: LogLevel = LogLevel.Debug;
 let globalSink: LogSink = consoleSink;
 
 export function setLogLevel(level: LogLevel): void {

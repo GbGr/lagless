@@ -71,11 +71,13 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
               token: matchInfo.token,
             },
             {
-              onServerHello: () => {
-                console.log('[Relay] ServerHello received');
+              onServerHello: (data) => {
+                inputProvider.handleServerHello(data);
+                console.log('[Relay] ServerHello received, synced to tick', data.serverTick);
               },
               onTickInputFanout: (data) => {
                 inputProvider.handleTickInputFanout(data);
+                console.log('[Relay] TickInputFanout received for tick', data.inputs[0].tick);
               },
               onCancelInput: (data) => {
                 inputProvider.handleCancelInput(data);

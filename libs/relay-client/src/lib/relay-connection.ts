@@ -7,7 +7,7 @@ import {
   unpackCancelInput,
   unpackPong,
   unpackStateRequest,
-  packTickInput,
+  packTickInputBatch,
   packPing,
   packStateResponse,
   packPlayerFinished,
@@ -112,8 +112,9 @@ export class RelayConnection {
 
   // ─── Sending ──────────────────────────────────────────
 
-  public sendTickInput(data: TickInputData): void {
-    this.sendBinary(packTickInput(data));
+  public sendTickInputBatch(inputs: ReadonlyArray<TickInputData>): void {
+    if (inputs.length === 0) return;
+    this.sendBinary(packTickInputBatch(inputs));
   }
 
   public sendStateResponse(data: StateResponseData): void {

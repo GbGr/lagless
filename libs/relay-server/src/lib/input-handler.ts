@@ -65,16 +65,20 @@ export class InputHandler {
 
     // Too old
     if (tick < serverTick) {
+      log.warn(`REJECT TooOld: slot=${senderSlot} inputTick=${tick} serverTick=${serverTick} delta=${tick - serverTick} seq=${seq}`);
       return { accepted: false, reason: CancelReason.TooOld, tick, seq };
     }
 
     // Too far in future
     if (tick > serverTick + this._config.maxFutureTicks) {
+      log.warn(`REJECT TooFarFuture: slot=${senderSlot} inputTick=${tick} serverTick=${serverTick} delta=${tick - serverTick} maxFuture=${this._config.maxFutureTicks} seq=${seq}`);
       return { accepted: false, reason: CancelReason.TooFarFuture, tick, seq };
     }
 
     const payloadStart = HeaderSchema.byteLength + TickInputSchema.byteLength;
     const payload = new Uint8Array(raw, payloadStart, payloadLength);
+
+    log.info(`ACCEPT: slot=${senderSlot} inputTick=${tick} serverTick=${serverTick} delta=${tick - serverTick} seq=${seq} payloadLen=${payloadLength}`);
 
     return {
       accepted: true,
@@ -89,6 +93,77 @@ export class InputHandler {
   }
 
   /**
+   * Parse and validate a TickInputBatch message from a client.
+   * Returns one ValidationResult per input in the batch.
+   */
+  public validateClientInputBatch(
+    senderSlot: PlayerSlot,
+    raw: ArrayBuffer,
+  ): ValidationResult[] {
+    const view = new DataView(raw);
+    let offset = HeaderSchema.byteLength; // skip header
+
+    const inputCount = view.getUint8(offset); offset += 1;
+    const results: ValidationResult[] = [];
+
+    for (let i = 0; i < inputCount; i++) {
+      const tick = view.getUint32(offset, LE); offset += 4;
+      const claimedSlot = view.getUint8(offset); offset += 1;
+      const seq = view.getUint32(offset, LE); offset += 4;
+      const kind = view.getUint8(offset); offset += 1;
+      const payloadLength = view.getUint16(offset, LE); offset += 2;
+
+      if (claimedSlot !== senderSlot) {
+        log.warn(`Batch slot mismatch: sender=${senderSlot}, claimed=${claimedSlot}`);
+        results.push({ accepted: false, reason: CancelReason.InvalidSlot, tick, seq });
+        offset += payloadLength;
+        continue;
+      }
+
+      if (kind === TickInputKind.Server) {
+        log.warn(`Client sent Server-kind input in batch, slot=${senderSlot}`);
+        results.push({ accepted: false, reason: CancelReason.InvalidSlot, tick, seq });
+        offset += payloadLength;
+        continue;
+      }
+
+      const serverTick = this._clock.tick;
+
+      if (tick < serverTick) {
+        log.warn(`REJECT TooOld: slot=${senderSlot} inputTick=${tick} serverTick=${serverTick} delta=${tick - serverTick} seq=${seq}`);
+        results.push({ accepted: false, reason: CancelReason.TooOld, tick, seq });
+        offset += payloadLength;
+        continue;
+      }
+
+      if (tick > serverTick + this._config.maxFutureTicks) {
+        log.warn(`REJECT TooFarFuture: slot=${senderSlot} inputTick=${tick} serverTick=${serverTick} delta=${tick - serverTick} maxFuture=${this._config.maxFutureTicks} seq=${seq}`);
+        results.push({ accepted: false, reason: CancelReason.TooFarFuture, tick, seq });
+        offset += payloadLength;
+        continue;
+      }
+
+      const payload = new Uint8Array(raw, offset, payloadLength);
+      offset += payloadLength;
+
+      log.info(`ACCEPT: slot=${senderSlot} inputTick=${tick} serverTick=${serverTick} delta=${tick - serverTick} seq=${seq} payloadLen=${payloadLength}`);
+
+      results.push({
+        accepted: true,
+        input: {
+          tick,
+          playerSlot: senderSlot,
+          seq,
+          kind: TickInputKind.Client,
+          payload,
+        },
+      });
+    }
+
+    return results;
+  }
+
+  /**
    * Broadcast a validated input to all connected players as TickInputFanout.
    */
   public broadcastInput(
@@ -100,9 +175,12 @@ export class InputHandler {
       inputs: [input],
     });
 
+    let sentCount = 0;
     for (const conn of connections.values()) {
+      if (conn.isConnected) sentCount++;
       conn.send(fanout);
     }
+    log.info(`BROADCAST: tick=${input.tick} slot=${input.playerSlot} kind=${input.kind} → ${sentCount} connected clients`);
   }
 
   /**

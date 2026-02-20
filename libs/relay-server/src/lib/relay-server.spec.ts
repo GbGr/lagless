@@ -6,7 +6,7 @@ import { RoomRegistry } from './room-registry.js';
 import { StateTransfer } from './state-transfer.js';
 import {
   type RoomTypeConfig, type RoomHooks, type PlayerInfo,
-  type IWebSocket,
+  type IWebSocket, type InputRegistry,
   LeaveReason,
 } from './types.js';
 
@@ -30,6 +30,10 @@ const DEFAULT_CONFIG: RoomTypeConfig = {
   stateTransferTimeoutMs: 5000,
 };
 
+const MOCK_INPUT_REGISTRY: InputRegistry = {
+  get: () => ({ id: 0, fields: [], byteLength: 0 }),
+};
+
 function createTestRoom(
   config: Partial<RoomTypeConfig> = {},
   hooks: RoomHooks = {},
@@ -46,6 +50,7 @@ function createTestRoom(
     'test-match-id',
     fullConfig,
     hooks,
+    MOCK_INPUT_REGISTRY,
     players,
     1.23456,
     7.89012,

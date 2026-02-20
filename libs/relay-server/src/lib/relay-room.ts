@@ -1,6 +1,6 @@
 import { createLogger } from '@lagless/misc';
 import {
-  MsgType, TickInputKind, HeaderSchema,
+  TickInputKind, HeaderSchema,
   packServerHello, packPong, packStateResponse,
 } from '@lagless/net-wire';
 import { InputBinarySchema, LE } from '@lagless/binary';
@@ -93,6 +93,14 @@ export class RelayRoom {
 
     log.info(`Room ${matchId} created with ${players.length} players`);
     this._hooks.onRoomCreated?.(this._context);
+
+    // Emit join events for bots — they never connect via WebSocket
+    // but the simulation needs PlayerJoined server events for them
+    for (const conn of this._connections.values()) {
+      if (conn.isBot) {
+        this._hooks.onPlayerJoin?.(this._context, conn.info);
+      }
+    }
   }
 
   // ─── Public getters ────────────────────────────────────
@@ -174,6 +182,7 @@ export class RelayRoom {
       return false;
     }
 
+    // TODO: make sure all fine here if OK - then fix log on first join which logs "reconnect" instead of "join"
     // const isReconnect = conn.isDisconnected;
     const isReconnect = false;
 
@@ -190,9 +199,11 @@ export class RelayRoom {
     // Send ServerHello
     const helloMessage = this.buildServerHello(conn.slot);
     conn.send(helloMessage);
+    log.info(`ServerHello sent to slot=${conn.slot} serverTick=${this._clock.tick}`);
 
     // Replay server event journal so the new player receives all
     // prior server events (e.g. PlayerJoined for earlier players)
+    log.info(`Journal replay: ${this._serverEventJournal.length} events to slot=${conn.slot}`);
     this._inputHandler.sendInputBatchToPlayer(this._serverEventJournal, conn);
 
     // Late-join: transfer state from other clients
@@ -232,28 +243,34 @@ export class RelayRoom {
 
   public handleMessage(playerId: PlayerId, data: ArrayBuffer): void {
     const conn = this._playersByPlayerId.get(playerId);
-    if (!conn || !conn.isConnected) return;
+    if (!conn || !conn.isConnected) {
+      log.warn(`handleMessage: player=${playerId} conn=${!!conn} isConnected=${conn?.isConnected}`);
+      return;
+    }
 
-    if (data.byteLength < HeaderSchema.byteLength) return;
+    if (data.byteLength < HeaderSchema.byteLength) {
+      log.warn(`handleMessage: data too short (${data.byteLength} bytes)`);
+      return;
+    }
 
     const view = new DataView(data);
-    const msgType = view.getUint8(1) as MsgType;
+    const msgType = view.getUint8(1);
 
     switch (msgType) {
-      case MsgType.TickInput:
-        this.handleTickInput(conn, data);
+      case 9: // MsgType.TickInputBatch
+        this.handleTickInputBatch(conn, data);
         break;
-      case MsgType.Ping:
+      case 4: // MsgType.Ping
         this.handlePing(conn, data);
         break;
-      case MsgType.PlayerFinished:
+      case 8: // MsgType.PlayerFinished
         this.handlePlayerFinished(conn, data);
         break;
-      case MsgType.StateResponse:
+      case 7: // MsgType.StateResponse
         this.handleStateResponse(conn, data);
         break;
       default:
-        log.warn(`Unknown message type ${msgType} from player ${playerId}`);
+        log.warn(`Unknown message type ${msgType} from player ${playerId} (dataLen=${data.byteLength})`);
     }
   }
 
@@ -318,18 +335,25 @@ export class RelayRoom {
 
   // ─── Private: Message Handlers ────────────────────────
 
-  private handleTickInput(conn: PlayerConnection, raw: ArrayBuffer): void {
-    const result = this._inputHandler.validateClientInput(conn.slot, raw);
+  private handleTickInputBatch(conn: PlayerConnection, raw: ArrayBuffer): void {
+    const results = this._inputHandler.validateClientInputBatch(conn.slot, raw);
 
-    if (result.accepted) {
-      const broadcast = () => this._inputHandler.broadcastInput(result.input, this._connections);
+    const accepted: ValidatedInput[] = [];
+    for (const result of results) {
+      if (result.accepted) {
+        accepted.push(result.input);
+      } else {
+        this._inputHandler.sendCancel(conn, result.tick, result.seq, result.reason);
+      }
+    }
+
+    if (accepted.length > 0) {
+      const broadcast = () => this._inputHandler.broadcastInputBatch(accepted, this._connections);
       if (this._latencySimulator) {
         this._latencySimulator.apply(broadcast);
       } else {
         broadcast();
       }
-    } else {
-      this._inputHandler.sendCancel(conn, result.tick, result.seq, result.reason);
     }
   }
 

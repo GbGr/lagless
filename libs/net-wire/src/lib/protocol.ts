@@ -22,6 +22,7 @@ export const enum MsgType {
   StateRequest     = 6,
   StateResponse    = 7,
   PlayerFinished   = 8,
+  TickInputBatch   = 9,
 }
 
 export const enum TickInputKind {
@@ -63,6 +64,10 @@ export const TickInputSchema = new BinarySchema({
 
 export const TickInputFanoutSchema = new BinarySchema({
   serverTick: FieldType.Uint32,
+  inputCount: FieldType.Uint8,
+});
+
+export const TickInputBatchSchema = new BinarySchema({
   inputCount: FieldType.Uint8,
 });
 
@@ -221,7 +226,7 @@ export function packTickInput(data: TickInputData): Uint8Array {
     kind: data.kind,
     payloadLength: data.payload.byteLength,
   });
-  pipeline.appendBuffer(data.payload.buffer as ArrayBuffer);
+  pipeline.appendView(data.payload);
   return pipeline.toUint8Array();
 }
 
@@ -241,7 +246,26 @@ export function packTickInputFanout(data: FanoutData): Uint8Array {
       kind: input.kind,
       payloadLength: input.payload.byteLength,
     });
-    pipeline.appendBuffer(input.payload.buffer as ArrayBuffer);
+    pipeline.appendView(input.payload);
+  }
+
+  return pipeline.toUint8Array();
+}
+
+export function packTickInputBatch(inputs: ReadonlyArray<TickInputData>): Uint8Array {
+  const pipeline = new BinarySchemaPackPipeline();
+  packHeader(pipeline, MsgType.TickInputBatch);
+  pipeline.pack(TickInputBatchSchema, { inputCount: inputs.length });
+
+  for (const input of inputs) {
+    pipeline.pack(TickInputSchema, {
+      tick: input.tick,
+      playerSlot: input.playerSlot,
+      seq: input.seq,
+      kind: input.kind,
+      payloadLength: input.payload.byteLength,
+    });
+    pipeline.appendView(input.payload);
   }
 
   return pipeline.toUint8Array();
@@ -301,7 +325,7 @@ export function packPlayerFinished(data: PlayerFinishedData): Uint8Array {
     playerSlot: data.playerSlot,
     payloadLength: data.payload.byteLength,
   });
-  pipeline.appendBuffer(data.payload.buffer as ArrayBuffer);
+  pipeline.appendView(data.payload);
   return pipeline.toUint8Array();
 }
 
@@ -484,4 +508,30 @@ export function unpackTickInputFanoutManual(data: ArrayBuffer): FanoutData {
   }
 
   return { serverTick, inputs };
+}
+
+/**
+ * Unpack TickInputBatch (client→server batch of inputs).
+ * Format: Header(2) + inputCount(u8) + [TickInputSchema + payload]×N
+ */
+export function unpackTickInputBatchManual(data: ArrayBuffer): TickInputData[] {
+  const view = new DataView(data);
+  let offset = HeaderSchema.byteLength; // skip header
+
+  const inputCount = view.getUint8(offset); offset += 1;
+
+  const inputs: TickInputData[] = [];
+  for (let i = 0; i < inputCount; i++) {
+    const tick = view.getUint32(offset, LE); offset += 4;
+    const playerSlot = view.getUint8(offset); offset += 1;
+    const seq = view.getUint32(offset, LE); offset += 4;
+    const kind = view.getUint8(offset) as TickInputKind; offset += 1;
+    const payloadLength = view.getUint16(offset, LE); offset += 2;
+    const payload = new Uint8Array(data, offset, payloadLength);
+    offset += payloadLength;
+
+    inputs.push({ tick, playerSlot, seq, kind, payload });
+  }
+
+  return inputs;
 }

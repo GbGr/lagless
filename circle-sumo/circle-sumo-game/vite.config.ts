@@ -1,6 +1,6 @@
 /// <reference types='vitest' />
 import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
+import react from '@vitejs/plugin-react-swc';
 import wasm from 'vite-plugin-wasm';
 import svgr from 'vite-plugin-svgr';
 import topLevelAwait from 'vite-plugin-top-level-await';
@@ -16,7 +16,20 @@ export default defineConfig(() => ({
     port: 4200,
     host: 'localhost',
   },
-  plugins: [wasm(), topLevelAwait(), svgr(), react()],
+  resolve: {
+    conditions: ['@lagless/source'],
+  },
+  plugins: [
+    wasm(),
+    topLevelAwait(),
+    svgr(),
+    react({
+      tsDecorators: true,
+      useAtYourOwnRisk_mutateSwcOptions: (options) => {
+        options.jsc!.transform!.decoratorMetadata = true;
+      },
+    }),
+  ],
   // Uncomment this if you are using workers.
   // worker: {
   //  plugins: [ nxViteTsPaths() ],

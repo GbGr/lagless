@@ -39,7 +39,7 @@ export function createWsRouter(
      */
     handleUpgrade(
       req: Request,
-      server: { upgrade: (req: Request, opts: { data: WsData }) => boolean },
+      server: { upgrade: (req: Request, opts: { data: WsData }) => boolean }
     ): Response | undefined {
       const url = new URL(req.url);
 
@@ -99,24 +99,50 @@ export function createWsRouter(
         const { data } = ws;
 
         if (data.type === 'match') {
+          // Bun delivers binary as Buffer by default. Switch to ArrayBuffer
+          // so `message instanceof ArrayBuffer` works in the message handler.
+          ws.binaryType = 'arraybuffer';
+
           const room = roomRegistry.getRoom(data.matchId);
-          if (room) {
-            room.handlePlayerConnect(data.playerId, {
+          if (!room) {
+            log.warn(`open: room ${data.matchId} not found for player ${data.playerId}`);
+            ws.close();
+            return;
+          }
+
+          log.info(`open: player=${data.playerId} slot=${data.playerSlot} match=${data.matchId}`);
+
+          room
+            .handlePlayerConnect(data.playerId, {
               sendBinary: (msg: Uint8Array) => ws.sendBinary(msg),
               close: () => ws.close(),
-            });
-          }
+            })
+            .catch((err) => log.error(`handlePlayerConnect error: ${err}`));
         }
 
         // Matchmaking: nothing to do on open — client sends join message
       },
 
-      message(ws: ServerWebSocket<WsData>, message: string | ArrayBuffer) {
+      message(ws: ServerWebSocket<WsData>, message: string | Buffer<ArrayBuffer>) {
         const { data } = ws;
 
-        if (data.type === 'match' && message instanceof ArrayBuffer) {
+        if (data.type === 'match') {
           const room = roomRegistry.getRoom(data.matchId);
-          room?.handleMessage(data.playerId, message);
+          if (!room) {
+            log.warn(`message: room ${data.matchId} gone`);
+            return;
+          }
+
+          const messageArrayBuffer: ArrayBuffer | null = message instanceof ArrayBuffer
+              ? message
+              : null;
+
+          if (messageArrayBuffer === null) {
+            log.warn(`message: expected binary message for match ${data.matchId}, got text`);
+            return;
+          }
+
+          room.handleMessage(data.playerId, messageArrayBuffer);
           return;
         }
 
@@ -130,6 +156,7 @@ export function createWsRouter(
         const { data } = ws;
 
         if (data.type === 'match') {
+          log.info(`close: player=${data.playerId} match=${data.matchId}`);
           const room = roomRegistry.getRoom(data.matchId);
           room?.handlePlayerDisconnect(data.playerId);
         }
