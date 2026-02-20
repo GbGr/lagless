@@ -1,10 +1,10 @@
-import { AbstractInputProvider, RPC, type InputRegistry, type ECSConfig } from '@lagless/core';
+import { AbstractInputProvider, RPC, type InputRegistry, type ECSConfig, type ECSSimulation } from '@lagless/core';
 // eslint-disable-next-line @nx/enforce-module-boundaries -- direct dep, used for input payload packing
 import { InputBinarySchema } from '@lagless/binary';
 import {
   ClockSync, InputDelayController,
   TickInputKind,
-  type ServerHelloData,
+  type ServerHelloData, type StateResponseData,
   type FanoutData, type CancelInputData, type PongData, type TickInputData,
 } from '@lagless/net-wire';
 import { createLogger } from '@lagless/misc';
@@ -30,6 +30,7 @@ export class RelayInputProvider extends AbstractInputProvider {
   private readonly _inputDelayController: InputDelayController;
   private _connection: RelayConnection | null = null;
   private _rollbackCount = 0;
+  private _pendingServerHello: ServerHelloData | null = null;
 
   /**
    * Minimum tick that needs rollback. Consumed (reset) each frame by
@@ -74,6 +75,14 @@ export class RelayInputProvider extends AbstractInputProvider {
 
   // ─── AbstractInputProvider overrides ────────────────────
 
+  public override init(simulation: ECSSimulation): void {
+    super.init(simulation);
+    if (this._pendingServerHello) {
+      this._applyServerHello(this._pendingServerHello);
+      this._pendingServerHello = null;
+    }
+  }
+
   public override getInvalidateRollbackTick(): number | undefined {
     const tick = this._invalidateRollbackTick;
     this._invalidateRollbackTick = undefined;
@@ -95,9 +104,16 @@ export class RelayInputProvider extends AbstractInputProvider {
    */
   public handleServerHello(data: ServerHelloData): void {
     if (!this._simulation) {
-      log.warn(`handleServerHello: _simulation is NULL, cannot sync clock! serverTick=${data.serverTick}`);
+      log.warn(`handleServerHello: _simulation is NULL, buffering for later. serverTick=${data.serverTick}`);
+      this._pendingServerHello = data;
       return;
     }
+
+    this._applyServerHello(data);
+  }
+
+  private _applyServerHello(data: ServerHelloData): void {
+    if (!this._simulation) return;
 
     const beforeTick = this._simulation.tick;
     this._simulation.clock.setAccumulatedTime(data.serverTick * this._frameLength);
@@ -121,7 +137,7 @@ export class RelayInputProvider extends AbstractInputProvider {
       const rpc = this.tickInputToRPC(input);
       this.addRemoteRpc(rpc);
       const needsRollback = input.tick <= currentTick;
-      log.info(`Fanout REMOTE: inputId=${rpc.inputId} tick=${input.tick} slot=${input.playerSlot} kind=${input.kind} seq=${input.seq} localTick=${currentTick} rollback=${needsRollback}`);
+      log.debug(`Fanout REMOTE: inputId=${rpc.inputId} tick=${input.tick} slot=${input.playerSlot} kind=${input.kind} seq=${input.seq} localTick=${currentTick} rollback=${needsRollback}`);
 
       // If remote input is for a tick we already simulated → need rollback
       if (needsRollback) {
@@ -224,6 +240,26 @@ export class RelayInputProvider extends AbstractInputProvider {
     });
   }
 
+  /**
+   * Handle StateResponse from server (reconnect state transfer).
+   * Applies the received state to the simulation and resets all provider state.
+   */
+  public handleStateResponse(data: StateResponseData): void {
+    if (!this._simulation) {
+      log.warn('StateResponse received but simulation not initialized');
+      return;
+    }
+
+    log.info(`State transfer: tick=${data.tick}, hash=0x${data.hash.toString(16)}, size=${data.state.byteLength}`);
+
+    this._simulation.applyExternalState(data.state, data.tick);
+    this._rpcHistory.clear();
+    this._invalidateRollbackTick = undefined;
+    this._clockSync.reset();
+    this._currentInputDelay = this.ecsConfig.initialInputDelayTick;
+    this.resetSequences();
+  }
+
   // ─── Private ──────────────────────────────────────────
 
   /**
@@ -237,7 +273,7 @@ export class RelayInputProvider extends AbstractInputProvider {
 
     const inputs: TickInputData[] = [];
     for (const rpc of buffer) {
-      log.info(`SEND: inputId=${rpc.inputId} tick=${rpc.meta.tick} slot=${rpc.meta.playerSlot} seq=${rpc.meta.seq} simTick=${this._simulation?.tick ?? '?'}`);
+      log.debug(`SEND: inputId=${rpc.inputId} tick=${rpc.meta.tick} slot=${rpc.meta.playerSlot} seq=${rpc.meta.seq} simTick=${this._simulation?.tick ?? '?'}`);
       inputs.push({
         tick: rpc.meta.tick,
         playerSlot: rpc.meta.playerSlot,
@@ -247,7 +283,7 @@ export class RelayInputProvider extends AbstractInputProvider {
       });
     }
 
-    log.info(`SEND BATCH: ${inputs.length} inputs, wsOpen=${this._connection.isConnected}`);
+    log.debug(`SEND BATCH: ${inputs.length} inputs, wsOpen=${this._connection.isConnected}`);
     this._connection.sendTickInputBatch(inputs);
   }
 

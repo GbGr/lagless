@@ -63,6 +63,19 @@ export interface MatchFoundPlayerData {
   readonly [key: string]: unknown;
 }
 
+// ─── Late-Join ──────────────────────────────────────────────
+
+export type TryLateJoinFn = (
+  playerId: string,
+  scope: string,
+  metadata: Readonly<Record<string, unknown>>,
+) => LateJoinResult | null;
+
+export interface LateJoinResult {
+  readonly matchId: string;
+  readonly playerData: MatchFoundPlayerData;
+}
+
 // ─── Queue Store ────────────────────────────────────────────
 
 export interface QueueStore {

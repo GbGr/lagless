@@ -17,6 +17,24 @@ import {
 
 const log = createLogger('RelayRoom');
 
+function uuidToBytes(playerId: string): Uint8Array {
+  const hex = playerId.replace(/-/g, '');
+  // Valid UUID: 32 hex chars → proper hex-to-bytes conversion
+  if (hex.length === 32 && /^[0-9a-fA-F]{32}$/.test(hex)) {
+    const bytes = new Uint8Array(16);
+    for (let i = 0; i < 16; i++) {
+      bytes[i] = parseInt(hex.substring(i * 2, i * 2 + 2), 16);
+    }
+    return bytes;
+  }
+  // Fallback: XOR-hash arbitrary string into 16 bytes
+  const bytes = new Uint8Array(16);
+  for (let i = 0; i < playerId.length; i++) {
+    bytes[i % 16] ^= playerId.charCodeAt(i);
+  }
+  return bytes;
+}
+
 // ─────────────────────────────────────────────────────────────
 // RelayRoom
 // ─────────────────────────────────────────────────────────────
@@ -43,9 +61,11 @@ export class RelayRoom {
   private _reconnectTimer: ReturnType<typeof setInterval> | null = null;
   private _serverSeq = 1;
   private _latencySimulator: LatencySimulator | null = null;
+  private _nextSlot: number;
 
   constructor(
     public readonly matchId: MatchId,
+    public readonly roomType: string,
     private readonly _config: RoomTypeConfig,
     private readonly _hooks: RoomHooks<unknown>,
     inputRegistry: InputRegistry,
@@ -82,6 +102,7 @@ export class RelayRoom {
       this._playersByPlayerId.set(p.playerId, conn);
       slot++;
     }
+    this._nextSlot = slot;
 
     // Start reconnect expiry checker
     if (_config.reconnectTimeoutMs > 0) {
@@ -92,13 +113,16 @@ export class RelayRoom {
     }
 
     log.info(`Room ${matchId} created with ${players.length} players`);
-    this._hooks.onRoomCreated?.(this._context);
+  }
+
+  public async init(): Promise<void> {
+    await this._hooks.onRoomCreated?.(this._context);
 
     // Emit join events for bots — they never connect via WebSocket
     // but the simulation needs PlayerJoined server events for them
     for (const conn of this._connections.values()) {
       if (conn.isBot) {
-        this._hooks.onPlayerJoin?.(this._context, conn.info);
+        await this._hooks.onPlayerJoin?.(this._context, conn.info);
       }
     }
   }
@@ -110,6 +134,10 @@ export class RelayRoom {
   public get config(): Readonly<RoomTypeConfig> { return this._config; }
   public get context(): RoomContext { return this._context; }
   public get createdAt(): number { return this._createdAt; }
+
+  public get hasOpenSlots(): boolean {
+    return !this._disposed && this._config.lateJoinEnabled && this._nextSlot < this._config.maxPlayers;
+  }
 
   public get latencySimulator(): LatencySimulator | null { return this._latencySimulator; }
   public set latencySimulator(sim: LatencySimulator | null) { this._latencySimulator = sim; }
@@ -128,6 +156,40 @@ export class RelayRoom {
       if (!c.isBot) count++;
     }
     return count;
+  }
+
+  // ─── Late-Join ───────────────────────────────────────────
+
+  public addPlayer(
+    playerId: PlayerId,
+    isBot: boolean,
+    metadata: Readonly<Record<string, unknown>>,
+  ): PlayerInfo | null {
+    if (this._disposed) return null;
+    if (!this._config.lateJoinEnabled) return null;
+    if (this._nextSlot >= this._config.maxPlayers) return null;
+    if (this._playersByPlayerId.has(playerId)) return null;
+
+    if (this._hooks.shouldAcceptLateJoin?.(this._context, playerId, metadata) === false) {
+      return null;
+    }
+
+    const slot = this._nextSlot++;
+    const info: PlayerInfo = {
+      playerId,
+      slot,
+      isBot,
+      metadata: Object.freeze({ ...metadata }),
+    };
+
+    const conn = new PlayerConnection(info, null);
+    conn.markDisconnected();
+
+    this._connections.set(slot, conn);
+    this._playersByPlayerId.set(playerId, conn);
+
+    log.info(`Late-join: player ${playerId} added to room ${this.matchId} (slot=${slot})`);
+    return info;
   }
 
   // ─── Internal API (used by RoomContextImpl) ───────────
@@ -182,9 +244,12 @@ export class RelayRoom {
       return false;
     }
 
-    // TODO: make sure all fine here if OK - then fix log on first join which logs "reconnect" instead of "join"
-    // const isReconnect = conn.isDisconnected;
-    const isReconnect = false;
+    if (conn.isGone) {
+      log.warn(`Player ${playerId} reconnect rejected — already gone`);
+      return false;
+    }
+
+    const isReconnect = conn.hasConnectedBefore;
 
     if (isReconnect) {
       const canReconnect = this._hooks.shouldAcceptReconnect?.(this._context, playerId) ?? true;
@@ -201,29 +266,33 @@ export class RelayRoom {
     conn.send(helloMessage);
     log.info(`ServerHello sent to slot=${conn.slot} serverTick=${this._clock.tick}`);
 
-    // Replay server event journal so the new player receives all
-    // prior server events (e.g. PlayerJoined for earlier players)
-    log.info(`Journal replay: ${this._serverEventJournal.length} events to slot=${conn.slot}`);
-    this._inputHandler.sendInputBatchToPlayer(this._serverEventJournal, conn);
+    // State sync: state transfer if tick > 0, otherwise journal replay
+    const needsStateTransfer = this._clock.tick > 0 && this._config.lateJoinEnabled;
 
-    // Late-join: transfer state from other clients
-    if (isReconnect && this._config.lateJoinEnabled) {
-      const stateResult = await this._stateTransfer.requestState(
-        this._connections,
-        conn.slot,
-      );
+    if (needsStateTransfer) {
+      const stateResult = await this._stateTransfer.requestState(this._connections, conn.slot);
       if (stateResult) {
         this.sendStateToPlayer(conn, stateResult);
+      } else {
+        log.warn(`State transfer failed for player ${playerId} — falling back to journal replay`);
+        this._inputHandler.sendInputBatchToPlayer(this._serverEventJournal, conn);
       }
+    } else {
+      log.info(`Journal replay: ${this._serverEventJournal.length} events to slot=${conn.slot}`);
+      this._inputHandler.sendInputBatchToPlayer(this._serverEventJournal, conn);
     }
 
     log.info(`Player ${playerId} ${isReconnect ? 'reconnected to' : 'joined'} room ${this.matchId} (slot=${conn.slot})`);
-    this._hooks.onPlayerJoin?.(this._context, conn.info);
+    if (isReconnect) {
+      await this._hooks.onPlayerReconnect?.(this._context, conn.info);
+    } else {
+      await this._hooks.onPlayerJoin?.(this._context, conn.info);
+    }
 
     return true;
   }
 
-  public handlePlayerDisconnect(playerId: PlayerId): void {
+  public async handlePlayerDisconnect(playerId: PlayerId): Promise<void> {
     const conn = this._playersByPlayerId.get(playerId);
     if (!conn || !conn.isConnected) return;
 
@@ -234,7 +303,7 @@ export class RelayRoom {
     }
 
     log.info(`Player ${playerId} disconnected from room ${this.matchId}`);
-    this._hooks.onPlayerLeave?.(this._context, conn.info, LeaveReason.Disconnected);
+    await this._hooks.onPlayerLeave?.(this._context, conn.info, LeaveReason.Disconnected);
 
     this.checkMatchEnd();
   }
@@ -447,8 +516,7 @@ export class RelayRoom {
 
   private buildServerHello(forSlot: PlayerSlot): Uint8Array {
     const players = Array.from(this._connections.values()).map(conn => ({
-      playerId: new TextEncoder().encode(conn.playerId.replace(/-/g, '').padEnd(32, '0').slice(0, 32))
-        .slice(0, 16), // simplified UUID to 16 bytes
+      playerId: uuidToBytes(conn.playerId),
       slot: conn.slot,
       isBot: conn.isBot,
       metadataJson: JSON.stringify(conn.info.metadata),

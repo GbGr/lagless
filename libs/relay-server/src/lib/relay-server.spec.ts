@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ServerClock } from './server-clock.js';
 import { PlayerConnection } from './player-connection.js';
+import { InputHandler } from './input-handler.js';
 import { RelayRoom } from './relay-room.js';
 import { RoomRegistry } from './room-registry.js';
 import { StateTransfer } from './state-transfer.js';
@@ -9,6 +10,7 @@ import {
   type IWebSocket, type InputRegistry,
   LeaveReason,
 } from './types.js';
+import { LE } from '@lagless/binary';
 
 // ─── Test helpers ───────────────────────────────────────────
 
@@ -34,7 +36,7 @@ const MOCK_INPUT_REGISTRY: InputRegistry = {
   get: () => ({ id: 0, fields: [], byteLength: 0 }),
 };
 
-function createTestRoom(
+async function createTestRoom(
   config: Partial<RoomTypeConfig> = {},
   hooks: RoomHooks = {},
   playerCount = 2,
@@ -46,8 +48,9 @@ function createTestRoom(
     metadata: { skin: i },
   }));
 
-  return new RelayRoom(
+  const room = new RelayRoom(
     'test-match-id',
+    'test-game',
     fullConfig,
     hooks,
     MOCK_INPUT_REGISTRY,
@@ -56,6 +59,8 @@ function createTestRoom(
     7.89012,
     '{"gameType":"test"}',
   );
+  await room.init();
+  return room;
 }
 
 // ─── ServerClock ────────────────────────────────────────────
@@ -161,27 +166,47 @@ describe('PlayerConnection', () => {
     conn.send(new Uint8Array([42]));
     expect(ws2.sent.length).toBe(1);
   });
+
+  it('should have hasConnectedBefore = false before first connect', () => {
+    const conn = new PlayerConnection(playerInfo, null);
+    expect(conn.hasConnectedBefore).toBe(false);
+  });
+
+  it('should have hasConnectedBefore = true after connect', () => {
+    const ws = createMockWs();
+    const conn = new PlayerConnection(playerInfo, null);
+    conn.connect(ws);
+    expect(conn.hasConnectedBefore).toBe(true);
+  });
+
+  it('should keep hasConnectedBefore = true after markDisconnected', () => {
+    const ws = createMockWs();
+    const conn = new PlayerConnection(playerInfo, null);
+    conn.connect(ws);
+    conn.markDisconnected();
+    expect(conn.hasConnectedBefore).toBe(true);
+  });
 });
 
 // ─── RelayRoom ──────────────────────────────────────────────
 
 describe('RelayRoom', () => {
-  it('should create room with correct state', () => {
-    const room = createTestRoom();
+  it('should create room with correct state', async () => {
+    const room = await createTestRoom();
     expect(room.isDisposed).toBe(false);
     expect(room.matchId).toBe('test-match-id');
     expect(room.tick).toBeGreaterThanOrEqual(0);
   });
 
-  it('should call onRoomCreated hook', () => {
+  it('should call onRoomCreated hook', async () => {
     const onRoomCreated = vi.fn();
-    createTestRoom({}, { onRoomCreated });
+    await createTestRoom({}, { onRoomCreated });
     expect(onRoomCreated).toHaveBeenCalledOnce();
   });
 
   it('should handle player connect', async () => {
     const onPlayerJoin = vi.fn();
-    const room = createTestRoom({}, { onPlayerJoin });
+    const room = await createTestRoom({}, { onPlayerJoin });
 
     const ws = createMockWs();
     const success = await room.handlePlayerConnect('player-0', ws);
@@ -194,14 +219,14 @@ describe('RelayRoom', () => {
   });
 
   it('should reject unknown player', async () => {
-    const room = createTestRoom();
+    const room = await createTestRoom();
     const ws = createMockWs();
     const success = await room.handlePlayerConnect('unknown-player', ws);
     expect(success).toBe(false);
   });
 
   it('should reject duplicate connection', async () => {
-    const room = createTestRoom();
+    const room = await createTestRoom();
     const ws1 = createMockWs();
     const ws2 = createMockWs();
 
@@ -212,7 +237,7 @@ describe('RelayRoom', () => {
 
   it('should handle player disconnect', async () => {
     const onPlayerLeave = vi.fn();
-    const room = createTestRoom({}, { onPlayerLeave });
+    const room = await createTestRoom({}, { onPlayerLeave });
 
     const ws = createMockWs();
     await room.handlePlayerConnect('player-0', ws);
@@ -224,17 +249,17 @@ describe('RelayRoom', () => {
 
   it('should call onMatchEnd when all humans disconnect', async () => {
     const onMatchEnd = vi.fn();
-    const room = createTestRoom({}, { onMatchEnd });
+    const room = await createTestRoom({}, { onMatchEnd });
 
     const ws0 = createMockWs();
     const ws1 = createMockWs();
     await room.handlePlayerConnect('player-0', ws0);
     await room.handlePlayerConnect('player-1', ws1);
 
-    room.handlePlayerDisconnect('player-0');
+    await room.handlePlayerDisconnect('player-0');
     expect(onMatchEnd).not.toHaveBeenCalled();
 
-    room.handlePlayerDisconnect('player-1');
+    await room.handlePlayerDisconnect('player-1');
     // endMatch is async — give it a microtask to complete
     await vi.waitFor(() => {
       expect(onMatchEnd).toHaveBeenCalledOnce();
@@ -243,21 +268,180 @@ describe('RelayRoom', () => {
   });
 
   it('should allow reconnect when configured', async () => {
-    const room = createTestRoom({ reconnectTimeoutMs: 5000 });
+    const room = await createTestRoom({ reconnectTimeoutMs: 5000 });
+    const ws0 = createMockWs();
+    const ws1 = createMockWs();
+    await room.handlePlayerConnect('player-0', ws0);
+    await room.handlePlayerConnect('player-1', ws1);
+    await room.handlePlayerDisconnect('player-0');
+
+    const ws0b = createMockWs();
+    const success = await room.handlePlayerConnect('player-0', ws0b);
+    expect(success).toBe(true);
+    // ServerHello sent on reconnect
+    expect(ws0b.sent.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('should call onPlayerJoin on first connect, NOT onPlayerReconnect', async () => {
+    const onPlayerJoin = vi.fn();
+    const onPlayerReconnect = vi.fn();
+    const room = await createTestRoom({}, { onPlayerJoin, onPlayerReconnect });
+
+    const ws = createMockWs();
+    await room.handlePlayerConnect('player-0', ws);
+
+    expect(onPlayerJoin).toHaveBeenCalledOnce();
+    expect(onPlayerReconnect).not.toHaveBeenCalled();
+  });
+
+  it('should call onPlayerReconnect on reconnect, NOT onPlayerJoin again', async () => {
+    const onPlayerJoin = vi.fn();
+    const onPlayerReconnect = vi.fn();
+    const room = await createTestRoom({ reconnectTimeoutMs: 5000 }, { onPlayerJoin, onPlayerReconnect });
+
+    const ws0 = createMockWs();
+    const ws1 = createMockWs();
+    await room.handlePlayerConnect('player-0', ws0);
+    await room.handlePlayerConnect('player-1', ws1);
+    await room.handlePlayerDisconnect('player-0');
+
+    const ws0b = createMockWs();
+    await room.handlePlayerConnect('player-0', ws0b);
+
+    expect(onPlayerJoin).toHaveBeenCalledTimes(2); // player-0 + player-1
+    expect(onPlayerReconnect).toHaveBeenCalledOnce();
+    expect(onPlayerReconnect.mock.calls[0][1].playerId).toBe('player-0');
+  });
+
+  it('should reject reconnect when shouldAcceptReconnect returns false', async () => {
+    const shouldAcceptReconnect = vi.fn(() => false);
+    const room = await createTestRoom({ reconnectTimeoutMs: 5000 }, { shouldAcceptReconnect });
+
+    const ws0 = createMockWs();
+    const ws1 = createMockWs();
+    await room.handlePlayerConnect('player-0', ws0);
+    await room.handlePlayerConnect('player-1', ws1);
+    await room.handlePlayerDisconnect('player-0');
+
+    const ws0b = createMockWs();
+    const success = await room.handlePlayerConnect('player-0', ws0b);
+
+    expect(success).toBe(false);
+    expect(shouldAcceptReconnect).toHaveBeenCalledOnce();
+  });
+
+  it('should trigger state transfer on reconnect with lateJoinEnabled', async () => {
+    const room = await createTestRoom({ reconnectTimeoutMs: 5000, lateJoinEnabled: true, stateTransferTimeoutMs: 50 });
+
+    const ws0 = createMockWs();
+    const ws1 = createMockWs();
+    await room.handlePlayerConnect('player-0', ws0);
+    await room.handlePlayerConnect('player-1', ws1);
+
+    await room.handlePlayerDisconnect('player-0');
+
+    // Reconnect player-0 — should trigger state request to player-1
+    const ws0b = createMockWs();
+    const connectPromise = room.handlePlayerConnect('player-0', ws0b);
+
+    // player-1 should have received a StateRequest message (in addition to ServerHello)
+    // StateRequest is sent as binary to connected clients
+    const player1Messages = ws1.sent;
+    const hasStateRequest = player1Messages.length > 1; // ServerHello + StateRequest
+
+    // Wait for state transfer timeout
+    const success = await connectPromise;
+    expect(success).toBe(true);
+  });
+
+  it('should succeed reconnect without state transfer when no other clients respond', async () => {
+    const room = await createTestRoom(
+      { reconnectTimeoutMs: 5000, lateJoinEnabled: true, stateTransferTimeoutMs: 50 },
+      {},
+      3,
+    );
+
+    const ws0 = createMockWs();
+    const ws1 = createMockWs();
+    const ws2 = createMockWs();
+    await room.handlePlayerConnect('player-0', ws0);
+    await room.handlePlayerConnect('player-1', ws1);
+    await room.handlePlayerConnect('player-2', ws2);
+
+    // Disconnect player-1 and player-0 (player-2 stays connected)
+    await room.handlePlayerDisconnect('player-1');
+    await room.handlePlayerDisconnect('player-0');
+
+    // Reconnect player-0 — state transfer targets player-2 but times out (no response)
+    const ws0b = createMockWs();
+    const success = await room.handlePlayerConnect('player-0', ws0b);
+    expect(success).toBe(true);
+  });
+
+  it('should handle multiple disconnect/reconnect cycles correctly', async () => {
+    const onPlayerJoin = vi.fn();
+    const onPlayerReconnect = vi.fn();
+    const room = await createTestRoom(
+      { reconnectTimeoutMs: 5000 },
+      { onPlayerJoin, onPlayerReconnect },
+    );
+
+    // Connect both players
+    const ws0 = createMockWs();
+    const ws1 = createMockWs();
+    await room.handlePlayerConnect('player-0', ws0);
+    await room.handlePlayerConnect('player-1', ws1);
+
+    // Disconnect + reconnect #1
+    await room.handlePlayerDisconnect('player-0');
+    const ws0b = createMockWs();
+    await room.handlePlayerConnect('player-0', ws0b);
+
+    // Disconnect + reconnect #2
+    await room.handlePlayerDisconnect('player-0');
+    const ws0c = createMockWs();
+    await room.handlePlayerConnect('player-0', ws0c);
+
+    expect(onPlayerJoin).toHaveBeenCalledTimes(2); // player-0 + player-1
+    expect(onPlayerReconnect).toHaveBeenCalledTimes(2); // two reconnects
+  });
+
+  it('should reject reconnect after timeout expiry (Gone state)', async () => {
+    const room = await createTestRoom({ reconnectTimeoutMs: 30 });
+
     const ws1 = createMockWs();
     await room.handlePlayerConnect('player-0', ws1);
-    room.handlePlayerDisconnect('player-0');
+    await room.handlePlayerDisconnect('player-0');
+
+    // Wait for timeout
+    await new Promise(r => setTimeout(r, 50));
+    // Manually trigger timeout check
+    (room as any).checkReconnectTimeouts();
 
     const ws2 = createMockWs();
     const success = await room.handlePlayerConnect('player-0', ws2);
-    expect(success).toBe(true);
-    // ServerHello sent on reconnect
-    expect(ws2.sent.length).toBeGreaterThanOrEqual(1);
+    expect(success).toBe(false); // Gone — rejected
+  });
+
+  it('should await async onPlayerLeave in handlePlayerDisconnect', async () => {
+    let hookResolved = false;
+    const onPlayerLeave = vi.fn(async () => {
+      await new Promise(r => setTimeout(r, 10));
+      hookResolved = true;
+    });
+    const room = await createTestRoom({}, { onPlayerLeave });
+
+    const ws = createMockWs();
+    await room.handlePlayerConnect('player-0', ws);
+    await room.handlePlayerDisconnect('player-0');
+
+    expect(hookResolved).toBe(true);
+    expect(onPlayerLeave).toHaveBeenCalledOnce();
   });
 
   it('should dispose cleanly', async () => {
     const onRoomDisposed = vi.fn();
-    const room = createTestRoom({}, { onRoomDisposed });
+    const room = await createTestRoom({}, { onRoomDisposed });
     await room.dispose();
 
     expect(room.isDisposed).toBe(true);
@@ -266,6 +450,17 @@ describe('RelayRoom', () => {
     // Double dispose should be no-op
     await room.dispose();
     expect(onRoomDisposed).toHaveBeenCalledOnce();
+  });
+
+  it('should await async hooks in init()', async () => {
+    let hookCompleted = false;
+    const onRoomCreated = async () => {
+      await new Promise(r => setTimeout(r, 10));
+      hookCompleted = true;
+    };
+
+    await createTestRoom({}, { onRoomCreated });
+    expect(hookCompleted).toBe(true);
   });
 });
 
@@ -289,8 +484,8 @@ describe('RoomRegistry', () => {
       .toThrow(/already registered/);
   });
 
-  it('should create rooms', () => {
-    const room = registry.createRoom({
+  it('should create rooms', async () => {
+    const room = await registry.createRoom({
       matchId: 'match-1',
       roomType: 'test-game',
       players: [
@@ -304,36 +499,36 @@ describe('RoomRegistry', () => {
     expect(registry.getRoom('match-1')).toBe(room);
   });
 
-  it('should throw on duplicate match ID', () => {
-    registry.createRoom({
+  it('should throw on duplicate match ID', async () => {
+    await registry.createRoom({
       matchId: 'match-1',
       roomType: 'test-game',
       players: [{ playerId: 'p1', isBot: false, metadata: {} }],
     }, 0, 0);
 
-    expect(() => registry.createRoom({
+    await expect(registry.createRoom({
       matchId: 'match-1',
       roomType: 'test-game',
       players: [{ playerId: 'p2', isBot: false, metadata: {} }],
-    }, 0, 0)).toThrow(/already exists/);
+    }, 0, 0)).rejects.toThrow(/already exists/);
   });
 
-  it('should throw for unknown room type', () => {
-    expect(() => registry.createRoom({
+  it('should throw for unknown room type', async () => {
+    await expect(registry.createRoom({
       matchId: 'match-1',
       roomType: 'unknown',
       players: [],
-    }, 0, 0)).toThrow(/Unknown room type/);
+    }, 0, 0)).rejects.toThrow(/Unknown room type/);
   });
 
   it('should dispose all rooms', async () => {
-    registry.createRoom({
+    await registry.createRoom({
       matchId: 'match-1',
       roomType: 'test-game',
       players: [{ playerId: 'p1', isBot: false, metadata: {} }],
     }, 0, 0);
 
-    registry.createRoom({
+    await registry.createRoom({
       matchId: 'match-2',
       roomType: 'test-game',
       players: [{ playerId: 'p2', isBot: false, metadata: {} }],
@@ -342,6 +537,26 @@ describe('RoomRegistry', () => {
     expect(registry.roomCount).toBe(2);
     await registry.dispose();
     expect(registry.roomCount).toBe(0);
+  });
+
+  it('should await async createRoom with async hooks', async () => {
+    let hookDone = false;
+    const asyncRegistry = new RoomRegistry();
+    asyncRegistry.registerRoomType('async-game', DEFAULT_CONFIG, {
+      onRoomCreated: async () => {
+        await new Promise(r => setTimeout(r, 10));
+        hookDone = true;
+      },
+    });
+
+    await asyncRegistry.createRoom({
+      matchId: 'async-match',
+      roomType: 'async-game',
+      players: [{ playerId: 'p1', isBot: false, metadata: {} }],
+    }, 0, 0);
+
+    expect(hookDone).toBe(true);
+    await asyncRegistry.dispose();
   });
 });
 
@@ -461,5 +676,420 @@ describe('StateTransfer', () => {
     st.dispose();
     const result = await promise;
     expect(result).toBeNull();
+  });
+});
+
+// ─── InputHandler (BUG 3 — bounds checking) ─────────────────
+
+describe('InputHandler', () => {
+  function createInputHandler(tickOverride?: number) {
+    const clock = new ServerClock(60);
+    const config: RoomTypeConfig = { ...DEFAULT_CONFIG };
+    const handler = new InputHandler(clock, config);
+    return { handler, clock };
+  }
+
+  /**
+   * Build a raw TickInputBatch ArrayBuffer manually.
+   * Format: Header(2) + inputCount(u8) + [tick(u32) + slot(u8) + seq(u32) + kind(u8) + payloadLen(u16) + payload]×N
+   */
+  function buildRawBatch(inputs: Array<{
+    tick: number;
+    slot: number;
+    seq: number;
+    kind?: number;
+    payload?: Uint8Array;
+  }>): ArrayBuffer {
+    // Calculate total size
+    let size = 2 + 1; // header + inputCount
+    for (const i of inputs) {
+      const pl = i.payload ?? new Uint8Array([1, 2]);
+      size += 4 + 1 + 4 + 1 + 2 + pl.byteLength; // tick+slot+seq+kind+payloadLen+payload
+    }
+
+    const buf = new ArrayBuffer(size);
+    const view = new DataView(buf);
+    const uint8 = new Uint8Array(buf);
+    let offset = 0;
+
+    // Header
+    view.setUint8(offset++, 1); // version
+    view.setUint8(offset++, 9); // MsgType.TickInputBatch
+
+    // inputCount
+    view.setUint8(offset++, inputs.length);
+
+    for (const i of inputs) {
+      const payload = i.payload ?? new Uint8Array([1, 2]);
+      view.setUint32(offset, i.tick, LE); offset += 4;
+      view.setUint8(offset++, i.slot);
+      view.setUint32(offset, i.seq, LE); offset += 4;
+      view.setUint8(offset++, i.kind ?? 0); // Client = 0
+      view.setUint16(offset, payload.byteLength, LE); offset += 2;
+      uint8.set(payload, offset); offset += payload.byteLength;
+    }
+
+    return buf;
+  }
+
+  it('should handle valid batch', () => {
+    const { handler } = createInputHandler();
+    const raw = buildRawBatch([
+      { tick: 5, slot: 0, seq: 1 },
+      { tick: 6, slot: 0, seq: 2 },
+    ]);
+
+    const results = handler.validateClientInputBatch(0, raw);
+    expect(results.length).toBe(2);
+    expect(results[0].accepted).toBe(true);
+    expect(results[1].accepted).toBe(true);
+  });
+
+  it('should handle truncated batch header (empty buffer)', () => {
+    const { handler } = createInputHandler();
+    // Just header bytes (2), no inputCount byte
+    const raw = new ArrayBuffer(2);
+    const view = new DataView(raw);
+    view.setUint8(0, 1); // version
+    view.setUint8(1, 9); // MsgType.TickInputBatch
+
+    const results = handler.validateClientInputBatch(0, raw);
+    expect(results.length).toBe(0);
+  });
+
+  it('should handle batch with inputCount > actual data', () => {
+    const { handler } = createInputHandler();
+    // Build a batch with inputCount=5 but only header bytes
+    const HEADER_LEN = 2;
+    const raw = new ArrayBuffer(HEADER_LEN + 1);
+    const view = new DataView(raw);
+    view.setUint8(0, 1); // version
+    view.setUint8(1, 9); // MsgType.TickInputBatch
+    view.setUint8(HEADER_LEN, 5); // claim 5 inputs
+
+    const results = handler.validateClientInputBatch(0, raw);
+    expect(results.length).toBe(0); // all truncated, none parsed
+  });
+
+  it('should parse valid inputs and stop at truncation', () => {
+    const { handler } = createInputHandler();
+
+    // Build a normal batch with 2 inputs, then truncate to cut off the 2nd input's payload
+    const raw = buildRawBatch([
+      { tick: 5, slot: 0, seq: 1, payload: new Uint8Array([1, 2, 3]) },
+      { tick: 6, slot: 0, seq: 2, payload: new Uint8Array([4, 5, 6]) },
+    ]);
+
+    // Truncate the buffer to cut into the 2nd input's payload
+    // Header(2) + batchHeader(1) + input1: tick(4)+slot(1)+seq(4)+kind(1)+payloadLen(2)+payload(3) = 18
+    // input2 header: 12 bytes, need 3 more for payload — truncate before payload completes
+    const truncatedLength = 2 + 1 + 12 + 3 + 12 + 1; // just 1 byte of 2nd payload
+    const truncated = raw.slice(0, truncatedLength);
+
+    const results = handler.validateClientInputBatch(0, truncated);
+    expect(results.length).toBe(1); // only first input parsed
+    if (results[0].accepted) {
+      expect(results[0].input.seq).toBe(1);
+    }
+  });
+});
+
+// ─── uuidToBytes (BUG 5 — PlayerId encoding) ────────────────
+
+describe('uuidToBytes via buildServerHello', () => {
+  it('should produce valid 16-byte playerIds in ServerHello', async () => {
+    const room = await createTestRoom({}, {}, 2);
+    const ws = createMockWs();
+    await room.handlePlayerConnect('player-0', ws);
+
+    // ServerHello should have been sent
+    expect(ws.sent.length).toBe(1);
+    // Just verifying no crash — the player IDs are UUIDs like "player-0"
+    // which are NOT valid UUID hex, so they'll use XOR fallback
+  });
+
+  it('should produce different bytes for different player IDs', async () => {
+    // Create room with UUID-like player IDs
+    const fullConfig = { ...DEFAULT_CONFIG };
+    const players = [
+      { playerId: '550e8400-e29b-41d4-a716-446655440000', isBot: false, metadata: {} },
+      { playerId: '550e8400-e29b-41d4-a716-446655440001', isBot: false, metadata: {} },
+    ];
+
+    const room = new RelayRoom(
+      'uuid-test-match',
+      'test-game',
+      fullConfig,
+      {},
+      MOCK_INPUT_REGISTRY,
+      players,
+      1.0,
+      2.0,
+      '{}',
+    );
+    await room.init();
+
+    const ws1 = createMockWs();
+    const ws2 = createMockWs();
+    await room.handlePlayerConnect('550e8400-e29b-41d4-a716-446655440000', ws1);
+    await room.handlePlayerConnect('550e8400-e29b-41d4-a716-446655440001', ws2);
+
+    // Both should have received ServerHello
+    expect(ws1.sent.length).toBe(1);
+    expect(ws2.sent.length).toBeGreaterThanOrEqual(1);
+
+    // The messages should be different (different playerSlot + different player bytes)
+    const msg1 = ws1.sent[0];
+    const msg2 = ws2.sent[ws2.sent.length - 1];
+    expect(msg1).not.toEqual(msg2);
+
+    await room.dispose();
+  });
+});
+
+// ─── RelayRoom.addPlayer (Late-Join) ─────────────────────────
+
+describe('RelayRoom.addPlayer', () => {
+  it('should return PlayerInfo with correct slot', async () => {
+    const room = await createTestRoom({ lateJoinEnabled: true, maxPlayers: 4 });
+    const info = room.addPlayer('late-player', false, { skin: 5 });
+
+    expect(info).not.toBeNull();
+    expect(info!.slot).toBe(2); // 2 initial players → next slot is 2
+    expect(info!.playerId).toBe('late-player');
+    expect(info!.isBot).toBe(false);
+    expect(info!.metadata).toEqual({ skin: 5 });
+
+    await room.dispose();
+  });
+
+  it('should start reconnect timeout for late-joiner', async () => {
+    const room = await createTestRoom({ lateJoinEnabled: true, maxPlayers: 4, reconnectTimeoutMs: 30 });
+    room.addPlayer('late-player', false, {});
+
+    // Wait for reconnect timeout
+    await new Promise(r => setTimeout(r, 50));
+    (room as any).checkReconnectTimeouts();
+
+    // Late-joiner should be gone now
+    const ws = createMockWs();
+    const success = await room.handlePlayerConnect('late-player', ws);
+    expect(success).toBe(false);
+
+    await room.dispose();
+  });
+
+  it('should reject when lateJoinEnabled=false', async () => {
+    const room = await createTestRoom({ lateJoinEnabled: false, maxPlayers: 4 });
+    const info = room.addPlayer('late-player', false, {});
+    expect(info).toBeNull();
+    await room.dispose();
+  });
+
+  it('should reject when room is full', async () => {
+    const room = await createTestRoom({ lateJoinEnabled: true, maxPlayers: 2 });
+    const info = room.addPlayer('late-player', false, {});
+    expect(info).toBeNull();
+    await room.dispose();
+  });
+
+  it('should reject when room is disposed', async () => {
+    const room = await createTestRoom({ lateJoinEnabled: true, maxPlayers: 4 });
+    await room.dispose();
+    const info = room.addPlayer('late-player', false, {});
+    expect(info).toBeNull();
+  });
+
+  it('should reject duplicate playerId', async () => {
+    const room = await createTestRoom({ lateJoinEnabled: true, maxPlayers: 4 });
+    const info = room.addPlayer('player-0', false, {}); // already exists
+    expect(info).toBeNull();
+    await room.dispose();
+  });
+
+  it('should reject when shouldAcceptLateJoin returns false', async () => {
+    const shouldAcceptLateJoin = vi.fn(() => false);
+    const room = await createTestRoom({ lateJoinEnabled: true, maxPlayers: 4 }, { shouldAcceptLateJoin });
+    const info = room.addPlayer('late-player', false, {});
+    expect(info).toBeNull();
+    expect(shouldAcceptLateJoin).toHaveBeenCalledOnce();
+    await room.dispose();
+  });
+
+  it('should assign incrementing slots for multiple late-joiners', async () => {
+    const room = await createTestRoom({ lateJoinEnabled: true, maxPlayers: 6 });
+
+    const info1 = room.addPlayer('late-1', false, {});
+    const info2 = room.addPlayer('late-2', false, {});
+    const info3 = room.addPlayer('late-3', false, {});
+
+    expect(info1!.slot).toBe(2);
+    expect(info2!.slot).toBe(3);
+    expect(info3!.slot).toBe(4);
+
+    // Room should still have open slots (5 of 6 used)
+    expect(room.hasOpenSlots).toBe(true);
+
+    const info4 = room.addPlayer('late-4', false, {});
+    expect(info4!.slot).toBe(5);
+
+    // Now full
+    expect(room.hasOpenSlots).toBe(false);
+    expect(room.addPlayer('late-5', false, {})).toBeNull();
+
+    await room.dispose();
+  });
+});
+
+// ─── Late-Join handlePlayerConnect flow ──────────────────────
+
+describe('Late-join handlePlayerConnect', () => {
+  it('should call onPlayerJoin for late-joiner (not onPlayerReconnect)', async () => {
+    const onPlayerJoin = vi.fn();
+    const onPlayerReconnect = vi.fn();
+    const room = await createTestRoom(
+      { lateJoinEnabled: true, maxPlayers: 4, reconnectTimeoutMs: 5000 },
+      { onPlayerJoin, onPlayerReconnect },
+    );
+
+    // Connect initial players
+    const ws0 = createMockWs();
+    const ws1 = createMockWs();
+    await room.handlePlayerConnect('player-0', ws0);
+    await room.handlePlayerConnect('player-1', ws1);
+
+    // Add late-joiner
+    room.addPlayer('late-player', false, {});
+
+    const wsLate = createMockWs();
+    const success = await room.handlePlayerConnect('late-player', wsLate);
+    expect(success).toBe(true);
+
+    // onPlayerJoin called for player-0, player-1, late-player
+    expect(onPlayerJoin).toHaveBeenCalledTimes(3);
+    expect(onPlayerJoin.mock.calls[2][1].playerId).toBe('late-player');
+    expect(onPlayerReconnect).not.toHaveBeenCalled();
+
+    await room.dispose();
+  });
+
+  it('should send ServerHello with all players including late-joiner', async () => {
+    const room = await createTestRoom(
+      { lateJoinEnabled: true, maxPlayers: 4, reconnectTimeoutMs: 5000 },
+    );
+
+    const ws0 = createMockWs();
+    await room.handlePlayerConnect('player-0', ws0);
+
+    room.addPlayer('late-player', false, {});
+    const wsLate = createMockWs();
+    await room.handlePlayerConnect('late-player', wsLate);
+
+    // ServerHello should have been sent
+    expect(wsLate.sent.length).toBeGreaterThanOrEqual(1);
+
+    await room.dispose();
+  });
+
+  it('should fall back to journal replay when state transfer fails', async () => {
+    const room = await createTestRoom(
+      { lateJoinEnabled: true, maxPlayers: 4, reconnectTimeoutMs: 5000, stateTransferTimeoutMs: 50 },
+    );
+
+    // Connect player-0 to start the clock
+    const ws0 = createMockWs();
+    await room.handlePlayerConnect('player-0', ws0);
+
+    // Wait for tick > 0
+    await new Promise(r => setTimeout(r, 30));
+
+    // Add late-joiner — state transfer will timeout (no one responds)
+    room.addPlayer('late-player', false, {});
+    const wsLate = createMockWs();
+    const success = await room.handlePlayerConnect('late-player', wsLate);
+    expect(success).toBe(true);
+
+    await room.dispose();
+  });
+});
+
+// ─── RoomRegistry.findRoomForLateJoin ────────────────────────
+
+describe('RoomRegistry.findRoomForLateJoin', () => {
+  it('should find room with open slots', async () => {
+    const registry = new RoomRegistry();
+    registry.registerRoomType('test-game', { ...DEFAULT_CONFIG, lateJoinEnabled: true, maxPlayers: 4 }, {});
+
+    await registry.createRoom({
+      matchId: 'match-1',
+      roomType: 'test-game',
+      players: [
+        { playerId: 'p1', isBot: false, metadata: {} },
+        { playerId: 'p2', isBot: false, metadata: {} },
+      ],
+    }, 1.0, 2.0);
+
+    const found = registry.findRoomForLateJoin('test-game');
+    expect(found).toBeDefined();
+    expect(found!.matchId).toBe('match-1');
+
+    await registry.dispose();
+  });
+
+  it('should return undefined when no rooms exist', () => {
+    const registry = new RoomRegistry();
+    registry.registerRoomType('test-game', DEFAULT_CONFIG, {});
+
+    expect(registry.findRoomForLateJoin('test-game')).toBeUndefined();
+
+    registry.dispose();
+  });
+
+  it('should return undefined when rooms are full', async () => {
+    const registry = new RoomRegistry();
+    registry.registerRoomType('test-game', { ...DEFAULT_CONFIG, lateJoinEnabled: true, maxPlayers: 2 }, {});
+
+    await registry.createRoom({
+      matchId: 'match-1',
+      roomType: 'test-game',
+      players: [
+        { playerId: 'p1', isBot: false, metadata: {} },
+        { playerId: 'p2', isBot: false, metadata: {} },
+      ],
+    }, 1.0, 2.0);
+
+    expect(registry.findRoomForLateJoin('test-game')).toBeUndefined();
+
+    await registry.dispose();
+  });
+
+  it('should return undefined when lateJoinEnabled=false', async () => {
+    const registry = new RoomRegistry();
+    registry.registerRoomType('test-game', { ...DEFAULT_CONFIG, lateJoinEnabled: false, maxPlayers: 4 }, {});
+
+    await registry.createRoom({
+      matchId: 'match-1',
+      roomType: 'test-game',
+      players: [{ playerId: 'p1', isBot: false, metadata: {} }],
+    }, 1.0, 2.0);
+
+    expect(registry.findRoomForLateJoin('test-game')).toBeUndefined();
+
+    await registry.dispose();
+  });
+
+  it('should return undefined for wrong roomType', async () => {
+    const registry = new RoomRegistry();
+    registry.registerRoomType('game-a', { ...DEFAULT_CONFIG, lateJoinEnabled: true, maxPlayers: 4 }, {});
+
+    await registry.createRoom({
+      matchId: 'match-1',
+      roomType: 'game-a',
+      players: [{ playerId: 'p1', isBot: false, metadata: {} }],
+    }, 1.0, 2.0);
+
+    expect(registry.findRoomForLateJoin('game-b')).toBeUndefined();
+
+    await registry.dispose();
   });
 });

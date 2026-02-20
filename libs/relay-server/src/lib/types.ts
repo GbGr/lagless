@@ -44,11 +44,13 @@ export enum ConnectionState {
 export interface RoomHooks<TMatchResult = unknown> {
   onRoomCreated?(ctx: RoomContext): void | Promise<void>;
   onPlayerJoin?(ctx: RoomContext, player: PlayerInfo): void | Promise<void>;
+  onPlayerReconnect?(ctx: RoomContext, player: PlayerInfo): void | Promise<void>;
   onPlayerLeave?(ctx: RoomContext, player: PlayerInfo, reason: LeaveReason): void | Promise<void>;
   onPlayerFinished?(ctx: RoomContext, player: PlayerInfo, result: TMatchResult): void | Promise<void>;
   onMatchEnd?(ctx: RoomContext, results: ReadonlyMap<PlayerSlot, TMatchResult>): void | Promise<void>;
   onRoomDisposed?(ctx: RoomContext): void | Promise<void>;
   shouldAcceptReconnect?(ctx: RoomContext, playerId: PlayerId): boolean;
+  shouldAcceptLateJoin?(ctx: RoomContext, playerId: PlayerId, metadata: Readonly<Record<string, unknown>>): boolean;
 }
 
 // ─── Room Context (safe API for hooks) ─────────────────────

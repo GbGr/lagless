@@ -172,14 +172,14 @@ describe('RPCHistory', () => {
     });
   });
 
-  describe('filterLocalRPCs', () => {
+  describe('excludeLocalRPCs', () => {
     it('should filter out local player RPCs', () => {
       const rpcs = [
         makeRPC(10, 0, 1),
         makeRPC(10, 1, 1),
         makeRPC(10, 2, 1),
       ];
-      const filtered = RPCHistory.filterLocalRPCs(rpcs, 0);
+      const filtered = RPCHistory.excludeLocalRPCs(rpcs, 0);
       expect(filtered.length).toBe(2);
       expect(filtered.every(r => r.meta.playerSlot !== 0)).toBe(true);
     });

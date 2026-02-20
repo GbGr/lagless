@@ -40,6 +40,11 @@ const RPC_HEADER_SIZE =
   fieldTypeSizeBytes[FieldType.Uint8] +   // playerSlot
   fieldTypeSizeBytes[FieldType.Uint16];   // dataLength
 
+const compareRPCs = (a: RPC, b: RPC): number =>
+  a.meta.playerSlot - b.meta.playerSlot
+  || a.meta.ordinal - b.meta.ordinal
+  || a.meta.seq - b.meta.seq;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // RPCHistory
 // ─────────────────────────────────────────────────────────────────────────────
@@ -52,7 +57,7 @@ export class RPCHistory {
   // Static utilities
   // ─────────────────────────────────────────────────────────────────────────
 
-  public static filterLocalRPCs(rpcs: ReadonlyArray<RPC>, localPlayerSlot: number): RPC[] {
+  public static excludeLocalRPCs(rpcs: ReadonlyArray<RPC>, localPlayerSlot: number): RPC[] {
     return rpcs.filter((rpc) => rpc.meta.playerSlot !== localPlayerSlot);
   }
 
@@ -89,11 +94,11 @@ export class RPCHistory {
       const existing = this._history.get(tick);
 
       if (!existing) {
-        newRPCs.sort(this.compareRPCs);
+        newRPCs.sort(compareRPCs);
         this._history.set(tick, newRPCs);
       } else {
         existing.push(...newRPCs);
-        existing.sort(this.compareRPCs);
+        existing.sort(compareRPCs);
       }
     }
   }
@@ -232,7 +237,7 @@ export class RPCHistory {
       offset = result.nextOffset;
 
       if (result.rpcs.length > 0) {
-        result.rpcs.sort(this.compareRPCs);
+        result.rpcs.sort(compareRPCs);
         this._history.set(result.tick, result.rpcs);
       }
     }
@@ -396,16 +401,10 @@ export class RPCHistory {
   /** Insert rpc into arr maintaining sorted order by (playerSlot, ordinal). */
   private insertSorted(arr: RPC[], rpc: RPC): void {
     let i = arr.length;
-    while (i > 0 && this.compareRPCs(arr[i - 1], rpc) > 0) {
+    while (i > 0 && compareRPCs(arr[i - 1], rpc) > 0) {
       i--;
     }
     arr.splice(i, 0, rpc);
-  }
-
-  private compareRPCs(a: RPC, b: RPC): number {
-    return a.meta.playerSlot - b.meta.playerSlot
-      || a.meta.ordinal - b.meta.ordinal
-      || a.meta.seq - b.meta.seq;
   }
 }
 

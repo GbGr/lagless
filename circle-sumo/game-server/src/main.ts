@@ -100,7 +100,7 @@ matchmaking.setOnMatchFormed(async (match: FormedMatch) => {
   const { seed0, seed1 } = pack128BufferTo2x64(UUID.fromString(matchId).asUint8());
 
   // Create room
-  roomRegistry.createRoom(
+  await roomRegistry.createRoom(
     { matchId, roomType: scope, players: allPlayers },
     seed0,
     seed1,
@@ -124,6 +124,23 @@ matchmaking.setOnMatchFormed(async (match: FormedMatch) => {
   return result;
 });
 
+matchmaking.setTryLateJoin((playerId, scope, metadata) => {
+  const room = roomRegistry.findRoomForLateJoin(scope);
+  if (!room) return null;
+
+  const playerInfo = room.addPlayer(playerId, false, metadata);
+  if (!playerInfo) return null;
+
+  return {
+    matchId: room.matchId,
+    playerData: {
+      playerSlot: playerInfo.slot,
+      token: generateToken(playerId, room.matchId, playerInfo.slot),
+      serverUrl: `ws://localhost:${PORT}`,
+    },
+  };
+});
+
 matchmaking.setCheckInterval(500);
 matchmaking.start();
 
@@ -139,8 +156,8 @@ function applySimulatorToAllRooms(sim: LatencySimulator | null): void {
 
 // Hook into room creation so new rooms get the simulator too
 const _origCreateRoom = roomRegistry.createRoom.bind(roomRegistry);
-roomRegistry.createRoom = (...args: Parameters<typeof roomRegistry.createRoom>) => {
-  const room = _origCreateRoom(...args);
+roomRegistry.createRoom = async (...args: Parameters<typeof roomRegistry.createRoom>) => {
+  const room = await _origCreateRoom(...args);
   room.latencySimulator = latencySimulator;
   return room;
 };

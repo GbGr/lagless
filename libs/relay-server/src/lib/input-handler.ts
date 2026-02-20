@@ -11,6 +11,8 @@ import type { RoomTypeConfig, PlayerSlot } from './types.js';
 
 const log = createLogger('InputHandler');
 
+const TICK_INPUT_HEADER_SIZE = 12; // tick(4) + slot(1) + seq(4) + kind(1) + payloadLength(2)
+
 // ─── Types ──────────────────────────────────────────────────
 
 export interface ValidatedInput {
@@ -42,6 +44,11 @@ export class InputHandler {
   ): ValidationResult {
     const view = new DataView(raw);
     const offset = HeaderSchema.byteLength;
+
+    if (offset + TICK_INPUT_HEADER_SIZE > raw.byteLength) {
+      log.warn(`validateClientInput: message too short (${raw.byteLength} bytes)`);
+      return { accepted: false, reason: CancelReason.InvalidSlot, tick: 0, seq: 0 };
+    }
 
     const tick = view.getUint32(offset, LE);
     const claimedSlot = view.getUint8(offset + 4);
@@ -78,7 +85,7 @@ export class InputHandler {
     const payloadStart = HeaderSchema.byteLength + TickInputSchema.byteLength;
     const payload = new Uint8Array(raw, payloadStart, payloadLength);
 
-    log.info(`ACCEPT: slot=${senderSlot} inputTick=${tick} serverTick=${serverTick} delta=${tick - serverTick} seq=${seq} payloadLen=${payloadLength}`);
+    log.debug(`ACCEPT: slot=${senderSlot} inputTick=${tick} serverTick=${serverTick} delta=${tick - serverTick} seq=${seq} payloadLen=${payloadLength}`);
 
     return {
       accepted: true,
@@ -103,15 +110,30 @@ export class InputHandler {
     const view = new DataView(raw);
     let offset = HeaderSchema.byteLength; // skip header
 
+    if (offset + 1 > raw.byteLength) {
+      log.warn(`validateClientInputBatch: message too short for batch header (${raw.byteLength} bytes)`);
+      return [];
+    }
+
     const inputCount = view.getUint8(offset); offset += 1;
     const results: ValidationResult[] = [];
 
     for (let i = 0; i < inputCount; i++) {
+      if (offset + TICK_INPUT_HEADER_SIZE > raw.byteLength) {
+        log.warn(`validateClientInputBatch: truncated at input ${i}/${inputCount} (offset=${offset}, byteLength=${raw.byteLength})`);
+        break;
+      }
+
       const tick = view.getUint32(offset, LE); offset += 4;
       const claimedSlot = view.getUint8(offset); offset += 1;
       const seq = view.getUint32(offset, LE); offset += 4;
       const kind = view.getUint8(offset); offset += 1;
       const payloadLength = view.getUint16(offset, LE); offset += 2;
+
+      if (offset + payloadLength > raw.byteLength) {
+        log.warn(`validateClientInputBatch: truncated payload at input ${i}/${inputCount} (need=${payloadLength}, remaining=${raw.byteLength - offset})`);
+        break;
+      }
 
       if (claimedSlot !== senderSlot) {
         log.warn(`Batch slot mismatch: sender=${senderSlot}, claimed=${claimedSlot}`);
@@ -146,7 +168,7 @@ export class InputHandler {
       const payload = new Uint8Array(raw, offset, payloadLength);
       offset += payloadLength;
 
-      log.info(`ACCEPT: slot=${senderSlot} inputTick=${tick} serverTick=${serverTick} delta=${tick - serverTick} seq=${seq} payloadLen=${payloadLength}`);
+      log.debug(`ACCEPT: slot=${senderSlot} inputTick=${tick} serverTick=${serverTick} delta=${tick - serverTick} seq=${seq} payloadLen=${payloadLength}`);
 
       results.push({
         accepted: true,
@@ -180,7 +202,7 @@ export class InputHandler {
       if (conn.isConnected) sentCount++;
       conn.send(fanout);
     }
-    log.info(`BROADCAST: tick=${input.tick} slot=${input.playerSlot} kind=${input.kind} → ${sentCount} connected clients`);
+    log.debug(`BROADCAST: tick=${input.tick} slot=${input.playerSlot} kind=${input.kind} → ${sentCount} connected clients`);
   }
 
   /**

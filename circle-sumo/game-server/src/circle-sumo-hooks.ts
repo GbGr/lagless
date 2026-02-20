@@ -1,4 +1,4 @@
-import type { RoomHooks, RoomContext, PlayerInfo, PlayerSlot } from '@lagless/relay-server';
+import type { RoomHooks, RoomContext, PlayerInfo, PlayerSlot, PlayerId } from '@lagless/relay-server';
 import { LeaveReason } from '@lagless/relay-server';
 import { createLogger, UUID } from '@lagless/misc';
 import { PlayerJoined, PlayerLeft } from '@lagless/circle-sumo-simulation';
@@ -38,6 +38,10 @@ export const circleSumoHooks: RoomHooks<CircleSumoResult> = {
     } satisfies PlayerJoined['schema']);
   },
 
+  onPlayerReconnect(ctx: RoomContext, player: PlayerInfo) {
+    log.info(`[${ctx.matchId}] Player reconnected: slot=${player.slot} id=${player.playerId.slice(0, 8)}`);
+  },
+
   onPlayerLeave(ctx: RoomContext, player: PlayerInfo, reason: LeaveReason) {
     log.info(`[${ctx.matchId}] Player left: slot=${player.slot} reason=${LeaveReason[reason]}`);
     ctx.emitServerEvent(PlayerLeft.id, {
@@ -53,6 +57,15 @@ export const circleSumoHooks: RoomHooks<CircleSumoResult> = {
   async onMatchEnd(ctx: RoomContext, results: ReadonlyMap<PlayerSlot, CircleSumoResult>) {
     log.info(`[${ctx.matchId}] Match ended with ${results.size} results`);
     // TODO: save to DB
+  },
+
+  shouldAcceptLateJoin(ctx: RoomContext, _playerId: string, _metadata: Readonly<Record<string, unknown>>): boolean {
+    const elapsedMs = performance.now() - ctx.createdAt;
+    if (elapsedMs > 60_000) {
+      log.info(`[${ctx.matchId}] Late-join rejected: match too old`);
+      return false;
+    }
+    return true;
   },
 
   onRoomDisposed(ctx: RoomContext) {

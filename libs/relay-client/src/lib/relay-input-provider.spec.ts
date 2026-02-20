@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { RelayInputProvider } from './relay-input-provider.js';
 import { ECSConfig, ECSSimulation, InputRegistry, RPC, type ECSDeps, type IAbstractInputConstructor } from '@lagless/core';
-import { TickInputKind, CancelReason, type TickInputData } from '@lagless/net-wire';
+import { TickInputKind, CancelReason, type TickInputData, type StateResponseData } from '@lagless/net-wire';
 // eslint-disable-next-line @nx/enforce-module-boundaries
 import { InputBinarySchema, FieldType } from '@lagless/binary';
 
@@ -273,6 +273,208 @@ describe('RelayInputProvider', () => {
     it('should return undefined when no rollback needed', () => {
       const { provider } = createTestSetup(0);
       expect(provider.getInvalidateRollbackTick()).toBeUndefined();
+    });
+  });
+
+  describe('handleStateResponse', () => {
+    it('should apply external state to simulation', () => {
+      const { provider, simulation } = createTestSetup(0);
+
+      // Advance simulation a bit
+      simulation.update(simulation.clock.frameLength * 5);
+      const tickBefore = simulation.tick;
+
+      // Create a fake state buffer
+      const stateBuffer = simulation.mem.exportSnapshot();
+      const data: StateResponseData = {
+        requestId: 0,
+        tick: 42,
+        hash: 0xDEAD,
+        state: stateBuffer,
+      };
+
+      provider.handleStateResponse(data);
+      expect(simulation.tick).toBe(42);
+    });
+
+    it('should clear RPC history', () => {
+      const { provider } = createTestSetup(0);
+
+      // Add some RPCs
+      provider.addRemoteRpc(new RPC(1, { tick: 5, seq: 1, ordinal: 1, playerSlot: 1 }, { direction: 1.0 }));
+      expect(provider.rpcHistory.getTickRPCs(5, TestMoveInputCtor).length).toBe(1);
+
+      const { simulation } = createTestSetup(0);
+      const stateBuffer = simulation.mem.exportSnapshot();
+
+      provider.handleStateResponse({
+        requestId: 0,
+        tick: 10,
+        hash: 0,
+        state: stateBuffer,
+      });
+
+      expect(provider.rpcHistory.getTickRPCs(5, TestMoveInputCtor).length).toBe(0);
+    });
+
+    it('should reset clock sync (isReady = false)', () => {
+      const { provider } = createTestSetup(0);
+
+      // Warm up clock sync
+      for (let i = 0; i < 5; i++) {
+        provider.handlePong({
+          cSend: performance.now() - 50,
+          sRecv: performance.now() - 25,
+          sSend: performance.now() - 25,
+          sTick: 100 + i,
+        });
+      }
+      expect(provider.clockSync.isReady).toBe(true);
+
+      const { simulation } = createTestSetup(0);
+      const stateBuffer = simulation.mem.exportSnapshot();
+
+      provider.handleStateResponse({
+        requestId: 0,
+        tick: 10,
+        hash: 0,
+        state: stateBuffer,
+      });
+
+      expect(provider.clockSync.isReady).toBe(false);
+    });
+
+    it('should clear pending rollback tick', () => {
+      const { provider, simulation, config } = createTestSetup(0);
+
+      // Create a pending rollback
+      simulation.update(config.frameLength * 10);
+      provider.handleTickInputFanout({
+        serverTick: simulation.tick,
+        inputs: [makeTickInput(simulation.tick - 1, 1, 1)],
+      });
+      expect(provider.getInvalidateRollbackTick()).toBeDefined();
+
+      // Create another rollback to verify it gets cleared
+      provider.handleTickInputFanout({
+        serverTick: simulation.tick,
+        inputs: [makeTickInput(simulation.tick - 2, 1, 2)],
+      });
+
+      const stateBuffer = simulation.mem.exportSnapshot();
+      provider.handleStateResponse({
+        requestId: 0,
+        tick: 50,
+        hash: 0,
+        state: stateBuffer,
+      });
+
+      expect(provider.getInvalidateRollbackTick()).toBeUndefined();
+    });
+
+    it('should not crash without simulation', () => {
+      const config = new ECSConfig({});
+      const provider = new RelayInputProvider(0, config, testInputRegistry);
+      // No init() — no simulation
+
+      expect(() => provider.handleStateResponse({
+        requestId: 0,
+        tick: 10,
+        hash: 0,
+        state: new ArrayBuffer(8),
+      })).not.toThrow();
+    });
+
+    it('should reset input delay to initial', () => {
+      const { provider } = createTestSetup(0);
+
+      // Change input delay
+      provider.setInputDelay(7);
+      expect(provider.currentInputDelay).toBe(7);
+
+      const { simulation } = createTestSetup(0);
+      const stateBuffer = simulation.mem.exportSnapshot();
+
+      provider.handleStateResponse({
+        requestId: 0,
+        tick: 10,
+        hash: 0,
+        state: stateBuffer,
+      });
+
+      expect(provider.currentInputDelay).toBe(provider.ecsConfig.initialInputDelayTick);
+    });
+  });
+
+  describe('handleServerHello — BUG 8 buffering', () => {
+    it('should buffer ServerHello when simulation is not initialized', () => {
+      const config = new ECSConfig({
+        initialInputDelayTick: 3,
+        minInputDelayTick: 1,
+        maxInputDelayTick: 8,
+        snapshotRate: 1,
+        snapshotHistorySize: 50,
+      });
+      const provider = new RelayInputProvider(0, config, testInputRegistry);
+
+      // No init() call — simulation is null
+      // Should NOT throw, should buffer
+      expect(() => provider.handleServerHello({
+        seed0: 1, seed1: 2,
+        playerSlot: 0,
+        serverTick: 100,
+        maxPlayers: 4,
+        players: [],
+        scopeJson: '{}',
+      })).not.toThrow();
+    });
+
+    it('should apply buffered ServerHello on init()', () => {
+      const config = new ECSConfig({
+        initialInputDelayTick: 3,
+        minInputDelayTick: 1,
+        maxInputDelayTick: 8,
+        snapshotRate: 1,
+        snapshotHistorySize: 50,
+      });
+      const provider = new RelayInputProvider(0, config, testInputRegistry);
+
+      // Buffer the ServerHello before init
+      provider.handleServerHello({
+        seed0: 1, seed1: 2,
+        playerSlot: 0,
+        serverTick: 50,
+        maxPlayers: 4,
+        players: [],
+        scopeJson: '{}',
+      });
+
+      // Now create simulation, start first, then init (real-world flow:
+      // simulation.start() initializes the clock, then init() applies the buffered hello)
+      const simulation = new ECSSimulation(config, minimalDeps, provider);
+      simulation.registerSystems([]);
+      simulation.start();
+      provider.init(simulation);
+
+      // Clock should have been synced to serverTick=50
+      const expectedTime = 50 * config.frameLength;
+      expect(simulation.clock.accumulatedTime).toBeCloseTo(expectedTime, 0);
+    });
+
+    it('should apply ServerHello immediately when simulation exists', () => {
+      const { provider, simulation, config } = createTestSetup(0);
+
+      provider.handleServerHello({
+        seed0: 1, seed1: 2,
+        playerSlot: 0,
+        serverTick: 200,
+        maxPlayers: 4,
+        players: [],
+        scopeJson: '{}',
+      });
+
+      const expectedTime = 200 * config.frameLength;
+      expect(simulation.clock.accumulatedTime).toBeCloseTo(expectedTime, 0);
     });
   });
 });

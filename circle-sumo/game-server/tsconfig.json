@@ -18,6 +18,9 @@
       "path": "../../libs/misc"
     },
     {
+      "path": "../../libs/core"
+    },
+    {
       "path": "../../libs/matchmaking"
     },
     {

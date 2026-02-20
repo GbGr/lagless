@@ -9,6 +9,7 @@ export class PlayerConnection {
   private _state: ConnectionState;
   private _disconnectedAt: number | null = null;
   private _ws: IWebSocket | null;
+  private _hasConnectedBefore = false;
 
   constructor(
     private readonly _info: PlayerInfo,
@@ -41,10 +42,15 @@ export class PlayerConnection {
     this._ws.sendBinary(data);
   }
 
+  public get hasConnectedBefore(): boolean {
+    return this._hasConnectedBefore;
+  }
+
   public connect(ws: IWebSocket): void {
     this._state = ConnectionState.Connected;
     this._disconnectedAt = null;
     this._ws = ws;
+    this._hasConnectedBefore = true;
   }
 
   public markDisconnected(): void {

@@ -3,6 +3,7 @@ import { tryFormMatch } from './match-formation.js';
 import type {
   QueueEntry, QueueStore, ScopeConfig,
   FormedMatch, OnMatchFormedFn, PlayerNotifyFn,
+  TryLateJoinFn,
 } from './types.js';
 
 const log = createLogger('Matchmaking');
@@ -32,6 +33,7 @@ export class MatchmakingService {
   private _checkInterval: ReturnType<typeof setInterval> | null = null;
   private _checkIntervalMs = 500;
   private _onMatchFormed: OnMatchFormedFn | null = null;
+  private _tryLateJoin: TryLateJoinFn | null = null;
 
   constructor(
     private readonly _store: QueueStore,
@@ -49,6 +51,10 @@ export class MatchmakingService {
 
   public setOnMatchFormed(fn: OnMatchFormedFn): void {
     this._onMatchFormed = fn;
+  }
+
+  public setTryLateJoin(fn: TryLateJoinFn): void {
+    this._tryLateJoin = fn;
   }
 
   public setCheckInterval(ms: number): void {
@@ -181,11 +187,37 @@ export class MatchmakingService {
     const config = this._scopeConfigs.get(scope);
     if (!config) return;
 
+    if (this._tryLateJoin) {
+      this.tryLateJoinQueuedPlayers(scope);
+    }
+
     const entries = this._store.getAll(scope);
     const candidate = tryFormMatch(entries, config, performance.now());
 
     if (candidate) {
       this.formMatch(scope, candidate.players, candidate.botsNeeded);
+    }
+  }
+
+  private tryLateJoinQueuedPlayers(scope: string): void {
+    const entries = [...this._store.getAll(scope)];
+    let placed = false;
+
+    for (const entry of entries) {
+      const result = this._tryLateJoin!(entry.playerId, scope, entry.metadata);
+      if (!result) continue;
+
+      this._store.remove(scope, entry.playerId);
+      const reg = this._players.get(entry.playerId);
+      if (reg) {
+        reg.notify({ ...result.playerData, type: 'match_found', matchId: result.matchId });
+        this._players.delete(entry.playerId);
+      }
+      placed = true;
+    }
+
+    if (placed) {
+      this.notifyQueuePosition(scope);
     }
   }
 

@@ -3,10 +3,11 @@ import {
   MsgType,
   unpackHeader,
   unpackServerHello,
-  unpackTickInputFanoutManual,
+  unpackTickInputFanout,
   unpackCancelInput,
   unpackPong,
   unpackStateRequest,
+  unpackStateResponse,
   packTickInputBatch,
   packPing,
   packStateResponse,
@@ -36,6 +37,7 @@ export interface RelayConnectionEvents {
   onCancelInput(data: CancelInputData): void;
   onPong(data: PongData): void;
   onStateRequest(requestId: number): void;
+  onStateResponse(data: StateResponseData): void;
   onConnected(): void;
   onDisconnected(): void;
 }
@@ -63,8 +65,13 @@ export class RelayConnection {
 
   public connect(): void {
     if (this._ws) {
-      log.warn('Already connected, ignoring connect()');
-      return;
+      // Allow reconnect if previous WS is already closed/closing
+      if (this._ws.readyState === WebSocket.CLOSED || this._ws.readyState === WebSocket.CLOSING) {
+        this._ws = null;
+      } else {
+        log.warn('Already connected, ignoring connect()');
+        return;
+      }
     }
 
     const url = `${this._config.serverUrl}/match/${this._config.matchId}?token=${encodeURIComponent(this._config.token)}`;
@@ -88,6 +95,7 @@ export class RelayConnection {
 
     this._ws.onclose = () => {
       this._connected = false;
+      this._ws = null;
       this.stopPingInterval();
       log.info('Disconnected');
       this._events.onDisconnected();
@@ -146,7 +154,7 @@ export class RelayConnection {
         this._events.onServerHello(unpackServerHello(data));
         break;
       case MsgType.TickInputFanout:
-        this._events.onTickInputFanout(unpackTickInputFanoutManual(data));
+        this._events.onTickInputFanout(unpackTickInputFanout(data));
         break;
       case MsgType.CancelInput:
         this._events.onCancelInput(unpackCancelInput(data));
@@ -157,12 +165,16 @@ export class RelayConnection {
       case MsgType.StateRequest:
         this._events.onStateRequest(unpackStateRequest(data));
         break;
+      case MsgType.StateResponse:
+        this._events.onStateResponse(unpackStateResponse(data));
+        break;
       default:
         log.warn(`Unknown message type: ${header.type}`);
     }
   }
 
   private startPingInterval(): void {
+    this.stopPingInterval();
     this._pingCount = 0;
     this.sendPing();
 

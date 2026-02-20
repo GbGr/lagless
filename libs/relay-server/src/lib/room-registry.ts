@@ -33,12 +33,12 @@ export class RoomRegistry {
     log.info(`Registered room type "${typeName}"`);
   }
 
-  public createRoom(
+  public async createRoom(
     request: CreateMatchRequest,
     seed0: number,
     seed1: number,
     scopeJson = '{}',
-  ): RelayRoom {
+  ): Promise<RelayRoom> {
     const roomType = this._roomTypes.get(request.roomType);
     if (!roomType) {
       throw new Error(`Unknown room type "${request.roomType}"`);
@@ -50,6 +50,7 @@ export class RoomRegistry {
 
     const room = new RelayRoom(
       request.matchId,
+      request.roomType,
       roomType.config,
       roomType.hooks,
       roomType.inputRegistry,
@@ -59,6 +60,7 @@ export class RoomRegistry {
       scopeJson,
     );
 
+    await room.init();
     this._rooms.set(request.matchId, room);
     log.info(`Created room "${request.matchId}" type="${request.roomType}" (total: ${this._rooms.size})`);
     return room;
@@ -83,6 +85,15 @@ export class RoomRegistry {
         log.info(`Cleaned up disposed room "${id}" (remaining: ${this._rooms.size})`);
       }
     }
+  }
+
+  public findRoomForLateJoin(roomType: string): RelayRoom | undefined {
+    for (const room of this._rooms.values()) {
+      if (!room.isDisposed && room.roomType === roomType && room.hasOpenSlots) {
+        return room;
+      }
+    }
+    return undefined;
   }
 
   /** Iterates all active (non-disposed) rooms. */

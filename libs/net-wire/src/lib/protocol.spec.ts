@@ -3,7 +3,7 @@ import {
   MsgType, TickInputKind, CancelReason, WIRE_VERSION,
   packServerHello, unpackServerHello, unpackHeader,
   packTickInput, unpackTickInput,
-  packTickInputFanout, unpackTickInputFanoutManual,
+  packTickInputFanout, unpackTickInputFanout,
   packCancelInput, unpackCancelInput,
   packPing, unpackPing,
   packPong, unpackPong,
@@ -73,6 +73,29 @@ describe('ServerHello', () => {
     expect(unpacked.players[1].metadataJson).toBe('{}');
 
     expect(unpacked.scopeJson).toBe('{"gameType":"circle-sumo","tickRate":60}');
+  });
+
+  it('should roundtrip with long scopeJson (BUG 7 regression)', () => {
+    const longScope = JSON.stringify({
+      gameType: 'circle-sumo',
+      tickRate: 60,
+      extra: 'a'.repeat(500),
+    });
+
+    const data: ServerHelloData = {
+      seed0: 42, seed1: 99,
+      playerSlot: 0,
+      serverTick: 500,
+      maxPlayers: 2,
+      players: [],
+      scopeJson: longScope,
+    };
+
+    const packed = packServerHello(data);
+    const unpacked = unpackServerHello(packed.buffer as ArrayBuffer);
+
+    expect(unpacked.scopeJson).toBe(longScope);
+    expect(unpacked.serverTick).toBe(500);
   });
 
   it('should roundtrip with no players', () => {
@@ -153,7 +176,7 @@ describe('TickInputFanout', () => {
     };
 
     const packed = packTickInputFanout(data);
-    const unpacked = unpackTickInputFanoutManual(packed.buffer as ArrayBuffer);
+    const unpacked = unpackTickInputFanout(packed.buffer as ArrayBuffer);
 
     expect(unpacked.serverTick).toBe(1000);
     expect(unpacked.inputs.length).toBe(3);
@@ -173,7 +196,7 @@ describe('TickInputFanout', () => {
   it('should roundtrip empty fanout', () => {
     const data: FanoutData = { serverTick: 500, inputs: [] };
     const packed = packTickInputFanout(data);
-    const unpacked = unpackTickInputFanoutManual(packed.buffer as ArrayBuffer);
+    const unpacked = unpackTickInputFanout(packed.buffer as ArrayBuffer);
 
     expect(unpacked.serverTick).toBe(500);
     expect(unpacked.inputs.length).toBe(0);
@@ -189,7 +212,7 @@ describe('TickInputFanout', () => {
     };
 
     const packed = packTickInputFanout(data);
-    const unpacked = unpackTickInputFanoutManual(packed.buffer as ArrayBuffer);
+    const unpacked = unpackTickInputFanout(packed.buffer as ArrayBuffer);
 
     expect(unpacked.inputs.length).toBe(1);
     expect(new Uint8Array(unpacked.inputs[0].payload)).toEqual(bigPayload);

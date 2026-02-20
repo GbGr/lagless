@@ -5,6 +5,7 @@ import { MatchmakingService } from './matchmaking-service.js';
 import type {
   QueueEntry, ScopeConfig, FormedMatch,
   MatchmakingMessage, MatchFoundPlayerData,
+  TryLateJoinFn,
 } from './types.js';
 
 // ─── Helpers ────────────────────────────────────────────────
@@ -522,6 +523,130 @@ describe('MatchmakingService', () => {
 
       expect(ok).toBe(true);
       expect(store.getCount('test-game')).toBe(1); // not 2
+    });
+  });
+
+  describe('late-join', () => {
+    it('should call tryLateJoin before tryFormMatch', () => {
+      const tryLateJoin = vi.fn(() => null);
+      service.setTryLateJoin(tryLateJoin);
+
+      const spy = createNotifySpy();
+      service.addPlayer('p1', 'test-game', 1000, {}, spy.notify);
+
+      service.checkAllScopes();
+
+      expect(tryLateJoin).toHaveBeenCalledOnce();
+      expect(tryLateJoin).toHaveBeenCalledWith('p1', 'test-game', {});
+    });
+
+    it('should remove player from queue on successful late-join', () => {
+      service.setTryLateJoin((playerId) => ({
+        matchId: 'existing-match',
+        playerData: { playerSlot: 2, token: `token-${playerId}` },
+      }));
+
+      const spy = createNotifySpy();
+      service.addPlayer('p1', 'test-game', 1000, {}, spy.notify);
+
+      service.checkAllScopes();
+
+      expect(store.getCount('test-game')).toBe(0);
+      expect(service.isPlayerQueued('p1')).toBe(false);
+    });
+
+    it('should notify player with match_found on late-join', () => {
+      service.setTryLateJoin(() => ({
+        matchId: 'existing-match',
+        playerData: { playerSlot: 2, token: 'tok-late', serverUrl: 'ws://test' },
+      }));
+
+      const spy = createNotifySpy();
+      service.addPlayer('p1', 'test-game', 1000, {}, spy.notify);
+
+      service.checkAllScopes();
+
+      const matchMsg = spy.messages.find(m => m.type === 'match_found');
+      expect(matchMsg).toBeDefined();
+      expect(matchMsg!.matchId).toBe('existing-match');
+      expect((matchMsg as any).playerSlot).toBe(2);
+      expect((matchMsg as any).token).toBe('tok-late');
+    });
+
+    it('should update queue positions after late-join', () => {
+      let callCount = 0;
+      service.setTryLateJoin((playerId) => {
+        // Only accept first player
+        if (callCount++ === 0) {
+          return {
+            matchId: 'existing-match',
+            playerData: { playerSlot: 2, token: 'tok' },
+          };
+        }
+        return null;
+      });
+
+      const spy1 = createNotifySpy();
+      const spy2 = createNotifySpy();
+      service.addPlayer('p1', 'test-game', 1000, {}, spy1.notify);
+      service.addPlayer('p2', 'test-game', 1000, {}, spy2.notify);
+
+      spy2.messages.length = 0;
+      service.checkAllScopes();
+
+      // p2 should have updated position (now position 1 of 1)
+      const queueMsg = spy2.messages.find(m => m.type === 'queued');
+      expect(queueMsg).toBeDefined();
+      expect(queueMsg).toEqual({ type: 'queued', position: 1, total: 1 });
+    });
+
+    it('should fall through to normal match formation when tryLateJoin returns null', async () => {
+      service.setTryLateJoin(() => null);
+
+      const formedMatches: FormedMatch[] = [];
+      service.setOnMatchFormed(async (match) => {
+        formedMatches.push(match);
+        const result = new Map<string, MatchFoundPlayerData>();
+        let slot = 0;
+        for (const p of match.players) {
+          result.set(p.playerId, { playerSlot: slot++, token: `tok-${p.playerId}` });
+        }
+        return result;
+      });
+
+      for (let i = 0; i < 4; i++) {
+        service.addPlayer(`p${i}`, 'test-game', 1000, {}, noop);
+      }
+
+      service.checkAllScopes();
+
+      await vi.waitFor(() => {
+        expect(formedMatches.length).toBe(1);
+      });
+
+      expect(formedMatches[0].players.length).toBe(4);
+    });
+
+    it('should place multiple players via late-join in one checkScope', () => {
+      service.setTryLateJoin((playerId) => ({
+        matchId: 'existing-match',
+        playerData: { playerSlot: Number(playerId.replace('p', '')) + 2, token: `tok-${playerId}` },
+      }));
+
+      const spies = Array.from({ length: 3 }, () => createNotifySpy());
+      for (let i = 0; i < 3; i++) {
+        service.addPlayer(`p${i}`, 'test-game', 1000, {}, spies[i].notify);
+      }
+
+      service.checkAllScopes();
+
+      // All 3 should have match_found
+      for (const spy of spies) {
+        const matchMsg = spy.messages.find(m => m.type === 'match_found');
+        expect(matchMsg).toBeDefined();
+      }
+
+      expect(store.getCount('test-game')).toBe(0);
     });
   });
 });

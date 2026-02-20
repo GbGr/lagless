@@ -211,7 +211,7 @@ export function packServerHello(data: ServerHelloData): Uint8Array {
   const scopeHeader = new ArrayBuffer(2);
   new DataView(scopeHeader).setUint16(0, scopeBytes.length, LE);
   pipeline.appendBuffer(scopeHeader);
-  pipeline.appendBuffer(scopeBytes.buffer as ArrayBuffer);
+  pipeline.appendView(scopeBytes);
 
   return pipeline.toUint8Array();
 }
@@ -392,34 +392,6 @@ export function unpackTickInput(data: ArrayBuffer): TickInputData {
   };
 }
 
-export function unpackTickInputFanout(data: ArrayBuffer): FanoutData {
-  const pipeline = new BinarySchemaUnpackPipeline(data);
-  pipeline.unpack(HeaderSchema); // skip header
-  const fanout = pipeline.unpack(TickInputFanoutSchema);
-
-  const inputs: TickInputData[] = [];
-  for (let i = 0; i < fanout.inputCount; i++) {
-    const input = pipeline.unpack(TickInputSchema);
-    const remaining = new Uint8Array(pipeline.sliceRemaining());
-    const payload = remaining.slice(0, input.payloadLength);
-
-    inputs.push({
-      tick: input.tick,
-      playerSlot: input.playerSlot,
-      seq: input.seq,
-      kind: input.kind as TickInputKind,
-      payload,
-    });
-
-    // Advance pipeline past payload — sliceRemaining already consumed schema bytes,
-    // but we need to re-create pipeline from remaining data minus payload
-    // Actually BinarySchemaUnpackPipeline doesn't support this well.
-    // Let's use a different approach — manual offset tracking.
-  }
-
-  return { serverTick: fanout.serverTick, inputs };
-}
-
 export function unpackCancelInput(data: ArrayBuffer): CancelInputData {
   const pipeline = new BinarySchemaUnpackPipeline(data);
   pipeline.unpack(HeaderSchema);
@@ -479,15 +451,7 @@ export function unpackPlayerFinished(data: ArrayBuffer): PlayerFinishedData {
   };
 }
 
-// ─────────────────────────────────────────────────────────────
-// Fanout manual unpacking (handles variable-length inputs)
-// ─────────────────────────────────────────────────────────────
-
-/**
- * Unpack TickInputFanout using manual offset tracking
- * (BinarySchemaUnpackPipeline doesn't support advancing past raw bytes)
- */
-export function unpackTickInputFanoutManual(data: ArrayBuffer): FanoutData {
+export function unpackTickInputFanout(data: ArrayBuffer): FanoutData {
   const view = new DataView(data);
   let offset = HeaderSchema.byteLength; // skip header
 

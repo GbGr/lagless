@@ -68,6 +68,12 @@ export abstract class AbstractInputProvider {
     this._disposed = true;
   }
 
+  protected resetSequences(): void {
+    this._nextSeq = 1;
+    this._nextOrdinal = 1;
+    this._frameRPCBuffer.length = 0;
+  }
+
   // ─── Local Input (from drainers) ────────────────────────
 
   private addLocalRpc = <TInputCtor extends IAbstractInputConstructor>(
