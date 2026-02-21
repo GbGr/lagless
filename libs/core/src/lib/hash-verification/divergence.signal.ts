@@ -1,4 +1,4 @@
-import { Signal } from '@lagless/core';
+import { Signal } from '../signals/signal.js';
 
 export interface DivergenceData {
   slotA: number;

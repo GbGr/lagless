@@ -69,6 +69,10 @@ export class RelayInputProvider extends AbstractInputProvider {
 
   // ─── Connection ─────────────────────────────────────────
 
+  public get connection(): RelayConnection | null {
+    return this._connection;
+  }
+
   public setConnection(connection: RelayConnection): void {
     this._connection = connection;
   }

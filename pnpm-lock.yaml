@@ -320,6 +320,22 @@ importers:
         specifier: ^3.5.0
         version: 3.5.0(vite@7.2.2(@types/node@20.19.9)(jiti@2.4.2)(less@4.4.2)(sass-embedded@1.93.3)(sass@1.94.0)(terser@5.44.0)(yaml@2.8.1))
 
+  circle-sumo/circle-sumo-server:
+    dependencies:
+      '@lagless/circle-sumo-simulation':
+        specifier: workspace:*
+        version: link:../circle-sumo-simulation
+      '@lagless/misc':
+        specifier: workspace:*
+        version: link:../../libs/misc
+      '@lagless/relay-game-server':
+        specifier: workspace:*
+        version: link:../../libs/relay-game-server
+    devDependencies:
+      '@types/bun':
+        specifier: latest
+        version: 1.3.9
+
   circle-sumo/circle-sumo-simulation:
     dependencies:
       '@lagless/binary':
@@ -337,28 +353,6 @@ importers:
       '@swc/helpers':
         specifier: ~0.5.11
         version: 0.5.17
-
-  circle-sumo/game-server:
-    dependencies:
-      '@lagless/circle-sumo-simulation':
-        specifier: workspace:*
-        version: link:../circle-sumo-simulation
-      '@lagless/core':
-        specifier: workspace:*
-        version: link:../../libs/core
-      '@lagless/matchmaking':
-        specifier: workspace:*
-        version: link:../../libs/matchmaking
-      '@lagless/misc':
-        specifier: workspace:*
-        version: link:../../libs/misc
-      '@lagless/relay-server':
-        specifier: workspace:*
-        version: link:../../libs/relay-server
-    devDependencies:
-      '@types/bun':
-        specifier: latest
-        version: 1.3.9
 
   libs/animate:
     dependencies:
@@ -450,6 +444,12 @@ importers:
 
   libs/react:
     dependencies:
+      '@lagless/core':
+        specifier: workspace:*
+        version: link:../core
+      '@lagless/relay-client':
+        specifier: workspace:*
+        version: link:../relay-client
       '@tanstack/react-query':
         specifier: ^5.90.9
         version: 5.90.9(react@19.1.0)
@@ -472,6 +472,25 @@ importers:
         specifier: ~0.5.11
         version: 0.5.17
 
+  libs/relay-game-server:
+    dependencies:
+      '@lagless/core':
+        specifier: workspace:*
+        version: link:../core
+      '@lagless/matchmaking':
+        specifier: workspace:*
+        version: link:../matchmaking
+      '@lagless/misc':
+        specifier: workspace:*
+        version: link:../misc
+      '@lagless/relay-server':
+        specifier: workspace:*
+        version: link:../relay-server
+    devDependencies:
+      '@types/bun':
+        specifier: latest
+        version: 1.3.9
+
   libs/relay-server:
     dependencies:
       '@lagless/binary':
@@ -486,28 +505,6 @@ importers:
       '@swc/helpers':
         specifier: ~0.5.11
         version: 0.5.17
-
-  sync-test/game-server:
-    dependencies:
-      '@lagless/core':
-        specifier: workspace:*
-        version: link:../../libs/core
-      '@lagless/matchmaking':
-        specifier: workspace:*
-        version: link:../../libs/matchmaking
-      '@lagless/misc':
-        specifier: workspace:*
-        version: link:../../libs/misc
-      '@lagless/relay-server':
-        specifier: workspace:*
-        version: link:../../libs/relay-server
-      '@lagless/sync-test-simulation':
-        specifier: workspace:*
-        version: link:../sync-test-simulation
-    devDependencies:
-      '@types/bun':
-        specifier: latest
-        version: 1.3.9
 
   sync-test/sync-test-game:
     dependencies:
@@ -529,6 +526,9 @@ importers:
       '@lagless/pixi-react':
         specifier: workspace:*
         version: link:../../libs/pixi-react
+      '@lagless/react':
+        specifier: workspace:*
+        version: link:../../libs/react
       '@lagless/relay-client':
         specifier: workspace:*
         version: link:../../libs/relay-client
@@ -557,6 +557,22 @@ importers:
       vite-plugin-wasm:
         specifier: ^3.5.0
         version: 3.5.0(vite@7.2.2(@types/node@20.19.9)(jiti@2.4.2)(less@4.4.2)(sass-embedded@1.93.3)(sass@1.94.0)(terser@5.44.0)(yaml@2.8.1))
+
+  sync-test/sync-test-server:
+    dependencies:
+      '@lagless/misc':
+        specifier: workspace:*
+        version: link:../../libs/misc
+      '@lagless/relay-game-server':
+        specifier: workspace:*
+        version: link:../../libs/relay-game-server
+      '@lagless/sync-test-simulation':
+        specifier: workspace:*
+        version: link:../sync-test-simulation
+    devDependencies:
+      '@types/bun':
+        specifier: latest
+        version: 1.3.9
 
   sync-test/sync-test-simulation:
     dependencies:

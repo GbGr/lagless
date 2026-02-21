@@ -9,6 +9,9 @@
       "path": "../../libs/relay-client"
     },
     {
+      "path": "../../libs/react"
+    },
+    {
       "path": "../sync-test-simulation"
     },
     {

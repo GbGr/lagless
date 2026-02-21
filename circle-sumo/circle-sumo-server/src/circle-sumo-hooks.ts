@@ -1,4 +1,4 @@
-import type { RoomHooks, RoomContext, PlayerInfo, PlayerSlot, PlayerId } from '@lagless/relay-server';
+import type { RoomHooks, RoomContext, PlayerInfo, PlayerSlot } from '@lagless/relay-server';
 import { LeaveReason } from '@lagless/relay-server';
 import { createLogger, UUID } from '@lagless/misc';
 import { PlayerJoined, PlayerLeft } from '@lagless/circle-sumo-simulation';

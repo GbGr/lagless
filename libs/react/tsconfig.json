@@ -3,6 +3,12 @@
   "include": [],
   "references": [
     {
+      "path": "../relay-client"
+    },
+    {
+      "path": "../core"
+    },
+    {
       "path": "./tsconfig.lib.json"
     }
   ],

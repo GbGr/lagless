@@ -1,0 +1,4 @@
+# Bun configuration for relay-game-server
+# @lagless/source condition resolves workspace packages to TypeScript source
+[resolve]
+conditions = ["@lagless/source"]

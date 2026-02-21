@@ -9,6 +9,7 @@
     "@lagless/core": "workspace:*",
     "@lagless/pixi-react": "workspace:*",
     "@lagless/sync-test-simulation": "workspace:*",
+    "@lagless/react": "workspace:*",
     "@lagless/relay-client": "workspace:*",
     "@lagless/net-wire": "workspace:*",
     "pixi.js": "8.12.0",

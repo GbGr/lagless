@@ -15,6 +15,7 @@ import { useNavigate } from 'react-router-dom';
 import { ProviderStore } from '../hooks/use-start-match';
 import { LocalInputProvider } from '@lagless/core';
 import { RPC } from '@lagless/core';
+import { createHashReporter } from '@lagless/core';
 import { RelayInputProvider, RelayConnection } from '@lagless/relay-client';
 import { getMatchInfo } from '../hooks/use-start-multiplayer-match';
 import { UUID } from '@lagless/misc';
@@ -75,8 +76,11 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
         SyncTestSignals,
       );
 
-      // Set up keyboard input drainer
-      let lastReportedTick = -1;
+      // Set up keyboard input drainer with hash reporting
+      const reportHash = createHashReporter(_runner, {
+        reportInterval: SyncTestArena.hashReportInterval,
+        reportHashRpc: ReportHash,
+      });
 
       inputProvider.drainInputs((addRPC) => {
         // Movement input
@@ -97,16 +101,7 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
         }
 
         // Hash reporting
-        const currentTick = _runner.Simulation.tick;
-        if (
-          currentTick > 0 &&
-          currentTick % SyncTestArena.hashReportInterval === 0 &&
-          currentTick !== lastReportedTick
-        ) {
-          lastReportedTick = currentTick;
-          const hash = _runner.Simulation.mem.getHash();
-          addRPC(ReportHash, { hash, atTick: currentTick });
-        }
+        reportHash(addRPC);
       });
 
       // If multiplayer, connect to relay server

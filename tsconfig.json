@@ -46,7 +46,10 @@
       "path": "./circle-sumo/circle-sumo-game"
     },
     {
-      "path": "./circle-sumo/game-server"
+      "path": "./libs/relay-game-server"
+    },
+    {
+      "path": "./circle-sumo/circle-sumo-server"
     },
     {
       "path": "./sync-test/sync-test-simulation"
@@ -55,7 +58,7 @@
       "path": "./sync-test/sync-test-game"
     },
     {
-      "path": "./sync-test/game-server"
+      "path": "./sync-test/sync-test-server"
     }
   ]
 }
