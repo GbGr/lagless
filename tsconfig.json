@@ -47,6 +47,15 @@
     },
     {
       "path": "./circle-sumo/game-server"
+    },
+    {
+      "path": "./sync-test/sync-test-simulation"
+    },
+    {
+      "path": "./sync-test/sync-test-game"
+    },
+    {
+      "path": "./sync-test/game-server"
     }
   ]
 }

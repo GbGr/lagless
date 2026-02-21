@@ -27,7 +27,7 @@ export class ECSConfig {
     this.maxPlayers = options?.maxPlayers ?? 6;
     this.initialInputDelayTick = options?.initialInputDelayTick ?? 2;
     this.minInputDelayTick = options?.minInputDelayTick ?? 1;
-    this.maxInputDelayTick = options?.maxInputDelayTick ?? 8;
+    this.maxInputDelayTick = options?.maxInputDelayTick ?? 12;
     this.fps = options?.fps ?? 60;
     this.frameLength = 1000 / this.fps;
     this.snapshotRate = options?.snapshotRate ?? 1;

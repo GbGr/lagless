@@ -26,10 +26,14 @@ lagless/
 │   ├── animate/                   # Frame-based animation utilities
 │   ├── react/                     # React auth context, usePlayer, API helpers
 │   └── pixi-react/                # Pixi.js React: virtual joystick, VFX hooks
-├── circle-sumo/                   # Example game
+├── circle-sumo/                   # Example game (gameplay-focused)
 │   ├── circle-sumo-simulation/    # Game logic: components, systems, signals, inputs
 │   ├── circle-sumo-game/          # Browser client (React + Pixi.js)
 │   └── game-server/               # Bun game server (relay + matchmaking + REST)
+├── sync-test/                     # Determinism test bench (late-join, reconnect, hash verification)
+│   ├── sync-test-simulation/      # Movement + coin collection + hash reporting
+│   ├── sync-test-game/            # Browser client with debug panel
+│   └── game-server/               # Bun game server (port 3334)
 └── tools/
     └── codegen/                   # YAML schema → TypeScript code generator
 ```
@@ -44,8 +48,10 @@ math ────┤
          │          ├─► matchmaking         ├─► relay-server
          │          └───────────────────────┘
          │
-         └─► circle-sumo-simulation ──► circle-sumo-game
-                                       circle-sumo/game-server
+         └─► game-simulation ──► game-client
+                                game-server
+
+Games: circle-sumo-simulation, sync-test-simulation
 ```
 
 ## Technology Stack
@@ -308,8 +314,9 @@ Hooks receive `RoomContext` — a safe API for interacting with the room:
 **Key components:**
 - `ServerClock` — authoritative tick based on `performance.now()`
 - `InputHandler` — validates incoming TickInput (tick range, slot ownership), broadcasts or sends CancelInput
-- `StateTransfer` — late-join: requests snapshots from connected clients, majority vote by hash
+- `StateTransfer` — late-join/reconnect: requests snapshots from connected clients, majority vote by hash, timeout fallback to full journal replay
 - `PlayerConnection` — tracks WebSocket, connection state (Connected/Disconnected/Gone), reconnect timeout
+- **Server events journal** — stores all server-emitted events (PlayerJoined, PlayerLeft). On state transfer, only post-state events (tick > stateTick) are sent to avoid duplication
 - `RoomRegistry` — manages room types + active rooms, periodic cleanup of disposed rooms
 - `LatencySimulator` — artificial delay/jitter/packet-loss for testing
 
@@ -325,12 +332,30 @@ Client-side multiplayer networking.
 - On `CancelInput`: removes RPC, triggers rollback
 - On `Pong`: updates ClockSync → PhaseNudger activation → InputDelayController recompute
 - On `StateRequest`: exports simulation snapshot, sends to server
+- On `StateResponse`: applies external state via `ECSSimulation.applyExternalState()` — replaces ArrayBuffer, resets clock + snapshots + RPC history
 - Tracks `rollbackCount` for debug monitoring
 
 **RelayConnection** — WebSocket wrapper:
 - Binary message parsing for all MsgType
 - Auto ping interval: warmup (150ms × 5), then steady (1000ms)
 - Event-driven: callbacks for each message type
+
+#### Late-Join & Reconnect (State Transfer)
+
+When a player connects to a room with an active simulation (`serverTick > 0` and `lateJoinEnabled: true`):
+
+```
+1. Server → StateRequest to all connected clients
+2. Clients → StateResponse (ArrayBuffer snapshot + hash + tick)
+3. Server picks majority hash (quorum), forwards chosen state to joining player
+4. Server sends post-state journal events (tick > stateTick only)
+5. Client calls ECSSimulation.applyExternalState() — replaces ArrayBuffer, resets clock/snapshots
+6. Client resumes normal simulation from transferred tick
+```
+
+**Server events journal** (`_serverEventJournal`): All server-emitted events (PlayerJoined, PlayerLeft) are recorded. On state transfer success, only events with `tick > stateResult.tick` are sent — events already in the state are NOT duplicated. On failure (timeout, no quorum), the full journal is replayed as fallback.
+
+**Reconnect** follows the same flow. `PlayerConnection` tracks `Disconnected` state with `reconnectTimeoutMs`. The `shouldAcceptReconnect` hook can reject reconnection attempts.
 
 ### @lagless/matchmaking
 
@@ -416,7 +441,7 @@ Bun.serve({
 
 ---
 
-## Running the Example (Circle Sumo)
+## Running the Examples
 
 ```bash
 # Install dependencies
@@ -437,13 +462,27 @@ npx nx serve @lagless/circle-sumo-game
 # Click "Play Online" to test multiplayer
 ```
 
-**Debug endpoints:**
-- `GET http://localhost:3333/health` — server status, room count, queue count
-- `GET/POST http://localhost:3333/api/latency` — artificial latency control:
+**Debug endpoints (both servers):**
+- `GET http://localhost:<port>/health` — server status, room count, queue count
+- `GET/POST http://localhost:<port>/api/latency` — artificial latency control:
   ```bash
   curl -X POST http://localhost:3333/api/latency -H 'Content-Type: application/json' \
     -d '{"delayMs": 100, "jitterMs": 30, "packetLossPercent": 5}'
   ```
+
+### Sync Test (Determinism Test Bench)
+
+```bash
+# Terminal 1: Game server (Bun, port 3334)
+cd sync-test/game-server && bun run src/main.ts
+
+# Terminal 2: Game client (Vite, port 4201)
+npx nx serve @lagless/sync-test-game
+
+# Browser: http://localhost:4201
+```
+
+**What it tests:** PRNG determinism (random coin spawns must match), entity lifecycle (frequent create/destroy), late-join state transfer, reconnect, and divergence detection (cross-client hash comparison every 2 seconds).
 
 ## Testing
 

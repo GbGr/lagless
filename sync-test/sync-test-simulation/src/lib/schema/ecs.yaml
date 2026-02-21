@@ -1,0 +1,62 @@
+# nx g @lagless/codegen:ecs --configPath sync-test/sync-test-simulation/src/lib/schema/ecs.yaml
+projectName: SyncTest
+components:
+  Transform2d:
+    positionX: float32
+    positionY: float32
+    prevPositionX: float32
+    prevPositionY: float32
+  Velocity2d:
+    velocityX: float32
+    velocityY: float32
+  PlayerBody:
+    playerSlot: uint8
+    radius: float32
+  Collectible:
+    value: uint16
+    spawnTick: uint32
+
+singletons:
+  GameState:
+    nextSpawnTick: uint32
+    totalCollected: uint32
+    gamePhase: uint8
+
+playerResources:
+  PlayerResource:
+    id: uint8[16]
+    entity: uint32
+    connected: uint8
+    score: uint32
+    collectCount: uint16
+    lastReportedHash: uint32
+    lastReportedHashTick: uint32
+    hashMismatchCount: uint16
+
+inputs:
+  PlayerJoined:
+    slot: uint8
+    playerId: uint8[16]
+  PlayerLeft:
+    slot: uint8
+    reason: uint8
+  MoveInput:
+    directionX: float32
+    directionY: float32
+  ReportHash:
+    hash: uint32
+    atTick: uint32
+
+filters:
+  PlayerFilter:
+    include:
+      - Transform2d
+      - PlayerBody
+  CollectibleFilter:
+    include:
+      - Transform2d
+      - Collectible
+  MovingFilter:
+    include:
+      - Transform2d
+      - Velocity2d

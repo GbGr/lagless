@@ -1,0 +1,33 @@
+{
+  "name": "@sync-test/game-server",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch run src/main.ts",
+    "start": "bun run src/main.ts"
+  },
+  "nx": {
+    "sourceRoot": "sync-test/game-server/src",
+    "targets": {
+      "serve": {
+        "continuous": true,
+        "dependsOn": ["^build"],
+        "command": "bun run --conditions @lagless/source --watch {projectRoot}/src/main.ts",
+        "options": {
+          "cwd": "{workspaceRoot}"
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "@lagless/relay-server": "workspace:*",
+    "@lagless/matchmaking": "workspace:*",
+    "@lagless/core": "workspace:*",
+    "@lagless/misc": "workspace:*",
+    "@lagless/sync-test-simulation": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

@@ -273,6 +273,13 @@ export class RelayRoom {
       const stateResult = await this._stateTransfer.requestState(this._connections, conn.slot);
       if (stateResult) {
         this.sendStateToPlayer(conn, stateResult);
+        // Send journal events that happened AFTER the state snapshot tick —
+        // these are not yet reflected in the transferred state
+        const postStateEvents = this._serverEventJournal.filter(e => e.tick > stateResult.tick);
+        if (postStateEvents.length > 0) {
+          log.info(`Post-state journal: ${postStateEvents.length} events (tick > ${stateResult.tick}) to slot=${conn.slot}`);
+          this._inputHandler.sendInputBatchToPlayer(postStateEvents, conn);
+        }
       } else {
         log.warn(`State transfer failed for player ${playerId} — falling back to journal replay`);
         this._inputHandler.sendInputBatchToPlayer(this._serverEventJournal, conn);

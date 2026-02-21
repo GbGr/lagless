@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ServerClock } from './server-clock.js';
 import { PlayerConnection } from './player-connection.js';
-import { InputHandler } from './input-handler.js';
+import { InputHandler, type ValidatedInput } from './input-handler.js';
 import { RelayRoom } from './relay-room.js';
 import { RoomRegistry } from './room-registry.js';
 import { StateTransfer } from './state-transfer.js';
@@ -1091,5 +1091,317 @@ describe('RoomRegistry.findRoomForLateJoin', () => {
     expect(registry.findRoomForLateJoin('game-b')).toBeUndefined();
 
     await registry.dispose();
+  });
+});
+
+// ─── State transfer + journal filtering ──────────────────────
+
+describe('handlePlayerConnect — state transfer + journal filtering', () => {
+  /**
+   * Directly populate the server event journal with an entry at a given tick.
+   * Bypasses binary packing / broadcast — purely for testing journal filtering logic.
+   */
+  function addJournalEntry(room: RelayRoom, tick: number, seq?: number): void {
+    const journal = (room as any)._serverEventJournal as ValidatedInput[];
+    journal.push({
+      tick,
+      playerSlot: 255, // SERVER_SLOT
+      seq: seq ?? journal.length + 100,
+      kind: 1, // TickInputKind.Server
+      payload: new Uint8Array([1, 2, 3]),
+    } as ValidatedInput);
+  }
+
+  function getStateTransfer(room: RelayRoom): StateTransfer {
+    return (room as any)._stateTransfer;
+  }
+
+  function getInputHandler(room: RelayRoom): InputHandler {
+    return (room as any)._inputHandler;
+  }
+
+  it('should send only post-state journal events after successful state transfer', async () => {
+    const room = await createTestRoom(
+      { lateJoinEnabled: true, maxPlayers: 4, stateTransferTimeoutMs: 5000 },
+      {},
+      2,
+    );
+
+    const ws0 = createMockWs();
+    await room.handlePlayerConnect('player-0', ws0);
+
+    // Populate journal with events at known ticks
+    addJournalEntry(room, 1);
+    addJournalEntry(room, 3);
+    addJournalEntry(room, 5);
+    addJournalEntry(room, 7);
+    addJournalEntry(room, 10);
+
+    // Wait for tick > 0 so state transfer is triggered
+    await new Promise(r => setTimeout(r, 30));
+
+    const sendBatchSpy = vi.spyOn(getInputHandler(room), 'sendInputBatchToPlayer');
+
+    // Add and connect late-joiner
+    room.addPlayer('late-player', false, {});
+    const wsLate = createMockWs();
+    const connectPromise = room.handlePlayerConnect('late-player', wsLate);
+
+    // Player-0 responds with state at tick=5
+    getStateTransfer(room).receiveResponse(0, 1, 5, 0xABCD, new ArrayBuffer(8));
+
+    const success = await connectPromise;
+    expect(success).toBe(true);
+
+    // Should have sent only events with tick > 5 (ticks 7 and 10)
+    expect(sendBatchSpy).toHaveBeenCalledTimes(1);
+    const sentInputs = sendBatchSpy.mock.calls[0][0] as ValidatedInput[];
+    expect(sentInputs).toHaveLength(2);
+    expect(sentInputs[0].tick).toBe(7);
+    expect(sentInputs[1].tick).toBe(10);
+
+    await room.dispose();
+  });
+
+  it('should not send journal events when state covers all of them', async () => {
+    const room = await createTestRoom(
+      { lateJoinEnabled: true, maxPlayers: 4, stateTransferTimeoutMs: 5000 },
+      {},
+      2,
+    );
+
+    const ws0 = createMockWs();
+    await room.handlePlayerConnect('player-0', ws0);
+
+    addJournalEntry(room, 1);
+    addJournalEntry(room, 3);
+    addJournalEntry(room, 5);
+
+    await new Promise(r => setTimeout(r, 30));
+
+    const sendBatchSpy = vi.spyOn(getInputHandler(room), 'sendInputBatchToPlayer');
+
+    room.addPlayer('late-player', false, {});
+    const wsLate = createMockWs();
+    const connectPromise = room.handlePlayerConnect('late-player', wsLate);
+
+    // State at tick=10 — all journal events (1, 3, 5) are already included
+    getStateTransfer(room).receiveResponse(0, 1, 10, 0xABCD, new ArrayBuffer(8));
+
+    await connectPromise;
+
+    // No journal events should be sent
+    expect(sendBatchSpy).not.toHaveBeenCalled();
+
+    await room.dispose();
+  });
+
+  it('should use strict > (not >=) for tick boundary', async () => {
+    const room = await createTestRoom(
+      { lateJoinEnabled: true, maxPlayers: 4, stateTransferTimeoutMs: 5000 },
+      {},
+      2,
+    );
+
+    const ws0 = createMockWs();
+    await room.handlePlayerConnect('player-0', ws0);
+
+    addJournalEntry(room, 5);  // at state tick — should NOT be sent
+    addJournalEntry(room, 6);  // one after — SHOULD be sent
+
+    await new Promise(r => setTimeout(r, 30));
+
+    const sendBatchSpy = vi.spyOn(getInputHandler(room), 'sendInputBatchToPlayer');
+
+    room.addPlayer('late-player', false, {});
+    const wsLate = createMockWs();
+    const connectPromise = room.handlePlayerConnect('late-player', wsLate);
+
+    // State at tick=5
+    getStateTransfer(room).receiveResponse(0, 1, 5, 0xABCD, new ArrayBuffer(8));
+
+    await connectPromise;
+
+    expect(sendBatchSpy).toHaveBeenCalledTimes(1);
+    const sentInputs = sendBatchSpy.mock.calls[0][0] as ValidatedInput[];
+    expect(sentInputs).toHaveLength(1);
+    expect(sentInputs[0].tick).toBe(6);
+
+    await room.dispose();
+  });
+
+  it('should send full journal when state transfer fails (timeout)', async () => {
+    const room = await createTestRoom(
+      { lateJoinEnabled: true, maxPlayers: 4, stateTransferTimeoutMs: 50 },
+      {},
+      2,
+    );
+
+    const ws0 = createMockWs();
+    await room.handlePlayerConnect('player-0', ws0);
+
+    addJournalEntry(room, 1);
+    addJournalEntry(room, 3);
+    addJournalEntry(room, 5);
+
+    await new Promise(r => setTimeout(r, 30));
+
+    const sendBatchSpy = vi.spyOn(getInputHandler(room), 'sendInputBatchToPlayer');
+
+    room.addPlayer('late-player', false, {});
+    const wsLate = createMockWs();
+
+    // Don't respond to state request — times out after 50ms
+    await room.handlePlayerConnect('late-player', wsLate);
+
+    // Full journal should be sent as fallback
+    expect(sendBatchSpy).toHaveBeenCalledTimes(1);
+    const sentInputs = sendBatchSpy.mock.calls[0][0] as ValidatedInput[];
+    expect(sentInputs).toHaveLength(3);
+    expect(sentInputs[0].tick).toBe(1);
+    expect(sentInputs[1].tick).toBe(3);
+    expect(sentInputs[2].tick).toBe(5);
+
+    await room.dispose();
+  });
+
+  it('should send full journal at tick=0 (no state transfer)', async () => {
+    const room = await createTestRoom(
+      { lateJoinEnabled: true, maxPlayers: 4 },
+      {},
+      2,
+    );
+
+    // Add journal entry before any player connects
+    addJournalEntry(room, 1);
+
+    const sendBatchSpy = vi.spyOn(getInputHandler(room), 'sendInputBatchToPlayer');
+
+    // Connect at tick=0 — journal replay, no state transfer
+    const ws0 = createMockWs();
+    await room.handlePlayerConnect('player-0', ws0);
+
+    expect(sendBatchSpy).toHaveBeenCalledTimes(1);
+    const sentInputs = sendBatchSpy.mock.calls[0][0] as ValidatedInput[];
+    expect(sentInputs).toHaveLength(1);
+    expect(sentInputs[0].tick).toBe(1);
+
+    await room.dispose();
+  });
+
+  it('should handle empty journal with successful state transfer', async () => {
+    const room = await createTestRoom(
+      { lateJoinEnabled: true, maxPlayers: 4, stateTransferTimeoutMs: 5000 },
+      {},
+      2,
+    );
+
+    const ws0 = createMockWs();
+    await room.handlePlayerConnect('player-0', ws0);
+
+    // No journal entries — empty journal
+    await new Promise(r => setTimeout(r, 30));
+
+    const sendBatchSpy = vi.spyOn(getInputHandler(room), 'sendInputBatchToPlayer');
+
+    room.addPlayer('late-player', false, {});
+    const wsLate = createMockWs();
+    const connectPromise = room.handlePlayerConnect('late-player', wsLate);
+
+    getStateTransfer(room).receiveResponse(0, 1, 5, 0xABCD, new ArrayBuffer(8));
+
+    await connectPromise;
+
+    // No journal events to send
+    expect(sendBatchSpy).not.toHaveBeenCalled();
+
+    await room.dispose();
+  });
+
+  it('should send all journal events when state tick is 0', async () => {
+    const room = await createTestRoom(
+      { lateJoinEnabled: true, maxPlayers: 4, stateTransferTimeoutMs: 5000 },
+      {},
+      2,
+    );
+
+    const ws0 = createMockWs();
+    await room.handlePlayerConnect('player-0', ws0);
+
+    addJournalEntry(room, 1);
+    addJournalEntry(room, 3);
+    addJournalEntry(room, 5);
+
+    await new Promise(r => setTimeout(r, 30));
+
+    const sendBatchSpy = vi.spyOn(getInputHandler(room), 'sendInputBatchToPlayer');
+
+    room.addPlayer('late-player', false, {});
+    const wsLate = createMockWs();
+    const connectPromise = room.handlePlayerConnect('late-player', wsLate);
+
+    // State at tick=0 — all journal events are post-state
+    getStateTransfer(room).receiveResponse(0, 1, 0, 0xABCD, new ArrayBuffer(8));
+
+    await connectPromise;
+
+    expect(sendBatchSpy).toHaveBeenCalledTimes(1);
+    const sentInputs = sendBatchSpy.mock.calls[0][0] as ValidatedInput[];
+    expect(sentInputs).toHaveLength(3);
+    expect(sentInputs[0].tick).toBe(1);
+    expect(sentInputs[1].tick).toBe(3);
+    expect(sentInputs[2].tick).toBe(5);
+
+    await room.dispose();
+  });
+
+  it('should handle multiple late-joiners with independent state transfers', async () => {
+    const room = await createTestRoom(
+      { lateJoinEnabled: true, maxPlayers: 6, stateTransferTimeoutMs: 5000 },
+      {},
+      2,
+    );
+
+    const ws0 = createMockWs();
+    await room.handlePlayerConnect('player-0', ws0);
+
+    addJournalEntry(room, 1);
+    addJournalEntry(room, 5);
+    addJournalEntry(room, 10);
+
+    await new Promise(r => setTimeout(r, 30));
+
+    const sendBatchSpy = vi.spyOn(getInputHandler(room), 'sendInputBatchToPlayer');
+
+    // First late-joiner: state at tick=3 → should get events at 5, 10
+    room.addPlayer('late-1', false, {});
+    const wsLate1 = createMockWs();
+    const connect1 = room.handlePlayerConnect('late-1', wsLate1);
+    getStateTransfer(room).receiveResponse(0, 1, 3, 0x1111, new ArrayBuffer(8));
+    await connect1;
+
+    expect(sendBatchSpy).toHaveBeenCalledTimes(1);
+    const batch1 = sendBatchSpy.mock.calls[0][0] as ValidatedInput[];
+    expect(batch1).toHaveLength(2);
+    expect(batch1[0].tick).toBe(5);
+    expect(batch1[1].tick).toBe(10);
+
+    sendBatchSpy.mockClear();
+
+    // Second late-joiner: state at tick=8 → should get event at 10 only
+    room.addPlayer('late-2', false, {});
+    const wsLate2 = createMockWs();
+    const connect2 = room.handlePlayerConnect('late-2', wsLate2);
+    // requestId=2, respondents: slot 0 (player-0) and slot 2 (late-1) — must respond for both
+    getStateTransfer(room).receiveResponse(0, 2, 8, 0x2222, new ArrayBuffer(8));
+    getStateTransfer(room).receiveResponse(2, 2, 8, 0x2222, new ArrayBuffer(8));
+    await connect2;
+
+    expect(sendBatchSpy).toHaveBeenCalledTimes(1);
+    const batch2 = sendBatchSpy.mock.calls[0][0] as ValidatedInput[];
+    expect(batch2).toHaveLength(1);
+    expect(batch2[0].tick).toBe(10);
+
+    await room.dispose();
   });
 });

@@ -1,0 +1,23 @@
+import { ECSSystem, IECSSystem, InputProvider, PlayerResources } from '@lagless/core';
+import { MoveInput, PlayerResource, Velocity2d } from '../schema/code-gen/index.js';
+import { SyncTestArena } from '../arena.js';
+
+@ECSSystem()
+export class ApplyMoveInputSystem implements IECSSystem {
+  constructor(
+    private readonly _InputProvider: InputProvider,
+    private readonly _PlayerResources: PlayerResources,
+    private readonly _Velocity2d: Velocity2d,
+  ) {}
+
+  public update(tick: number): void {
+    const rpcs = this._InputProvider.getTickRPCs(tick, MoveInput);
+
+    for (const rpc of rpcs) {
+      const playerResource = this._PlayerResources.get(PlayerResource, rpc.meta.playerSlot);
+      const entity = playerResource.safe.entity;
+      this._Velocity2d.unsafe.velocityX[entity] = rpc.data.directionX * SyncTestArena.moveSpeed;
+      this._Velocity2d.unsafe.velocityY[entity] = rpc.data.directionY * SyncTestArena.moveSpeed;
+    }
+  }
+}

@@ -32,12 +32,19 @@ pnpm exec nx run-many -t lint test build typecheck
 
 # ECS codegen from YAML schema
 pnpm exec nx g @lagless/codegen:ecs --configPath circle-sumo/circle-sumo-simulation/src/lib/schema/ecs.yaml
+pnpm exec nx g @lagless/codegen:ecs --configPath sync-test/sync-test-simulation/src/lib/schema/ecs.yaml
 
-# Run Circle Sumo example:
+# Run Circle Sumo:
 # Terminal 1 — game server (Bun)
 cd circle-sumo/game-server && bun run src/main.ts
-# Terminal 2 — game client (Vite)
+# Terminal 2 — game client (Vite, port 4200)
 pnpm exec nx serve @lagless/circle-sumo-game
+
+# Run Sync Test (determinism test bench):
+# Terminal 1 — game server (Bun, port 3334)
+cd sync-test/game-server && bun run src/main.ts
+# Terminal 2 — game client (Vite, port 4201)
+pnpm exec nx serve @lagless/sync-test-game
 ```
 
 ## Architecture
@@ -53,6 +60,8 @@ math ────┤
          │          └───────────────────────┘
          └─► game-simulation ──► game-client
                                  game-server
+
+Games: circle-sumo (gameplay), sync-test (determinism/late-join/reconnect testing)
 ```
 
 ### Memory Model (core)
@@ -114,6 +123,10 @@ Tick verified (maxInputDelayTick later):
   - Missing after rollback → Cancelled fires (stop sound)
 ```
 
+### Visual Smoothing (misc)
+
+`VisualSmoother2d` handles both sim↔render interpolation and rollback lag smoothing per entity. Takes raw ECS prev/current + interpolationFactor, outputs smoothed position. After rollback, absorbs the position jump into an offset that decays exponentially (`halfLife=200ms`), so entities slide smoothly instead of teleporting. Stores raw sim position (not smoothed) for next-frame comparison to avoid feedback loops.
+
 ### Relay Multiplayer Architecture
 
 **Server side (relay-server):** `RelayRoom` is sealed — game behavior injected via `RoomHooks<TResult>` callbacks (`onPlayerJoin`, `onPlayerLeave`, `onPlayerFinished`, `onMatchEnd`, etc.). Hooks receive `RoomContext` for safe room interaction (`emitServerEvent`, `getPlayers`, `endMatch`).
@@ -123,6 +136,21 @@ Tick verified (maxInputDelayTick later):
 **Protocol (net-wire):** Binary messages — ServerHello, TickInput, TickInputFanout, CancelInput, Ping/Pong, StateRequest/Response, PlayerFinished. Float64 timestamps for sub-ms precision.
 
 **Matchmaking:** Scoped queues (scope = game type string). `MatchmakingService` with pluggable `QueueStore` (default: `InMemoryQueueStore`). Match formation: FIFO + optional MMR proximity, bot fill on timeout.
+
+### Late-Join & Reconnect (State Transfer)
+
+When a player connects to a room that already has a running simulation (`serverTick > 0`):
+
+1. Server sends `StateRequest` to all connected clients
+2. Clients export `ArrayBuffer.slice(0)` snapshot + hash + tick via `StateResponse`
+3. `StateTransfer` collects responses, picks majority hash (quorum)
+4. Server sends the chosen `StateResponse` to the joining player
+5. Server sends **post-state journal events** — only events with `tick > stateResult.tick` (events already baked into the state are NOT re-sent)
+6. Client applies state via `ECSSimulation.applyExternalState()` — replaces ArrayBuffer, resets clock + snapshots
+
+**Server events journal** (`_serverEventJournal` in `RelayRoom`): stores all server-emitted events (PlayerJoined, PlayerLeft, etc.). On first join (tick=0) or state transfer failure, the full journal is replayed. On successful state transfer, only post-state events are sent.
+
+**Reconnect:** Same flow. `PlayerConnection` tracks `Disconnected` state with configurable timeout (`reconnectTimeoutMs`). If player reconnects before timeout, state transfer restores their simulation. `shouldAcceptReconnect` hook can reject.
 
 ### DI System
 
@@ -180,6 +208,7 @@ Create three packages: `my-game/my-game-simulation/`, `my-game/my-game-client/`,
 - `Vector2` has three variants per operation: `.addToNew()`, `.addToRef()`, `.addInPlace()` — prefer `ToRef`/`InPlace` in hot paths to avoid allocations
 - `VECTOR2_BUFFER_1..10` are pre-allocated scratch vectors for use in systems
 - `@abraham/reflection` must be imported before any decorated class (typically in app entry point)
+- When spawning entities with Transform2d, always set `prevPositionX/Y` and `prevRotation` equal to `positionX/Y` and `rotation` — otherwise interpolation produces a one-frame jump from (0,0)
 - Cross-package deps use `workspace:*` protocol
 - ESM everywhere — internal imports in built libs use `.js` extension
 

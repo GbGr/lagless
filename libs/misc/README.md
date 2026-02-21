@@ -2,7 +2,7 @@
 
 ## 1. Responsibility & Context
 
-Provides utility classes and functions used across the Lagless ECS framework: time management (`SimulationClock`, `PhaseNudger`), snapshot storage for rollback (`SnapshotHistory`), circular buffers (`RingBuffer`), UUID generation with bot detection (`UUID`), and Transform2d interpolation helpers. This library sits between low-level primitives and the core ECS engine, providing common abstractions needed by networking, rendering, and simulation layers.
+Provides utility classes and functions used across the Lagless ECS framework: time management (`SimulationClock`, `PhaseNudger`), snapshot storage for rollback (`SnapshotHistory`), circular buffers (`RingBuffer`), UUID generation with bot detection (`UUID`), Transform2d interpolation helpers, and visual rollback smoothing (`VisualSmoother2d`). This library sits between low-level primitives and the core ECS engine, providing common abstractions needed by networking, rendering, and simulation layers.
 
 ## 2. Architecture Role
 
@@ -177,6 +177,50 @@ export function interpolateTransform2dCursorToRef(
 - Y coordinate is negated (game coordinate system convention)
 - Non-`ToRef` variants return a shared buffer (not thread-safe, reused on next call)
 
+### VisualSmoother2d
+
+Handles both sim↔render interpolation and rollback lag smoothing. Takes raw ECS prev/current values + interpolationFactor, outputs smoothed render position. One instance per rendered entity.
+
+```typescript
+class VisualSmoother2d {
+  x: number;        // Smoothed X (read after update)
+  y: number;        // Smoothed Y (read after update)
+  rotation: number; // Smoothed rotation (read after update)
+
+  readonly isSmoothing: boolean; // True while offset is non-zero
+
+  constructor(options?: VisualSmoother2dOptions);
+
+  update(
+    prevPositionX: number, prevPositionY: number,
+    positionX: number, positionY: number,
+    prevRotation: number, rotation: number,
+    interpolationFactor: number,
+  ): void;
+
+  reset(): void;
+}
+
+interface VisualSmoother2dOptions {
+  positionJumpThreshold?: number;  // px, detects rollback jumps (default: 10)
+  rotationJumpThreshold?: number;  // radians (default: PI/4)
+  smoothingHalfLifeMs?: number;    // offset decay half-life (default: 200)
+  teleportThreshold?: number;      // px, jumps above this snap instantly (default: Infinity)
+}
+```
+
+**How it works:**
+1. Computes sim-interpolated position from prev/current + factor
+2. Compares with previous frame's sim position — if jump > threshold, it's a rollback
+3. Absorbs the jump into an offset (entity stays visually in place)
+4. Decays offset exponentially each frame (`pow(0.5, dt / halfLifeMs)`)
+5. Output = sim position + decaying offset
+
+**Normal frames:** offset = 0, output = pure interpolation, zero added latency.
+**After rollback:** entity smoothly slides to correct position over ~200-400ms instead of teleporting.
+
+**Key detail:** `_lastSimX/Y` stores the raw sim position (not smoothed) to avoid a feedback loop where the offset causes repeated false jump detections.
+
 ## 4. Preconditions
 
 - **`SimulationClock.start()` must be called before `getElapsedTime()`** — Throws error if called before start
@@ -335,6 +379,31 @@ function render(interpolationFactor: number) {
     sprite.y = result.y;
     sprite.rotation = result.rotation;
   }
+}
+```
+
+### VisualSmoother2d (Multiplayer Rendering)
+
+```typescript
+import { VisualSmoother2d } from '@lagless/misc';
+
+// One smoother per rendered entity (e.g. in React ref)
+const smoother = new VisualSmoother2d();
+
+// Each render frame — feed raw ECS data, read smoothed output
+function onUpdate(entity: number) {
+  smoother.update(
+    transform2d.unsafe.prevPositionX[entity],
+    transform2d.unsafe.prevPositionY[entity],
+    transform2d.unsafe.positionX[entity],
+    transform2d.unsafe.positionY[entity],
+    transform2d.unsafe.prevRotation[entity],
+    transform2d.unsafe.rotation[entity],
+    simulation.interpolationFactor,
+  );
+  container.x = smoother.x;
+  container.y = smoother.y;
+  container.rotation = smoother.rotation;
 }
 ```
 
