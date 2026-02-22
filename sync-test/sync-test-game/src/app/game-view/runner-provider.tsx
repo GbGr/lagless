@@ -13,7 +13,7 @@ import { createContext, FC, ReactNode, useContext, useEffect, useState } from 'r
 import { useTick } from '@pixi/react';
 import { useNavigate } from 'react-router-dom';
 import { ProviderStore } from '../hooks/use-start-match';
-import { ECSConfig, LocalInputProvider, RPC, createHashReporter } from '@lagless/core';
+import { ECSConfig, LocalInputProvider, ReplayInputProvider, RPC, createHashReporter } from '@lagless/core';
 import { RelayInputProvider, RelayConnection } from '@lagless/relay-client';
 import { getMatchInfo } from '../hooks/use-start-multiplayer-match';
 import { UUID } from '@lagless/misc';
@@ -105,38 +105,43 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
         } else {
           _runner = new SyncTestRunner(inputProvider.ecsConfig, inputProvider, SyncTestSystems, SyncTestSignals);
         }
+      } else if (inputProvider instanceof ReplayInputProvider) {
+        // Replay mode — ecsConfig from replay file already has seed, fps, maxPlayers
+        _runner = new SyncTestRunner(inputProvider.ecsConfig, inputProvider, SyncTestSystems, SyncTestSignals);
       } else {
         // Local play — no seed needed
         _runner = new SyncTestRunner(inputProvider.ecsConfig, inputProvider, SyncTestSystems, SyncTestSignals);
       }
 
-      // Set up keyboard input drainer with hash reporting
-      const reportHash = createHashReporter(_runner, {
-        reportInterval: SyncTestArena.hashReportInterval,
-        reportHashRpc: ReportHash,
-      });
+      // Set up keyboard input drainer with hash reporting (skip for replay — all inputs pre-recorded)
+      if (!(inputProvider instanceof ReplayInputProvider)) {
+        const reportHash = createHashReporter(_runner, {
+          reportInterval: SyncTestArena.hashReportInterval,
+          reportHashRpc: ReportHash,
+        });
 
-      inputProvider.drainInputs((addRPC) => {
-        // Movement input
-        let dx = 0;
-        let dy = 0;
-        if (keys.has('a') || keys.has('arrowleft')) dx -= 1;
-        if (keys.has('d') || keys.has('arrowright')) dx += 1;
-        if (keys.has('w') || keys.has('arrowup')) dy -= 1;
-        if (keys.has('s') || keys.has('arrowdown')) dy += 1;
+        inputProvider.drainInputs((addRPC) => {
+          // Movement input
+          let dx = 0;
+          let dy = 0;
+          if (keys.has('a') || keys.has('arrowleft')) dx -= 1;
+          if (keys.has('d') || keys.has('arrowright')) dx += 1;
+          if (keys.has('w') || keys.has('arrowup')) dy -= 1;
+          if (keys.has('s') || keys.has('arrowdown')) dy += 1;
 
-        if (dx !== 0 || dy !== 0) {
-          // Normalize diagonal
-          if (dx !== 0 && dy !== 0) {
-            dx *= SQRT2_INV;
-            dy *= SQRT2_INV;
+          if (dx !== 0 || dy !== 0) {
+            // Normalize diagonal
+            if (dx !== 0 && dy !== 0) {
+              dx *= SQRT2_INV;
+              dy *= SQRT2_INV;
+            }
+            addRPC(MoveInput, { directionX: dx, directionY: dy });
           }
-          addRPC(MoveInput, { directionX: dx, directionY: dy });
-        }
 
-        // Hash reporting
-        reportHash(addRPC);
-      });
+          // Hash reporting
+          reportHash(addRPC);
+        });
+      }
 
       // Start runner + clock sync for multiplayer
       _runner.start();

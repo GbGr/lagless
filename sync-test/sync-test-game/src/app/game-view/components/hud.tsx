@@ -1,6 +1,6 @@
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRunner } from '../runner-provider';
-import { PlayerResources, ECSConfig } from '@lagless/core';
+import { PlayerResources, ECSConfig, ReplayInputProvider } from '@lagless/core';
 import { GameState, PlayerResource, DivergenceSignal, SyncTestArena } from '@lagless/sync-test-simulation';
 
 interface PlayerHudData {
@@ -23,6 +23,7 @@ export const HUD: FC = () => {
   const [hasDivergence, setHasDivergence] = useState(false);
   const [divergenceInfo, setDivergenceInfo] = useState('');
 
+  const isReplay = useMemo(() => runner.InputProviderInstance instanceof ReplayInputProvider, [runner]);
   const _ECSConfig = useMemo(() => runner.DIContainer.resolve(ECSConfig), [runner]);
   const _GameState = useMemo(() => runner.DIContainer.resolve(GameState), [runner]);
   const _PlayerResources = useMemo(() => runner.DIContainer.resolve(PlayerResources), [runner]);
@@ -70,15 +71,39 @@ export const HUD: FC = () => {
     return runner.Simulation.addTickHandler(updateStats);
   }, [runner, updateStats]);
 
+  const downloadReplay = useCallback(() => {
+    const ip = runner.InputProviderInstance;
+    const rpcData = ip.rpcHistory.export(ip.inputRegistry);
+    const replay = ReplayInputProvider.exportReplay(
+      runner.Config.seed,
+      runner.Config.maxPlayers,
+      runner.Config.fps,
+      rpcData,
+    );
+    const blob = new Blob([replay], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `replay-${Date.now()}.replay`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [runner]);
+
   return (
     <div style={styles.container}>
       <div style={styles.row}>
+        {isReplay && <span style={styles.replayBadge}>REPLAY</span>}
         <span style={styles.label}>TICK</span>
         <span style={styles.value}>{tick}</span>
         <span style={styles.label}>COLLECTED</span>
         <span style={styles.value}>{totalCollected}</span>
         <span style={styles.label}>HASH</span>
         <span style={styles.value}>{localHash.toString(16).padStart(8, '0')}</span>
+        {!isReplay && (
+          <button style={styles.replayButton} onClick={downloadReplay}>
+            Save Replay
+          </button>
+        )}
       </div>
 
       <div style={styles.playersRow}>
@@ -151,5 +176,26 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: 'center' as const,
     fontWeight: 'bold',
     fontSize: 11,
+  },
+  replayBadge: {
+    background: '#ff4444',
+    color: '#fff',
+    padding: '1px 6px',
+    borderRadius: 3,
+    fontWeight: 'bold',
+    fontSize: 10,
+    marginRight: 8,
+  },
+  replayButton: {
+    pointerEvents: 'auto' as const,
+    cursor: 'pointer',
+    background: '#1a3a6a',
+    color: '#88aaff',
+    border: '1px solid #4488ff',
+    borderRadius: 3,
+    padding: '2px 8px',
+    fontSize: 11,
+    fontFamily: "'Courier New', monospace",
+    marginLeft: 8,
   },
 };

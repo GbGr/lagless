@@ -1,12 +1,26 @@
-import { FC } from 'react';
-import { useStartMatch } from '../hooks/use-start-match';
+import { FC, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useStartMatch, ProviderStore } from '../hooks/use-start-match';
 import { useStartMultiplayerMatch } from '../hooks/use-start-multiplayer-match';
+import { ReplayInputProvider } from '@lagless/core';
+import { SyncTestInputRegistry } from '@lagless/sync-test-simulation';
 
 export const TitleScreen: FC = () => {
   const { isBusy, startMatch } = useStartMatch();
   const multiplayer = useStartMultiplayerMatch();
+  const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isMultiplayerBusy = multiplayer.state !== 'idle';
+
+  const handleReplayFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const buffer = await file.arrayBuffer();
+    const provider = ReplayInputProvider.createFromReplay(buffer, SyncTestInputRegistry);
+    ProviderStore.set(provider);
+    navigate('/game');
+  };
 
   return (
     <div style={styles.screen}>
@@ -25,6 +39,20 @@ export const TitleScreen: FC = () => {
           {multiplayer.state === 'connecting' && 'Connecting...'}
           {multiplayer.state === 'error' && `Error: ${multiplayer.error}`}
           {multiplayer.state === 'idle' && 'Play Online'}
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".replay"
+          style={{ display: 'none' }}
+          onChange={handleReplayFile}
+        />
+        <button
+          style={styles.button}
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isMultiplayerBusy || isBusy}
+        >
+          Watch Replay
         </button>
       </div>
       <div style={styles.controls}>
