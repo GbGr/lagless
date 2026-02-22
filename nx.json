@@ -37,6 +37,7 @@
     },
     {
       "plugin": "@nx/vite/plugin",
+      "exclude": ["tools/create/templates/**"],
       "options": {
         "buildTargetName": "build",
         "testTargetName": "test",

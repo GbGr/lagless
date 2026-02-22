@@ -1,6 +1,6 @@
 import { useImperativeHandle, useRef } from 'react';
 import { Container, Graphics } from 'pixi.js';
-import { filterView, FilterViewRef } from './filter-views';
+import { filterView, FilterViewRef } from '@lagless/pixi-react';
 import { useRunner } from './runner-provider';
 import { PlayerBody, SyncTestArena, Transform2d } from '@lagless/sync-test-simulation';
 import { VisualSmoother2d } from '@lagless/misc';

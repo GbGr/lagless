@@ -4,7 +4,8 @@
   "license": "MIT",
   "scripts": {
     "docs:inventory": "node tools/docs/sync-metadata.mjs && npx tsc -p tsconfig.tools.json && node tools/docs/dist/collect-module-exports.js",
-    "docs:verify": "npx tsc -p tsconfig.tools.json && node tools/docs/dist/verify-readmes.js"
+    "docs:verify": "npx tsc -p tsconfig.tools.json && node tools/docs/dist/verify-readmes.js",
+    "publish:all": "./scripts/publish.sh"
   },
   "private": true,
   "dependencies": {

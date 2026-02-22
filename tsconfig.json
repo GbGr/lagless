@@ -59,6 +59,9 @@
     },
     {
       "path": "./sync-test/sync-test-server"
+    },
+    {
+      "path": "./tools/create"
     }
   ]
 }

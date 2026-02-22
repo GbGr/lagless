@@ -66,7 +66,7 @@ export function useNetStats(
       const table: HashTableEntry[] = [];
       for (let i = 0; i < maxPlayers; i++) {
         const pr = playerResources.get(playerResourceClass, i);
-        const safe = pr.safe as HashPlayerResourceProxy;
+        const safe = pr.safe as unknown as HashPlayerResourceProxy;
         if (safe.connected || safe.lastReportedHashTick > 0) {
           table.push({
             slot: i,

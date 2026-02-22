@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "scripts": {
+    "dev:frontend": "pnpm --filter <%= packageName %>-frontend dev",
+    "dev:backend": "pnpm --filter <%= packageName %>-backend dev",
+    "codegen": "npx @lagless/codegen -c <%= packageName %>-simulation/src/lib/schema/ecs.yaml"
+  }
+}

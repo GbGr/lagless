@@ -1,5 +1,5 @@
 import { FC, useMemo } from 'react';
-import { FilterViews } from './filter-views';
+import { FilterViews } from '@lagless/pixi-react';
 import { useRunner } from './runner-provider';
 import { PlayerFilter, CollectibleFilter } from '@lagless/sync-test-simulation';
 import { PlayerView } from './player-view';

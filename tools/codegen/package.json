@@ -1,7 +1,12 @@
 {
   "name": "@lagless/codegen",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.0.30",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ppauel/lagless",
+    "directory": "tools/codegen"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -15,12 +20,16 @@
       "default": "./dist/index.js"
     }
   },
+  "bin": {
+    "lagless-codegen": "./dist/cli.js"
+  },
   "generators": "./generators.json",
   "files": [
     "dist",
     "files",
     "generators.json",
-    "schema.json"
+    "schema.json",
+    "README.md"
   ],
   "nx": {
     "sourceRoot": "tools/codegen/src",
@@ -51,5 +60,8 @@
   },
   "devDependencies": {
     "@types/ejs": "^3.1.5"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

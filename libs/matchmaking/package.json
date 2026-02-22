@@ -1,7 +1,12 @@
 {
   "name": "@lagless/matchmaking",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.0.30",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ppauel/lagless",
+    "directory": "libs/matchmaking"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -21,5 +26,9 @@
   "dependencies": {
     "@swc/helpers": "~0.5.11",
     "@lagless/misc": "workspace:*"
+  },
+  "files": ["dist", "README.md"],
+  "publishConfig": {
+    "access": "public"
   }
 }

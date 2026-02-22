@@ -441,6 +441,9 @@ importers:
       pixi.js:
         specifier: 8.12.0
         version: 8.12.0
+      react:
+        specifier: ^19.0.0
+        version: 19.1.0
 
   libs/react:
     dependencies:
@@ -453,6 +456,9 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.90.9
         version: 5.90.9(react@19.1.0)
+      react:
+        specifier: ^19.0.0
+        version: 19.1.0
 
   libs/relay-client:
     dependencies:
@@ -615,6 +621,22 @@ importers:
       yaml:
         specifier: ^2.8.1
         version: 2.8.1
+    devDependencies:
+      '@types/ejs':
+        specifier: ^3.1.5
+        version: 3.1.5
+
+  tools/create:
+    dependencies:
+      '@swc/helpers':
+        specifier: ~0.5.11
+        version: 0.5.17
+      commander:
+        specifier: ^14.0.1
+        version: 14.0.1
+      ejs:
+        specifier: ^3.1.10
+        version: 3.1.10
     devDependencies:
       '@types/ejs':
         specifier: ^3.1.5

@@ -1,18 +1,23 @@
 {
   "name": "@lagless/relay-game-server",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.0.30",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ppauel/lagless",
+    "directory": "libs/relay-game-server"
+  },
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
+    "./package.json": "./package.json",
     ".": {
       "@lagless/source": "./src/index.ts",
-      "types": "./src/index.ts",
-      "import": "./src/index.ts",
-      "default": "./src/index.ts"
-    },
-    "./package.json": "./package.json"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
   },
   "dependencies": {
     "@lagless/relay-server": "workspace:*",
@@ -22,5 +27,9 @@
   },
   "devDependencies": {
     "@types/bun": "latest"
+  },
+  "files": ["dist", "README.md"],
+  "publishConfig": {
+    "access": "public"
   }
 }

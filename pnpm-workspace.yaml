@@ -6,5 +6,6 @@ packages:
   - 'libs/api/*'
   - 'circle-sumo/*'
   - 'sync-test/*'
+  - '!tools/create/templates/**'
 autoInstallPeers: true
 strictPeerDependencies: false

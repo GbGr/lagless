@@ -35,6 +35,8 @@ export function setLogSink(sink: LogSink): void {
   globalSink = sink;
 }
 
+export type Logger = ReturnType<typeof createLogger>;
+
 export function createLogger(tag: string) {
   return {
     debug(message: string, ...args: unknown[]): void {

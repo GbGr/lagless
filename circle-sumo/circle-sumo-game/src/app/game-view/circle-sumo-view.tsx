@@ -1,5 +1,5 @@
 import { FC, useMemo } from 'react';
-import { FilterViews } from './filter-views';
+import { FilterViews } from '@lagless/pixi-react';
 import { useRunner } from './runner-provider';
 import { Transform2dFilter } from '@lagless/circle-sumo-simulation';
 import { Transform2dView } from './transform2d-view';

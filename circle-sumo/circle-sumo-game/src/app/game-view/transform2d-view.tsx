@@ -4,7 +4,7 @@ import { interpolateTransform2dCursorToRef } from '@lagless/misc';
 import { useImperativeHandle, useMemo, useRef } from 'react';
 import { CircleBody, PlayerResource, Skin, Transform2d } from '@lagless/circle-sumo-simulation';
 import { useRunner } from './runner-provider';
-import { filterView, FilterView } from './filter-views';
+import { filterView, FilterView } from '@lagless/pixi-react';
 import { useViewport } from './viewport-provider';
 import { DirectionArrowHandle, DirectionArrowView } from './components/direction-arrow-view';
 import { PlayerView } from './components/player-view';

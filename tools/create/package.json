@@ -1,0 +1,57 @@
+{
+  "name": "@lagless/create",
+  "version": "0.0.30",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ppauel/lagless",
+    "directory": "tools/create"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "create-lagless": "./dist/index.js"
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@lagless/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "templates",
+    "README.md"
+  ],
+  "nx": {
+    "sourceRoot": "tools/create/src",
+    "targets": {
+      "build": {
+        "executor": "@nx/js:swc",
+        "outputs": ["{options.outputPath}"],
+        "options": {
+          "outputPath": "tools/create/dist",
+          "main": "tools/create/src/index.ts",
+          "tsConfig": "tools/create/tsconfig.lib.json",
+          "skipTypeCheck": true,
+          "stripLeadingPaths": true
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "commander": "^14.0.1",
+    "ejs": "^3.1.10",
+    "@swc/helpers": "~0.5.11"
+  },
+  "devDependencies": {
+    "@types/ejs": "^3.1.5"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

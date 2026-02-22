@@ -1,0 +1,4 @@
+packages:
+  - '<%= packageName %>-simulation'
+  - '<%= packageName %>-frontend'
+  - '<%= packageName %>-backend'

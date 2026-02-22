@@ -42,6 +42,7 @@ export interface ISingletonConstructor {
 }
 
 export interface ISingletonInstance {
+  safe?: Record<string, number>;
   unsafe: Record<string, TypedArray>;
 }
 

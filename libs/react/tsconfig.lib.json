@@ -1,12 +1,18 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "baseUrl": ".",
     "outDir": "dist",
-    "lib": ["es2022", "dom"],
-    "types": ["node", "@nx/react/typings/cssmodule.d.ts", "@nx/react/typings/image.d.ts"],
     "rootDir": "src",
+    "lib": ["es2022", "dom"],
+    "types": ["node"],
     "jsx": "react-jsx",
-    "tsBuildInfoFile": "dist/tsconfig.lib.tsbuildinfo"
+    "tsBuildInfoFile": "dist/tsconfig.lib.tsbuildinfo",
+    "emitDeclarationOnly": false,
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": false
   },
   "exclude": [
     "out-tsc",

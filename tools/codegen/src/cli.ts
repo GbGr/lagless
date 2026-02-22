@@ -112,7 +112,4 @@ process.on('unhandledRejection', (reason, promise) => {
   process.exit(1);
 });
 
-// Start CLI if this file is run directly
-if (require.main === module) {
-  program.parse();
-}
+program.parse();

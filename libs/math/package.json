@@ -1,7 +1,12 @@
 {
   "name": "@lagless/math",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.0.30",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ppauel/lagless",
+    "directory": "libs/math"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -18,5 +23,9 @@
   "dependencies": {
     "tslib": "^2.3.0",
     "@lagless/deterministic-math": "^0.1.8"
+  },
+  "files": ["dist", "README.md"],
+  "publishConfig": {
+    "access": "public"
   }
 }
