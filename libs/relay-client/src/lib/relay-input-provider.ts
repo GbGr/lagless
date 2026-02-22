@@ -1,4 +1,4 @@
-import { AbstractInputProvider, RPC, type InputRegistry, type ECSConfig, type ECSSimulation } from '@lagless/core';
+import { AbstractInputProvider, RPC, type InputRegistry, type ECSConfig } from '@lagless/core';
 // eslint-disable-next-line @nx/enforce-module-boundaries -- direct dep, used for input payload packing
 import { InputBinarySchema } from '@lagless/binary';
 import {
@@ -28,9 +28,11 @@ export class RelayInputProvider extends AbstractInputProvider {
 
   private readonly _clockSync: ClockSync;
   private readonly _inputDelayController: InputDelayController;
+  private readonly _serverHello: Promise<ServerHelloData>;
+  private _resolveServerHello!: (data: ServerHelloData) => void;
+  private _firstHelloReceived = false;
   private _connection: RelayConnection | null = null;
   private _rollbackCount = 0;
-  private _pendingServerHello: ServerHelloData | null = null;
 
   /**
    * Minimum tick that needs rollback. Consumed (reset) each frame by
@@ -51,6 +53,9 @@ export class RelayInputProvider extends AbstractInputProvider {
       ecsConfig.maxInputDelayTick,
       ecsConfig.initialInputDelayTick,
     );
+    this._serverHello = new Promise((resolve) => {
+      this._resolveServerHello = resolve;
+    });
   }
 
   // ─── Public Getters ─────────────────────────────────────
@@ -67,6 +72,15 @@ export class RelayInputProvider extends AbstractInputProvider {
     return this._rollbackCount;
   }
 
+  /**
+   * Resolves with the first ServerHello received from the server.
+   * Await this before creating the ECSSimulation to ensure the
+   * correct PRNG seed is available for ECSConfig.
+   */
+  public get serverHello(): Promise<ServerHelloData> {
+    return this._serverHello;
+  }
+
   // ─── Connection ─────────────────────────────────────────
 
   public get connection(): RelayConnection | null {
@@ -78,14 +92,6 @@ export class RelayInputProvider extends AbstractInputProvider {
   }
 
   // ─── AbstractInputProvider overrides ────────────────────
-
-  public override init(simulation: ECSSimulation): void {
-    super.init(simulation);
-    if (this._pendingServerHello) {
-      this._applyServerHello(this._pendingServerHello);
-      this._pendingServerHello = null;
-    }
-  }
 
   public override getInvalidateRollbackTick(): number | undefined {
     const tick = this._invalidateRollbackTick;
@@ -103,25 +109,22 @@ export class RelayInputProvider extends AbstractInputProvider {
 
   /**
    * Handle ServerHello from server.
-   * Syncs the simulation clock to the server's tick so client inputs
-   * are not rejected as TooOld.
+   *
+   * First call: resolves the `serverHello` promise so the game client
+   * can create ECSConfig with the correct seed before constructing the simulation.
+   *
+   * Subsequent calls (reconnect): syncs the simulation clock to the
+   * server's tick so client inputs are not rejected as TooOld.
    */
   public handleServerHello(data: ServerHelloData): void {
-    if (!this._simulation) {
-      log.warn(`handleServerHello: _simulation is NULL, buffering for later. serverTick=${data.serverTick}`);
-      this._pendingServerHello = data;
+    if (!this._firstHelloReceived) {
+      this._firstHelloReceived = true;
+      this._resolveServerHello(data);
       return;
     }
 
-    this._applyServerHello(data);
-  }
-
-  private _applyServerHello(data: ServerHelloData): void {
-    if (!this._simulation) return;
-
-    const beforeTick = this._simulation.tick;
-    this._simulation.clock.setAccumulatedTime(data.serverTick * this._frameLength);
-    log.info(`Clock synced: beforeTick=${beforeTick} → serverTick=${data.serverTick} (${(data.serverTick * this._frameLength).toFixed(0)}ms) playerSlot=${this.playerSlot}`);
+    // Reconnect: sync clock only (state transfer will overwrite everything)
+    this._syncClockToServer(data);
   }
 
   /**
@@ -267,6 +270,18 @@ export class RelayInputProvider extends AbstractInputProvider {
   // ─── Private ──────────────────────────────────────────
 
   /**
+   * Sync the simulation clock to the server's tick.
+   * Used on reconnect — the state transfer will overwrite everything else.
+   */
+  private _syncClockToServer(data: ServerHelloData): void {
+    if (!this._simulation) return;
+
+    const beforeTick = this._simulation.tick;
+    this._simulation.clock.setAccumulatedTime(data.serverTick * this._frameLength);
+    log.info(`Clock synced: beforeTick=${beforeTick} → serverTick=${data.serverTick} (${(data.serverTick * this._frameLength).toFixed(0)}ms) playerSlot=${this.playerSlot}`);
+  }
+
+  /**
    * Send this frame's local inputs to the server as a single batch.
    */
   private sendBufferedInputs(): void {
@@ -331,11 +346,7 @@ export class RelayInputProvider extends AbstractInputProvider {
     ordinal: number;
     values: Record<string, number | import('@lagless/binary').TypedArray>;
   } {
-    const buffer = payload.buffer.byteLength === payload.byteLength
-      ? payload.buffer
-      : payload.buffer.slice(payload.byteOffset, payload.byteOffset + payload.byteLength);
-
-    const unpacked = InputBinarySchema.unpackBatch(this.inputRegistry, buffer as ArrayBuffer);
+    const unpacked = InputBinarySchema.unpackBatch(this.inputRegistry, payload.buffer as ArrayBuffer);
 
     if (unpacked.length !== 1) {
       throw new Error(`Expected 1 input in payload, got ${unpacked.length}`);

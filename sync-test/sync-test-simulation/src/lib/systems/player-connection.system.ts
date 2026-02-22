@@ -19,7 +19,7 @@ export class PlayerConnectionSystem implements IECSSystem {
   ) {}
 
   public update(tick: number): void {
-    const rpcs = this._InputProvider.getTickRPCs(tick, PlayerJoined);
+    const rpcs = this._InputProvider.collectTickRPCs(tick, PlayerJoined);
     const maxPlayers = this._ECSConfig.maxPlayers;
     const spacing = SyncTestArena.width * 0.5 / Math.max(maxPlayers, 1);
 

@@ -11,7 +11,7 @@ export class ApplyLookAtInputSystem implements IECSSystem {
   }
 
   public update(tick: number): void {
-    const rpcs = this._InputProvider.getTickRPCs(tick, LookAt);
+    const rpcs = this._InputProvider.collectTickRPCs(tick, LookAt);
 
     for (const moveRpc of rpcs) {
       const playerResource = this._PlayerResources.get(PlayerResource, moveRpc.meta.playerSlot);

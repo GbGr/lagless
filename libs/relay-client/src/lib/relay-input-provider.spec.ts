@@ -90,7 +90,7 @@ describe('RelayInputProvider', () => {
         ],
       });
 
-      const rpcs = provider.getTickRPCs(10, TestMoveInputCtor);
+      const rpcs = provider.collectTickRPCs(10, TestMoveInputCtor);
       expect(rpcs.length).toBe(2);
     });
 
@@ -105,7 +105,7 @@ describe('RelayInputProvider', () => {
         ],
       });
 
-      const rpcs = provider.getTickRPCs(10, TestMoveInputCtor);
+      const rpcs = provider.collectTickRPCs(10, TestMoveInputCtor);
       expect(rpcs.length).toBe(1);
       expect(rpcs[0].meta.playerSlot).toBe(1);
     });
@@ -120,7 +120,7 @@ describe('RelayInputProvider', () => {
         ],
       });
 
-      const rpcs = provider.getTickRPCs(10, TestMoveInputCtor);
+      const rpcs = provider.collectTickRPCs(10, TestMoveInputCtor);
       expect(rpcs.length).toBe(1);
     });
 
@@ -205,7 +205,7 @@ describe('RelayInputProvider', () => {
       }, { direction: 1.5 });
       provider.addRemoteRpc(rpc);
 
-      expect(provider.getTickRPCs(10, TestMoveInputCtor).length).toBe(1);
+      expect(provider.collectTickRPCs(10, TestMoveInputCtor).length).toBe(1);
 
       provider.handleCancelInput({
         tick: 10,
@@ -214,7 +214,7 @@ describe('RelayInputProvider', () => {
         reason: CancelReason.TooOld,
       });
 
-      expect(provider.getTickRPCs(10, TestMoveInputCtor).length).toBe(0);
+      expect(provider.collectTickRPCs(10, TestMoveInputCtor).length).toBe(0);
       expect(provider.getInvalidateRollbackTick()).toBe(10);
     });
   });
@@ -302,7 +302,7 @@ describe('RelayInputProvider', () => {
 
       // Add some RPCs
       provider.addRemoteRpc(new RPC(1, { tick: 5, seq: 1, ordinal: 1, playerSlot: 1 }, { direction: 1.0 }));
-      expect(provider.rpcHistory.getTickRPCs(5, TestMoveInputCtor).length).toBe(1);
+      expect(provider.rpcHistory.collectTickRPCs(5, TestMoveInputCtor).length).toBe(1);
 
       const { simulation } = createTestSetup(0);
       const stateBuffer = simulation.mem.exportSnapshot();
@@ -314,7 +314,7 @@ describe('RelayInputProvider', () => {
         state: stateBuffer,
       });
 
-      expect(provider.rpcHistory.getTickRPCs(5, TestMoveInputCtor).length).toBe(0);
+      expect(provider.rpcHistory.collectTickRPCs(5, TestMoveInputCtor).length).toBe(0);
     });
 
     it('should reset clock sync (isReady = false)', () => {
@@ -406,21 +406,33 @@ describe('RelayInputProvider', () => {
     });
   });
 
-  describe('handleServerHello — BUG 8 buffering', () => {
-    it('should buffer ServerHello when simulation is not initialized', () => {
-      const config = new ECSConfig({
-        initialInputDelayTick: 3,
-        minInputDelayTick: 1,
-        maxInputDelayTick: 8,
-        snapshotRate: 1,
-        snapshotHistorySize: 50,
-      });
+  describe('handleServerHello', () => {
+    it('should resolve serverHello promise on first call', async () => {
+      const config = new ECSConfig({});
       const provider = new RelayInputProvider(0, config, testInputRegistry);
 
-      // No init() call — simulation is null
-      // Should NOT throw, should buffer
+      const helloData = {
+        seed: new Uint8Array(16).fill(42),
+        playerSlot: 0,
+        serverTick: 100,
+        maxPlayers: 4,
+        players: [],
+        scopeJson: '{}',
+      };
+
+      provider.handleServerHello(helloData);
+
+      const result = await provider.serverHello;
+      expect(result.serverTick).toBe(100);
+      expect(result.seed).toEqual(new Uint8Array(16).fill(42));
+    });
+
+    it('should not throw when called before init (no simulation)', () => {
+      const config = new ECSConfig({});
+      const provider = new RelayInputProvider(0, config, testInputRegistry);
+
       expect(() => provider.handleServerHello({
-        seed0: 1, seed1: 2,
+        seed: new Uint8Array(16),
         playerSlot: 0,
         serverTick: 100,
         maxPlayers: 4,
@@ -429,43 +441,22 @@ describe('RelayInputProvider', () => {
       })).not.toThrow();
     });
 
-    it('should apply buffered ServerHello on init()', () => {
-      const config = new ECSConfig({
-        initialInputDelayTick: 3,
-        minInputDelayTick: 1,
-        maxInputDelayTick: 8,
-        snapshotRate: 1,
-        snapshotHistorySize: 50,
-      });
-      const provider = new RelayInputProvider(0, config, testInputRegistry);
+    it('should sync clock on reconnect (second call) when simulation exists', () => {
+      const { provider, simulation, config } = createTestSetup(0);
 
-      // Buffer the ServerHello before init
+      // First call — resolves promise, does not touch simulation
       provider.handleServerHello({
-        seed0: 1, seed1: 2,
+        seed: new Uint8Array(16),
         playerSlot: 0,
-        serverTick: 50,
+        serverTick: 0,
         maxPlayers: 4,
         players: [],
         scopeJson: '{}',
       });
 
-      // Now create simulation, start first, then init (real-world flow:
-      // simulation.start() initializes the clock, then init() applies the buffered hello)
-      const simulation = new ECSSimulation(config, minimalDeps, provider);
-      simulation.registerSystems([]);
-      simulation.start();
-      provider.init(simulation);
-
-      // Clock should have been synced to serverTick=50
-      const expectedTime = 50 * config.frameLength;
-      expect(simulation.clock.accumulatedTime).toBeCloseTo(expectedTime, 0);
-    });
-
-    it('should apply ServerHello immediately when simulation exists', () => {
-      const { provider, simulation, config } = createTestSetup(0);
-
+      // Second call — reconnect, should sync clock
       provider.handleServerHello({
-        seed0: 1, seed1: 2,
+        seed: new Uint8Array(16),
         playerSlot: 0,
         serverTick: 200,
         maxPlayers: 4,
@@ -475,6 +466,33 @@ describe('RelayInputProvider', () => {
 
       const expectedTime = 200 * config.frameLength;
       expect(simulation.clock.accumulatedTime).toBeCloseTo(expectedTime, 0);
+    });
+
+    it('should resolve serverHello promise only once (first call wins)', async () => {
+      const config = new ECSConfig({});
+      const provider = new RelayInputProvider(0, config, testInputRegistry);
+
+      provider.handleServerHello({
+        seed: new Uint8Array(16).fill(1),
+        playerSlot: 0,
+        serverTick: 10,
+        maxPlayers: 4,
+        players: [],
+        scopeJson: '{}',
+      });
+
+      provider.handleServerHello({
+        seed: new Uint8Array(16).fill(2),
+        playerSlot: 0,
+        serverTick: 99,
+        maxPlayers: 4,
+        players: [],
+        scopeJson: '{}',
+      });
+
+      const result = await provider.serverHello;
+      expect(result.serverTick).toBe(10);
+      expect(result.seed).toEqual(new Uint8Array(16).fill(1));
     });
   });
 });

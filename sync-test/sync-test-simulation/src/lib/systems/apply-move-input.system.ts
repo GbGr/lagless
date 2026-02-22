@@ -11,7 +11,7 @@ export class ApplyMoveInputSystem implements IECSSystem {
   ) {}
 
   public update(tick: number): void {
-    const rpcs = this._InputProvider.getTickRPCs(tick, MoveInput);
+    const rpcs = this._InputProvider.collectTickRPCs(tick, MoveInput);
 
     for (const rpc of rpcs) {
       const playerResource = this._PlayerResources.get(PlayerResource, rpc.meta.playerSlot);

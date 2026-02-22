@@ -175,7 +175,7 @@ interface InputMeta {
 - `addRemoteRpc(rpc)` — public, injects remote player's RPC into history
 - `removeRpcAt(slot, tick, seq)` — for CancelInput handling
 - `setInputDelay(ticks)` — adaptive delay based on network conditions
-- `getTickRPCs(tick, InputCtor)` — query inputs for a tick (returns ephemeral ReadonlyArray)
+- `collectTickRPCs(tick, InputCtor)` — query inputs for a tick (returns a fresh array per call)
 - `getFrameRPCBuffer()` — this frame's local RPCs (for sending to server)
 - `drainInputs(fn)` — register input sources (joystick, keyboard, etc.)
 

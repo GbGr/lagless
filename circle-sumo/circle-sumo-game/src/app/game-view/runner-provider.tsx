@@ -5,6 +5,7 @@ import {
   GameOverSignal,
   PlayerFinishedGameSignal,
 } from '@lagless/circle-sumo-simulation';
+import { ECSConfig } from '@lagless/core';
 import { createContext, FC, ReactNode, useContext, useEffect, useState } from 'react';
 import { useTick } from '@pixi/react';
 import { useNavigate } from 'react-router-dom';
@@ -52,15 +53,8 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
         return;
       }
 
-      // Create the runner (works for both local and relay providers)
-      _runner = new CircleSumoRunner(
-        inputProvider.ecsConfig,
-        inputProvider,
-        CircleSumoSystems,
-        CircleSumoSignals,
-      );
-
-      // If this is a multiplayer match, connect to relay server
+      // If this is a multiplayer match, connect and await ServerHello
+      // before creating the runner so the simulation starts with the correct PRNG seed.
       if (inputProvider instanceof RelayInputProvider) {
         const matchInfo = getMatchInfo(inputProvider);
         if (matchInfo) {
@@ -71,38 +65,44 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
               token: matchInfo.token,
             },
             {
-              onServerHello: (data) => {
-                inputProvider.handleServerHello(data);
-                console.log('[Relay] ServerHello received, synced to tick', data.serverTick);
-              },
+              onServerHello: (data) => inputProvider.handleServerHello(data),
               onTickInputFanout: (data) => {
                 inputProvider.handleTickInputFanout(data);
                 console.log('[Relay] TickInputFanout received for tick', data.inputs[0].tick);
               },
-              onCancelInput: (data) => {
-                inputProvider.handleCancelInput(data);
-              },
-              onPong: (data) => {
-                inputProvider.handlePong(data);
-              },
-              onStateRequest: (requestId) => {
-                inputProvider.handleStateRequest(requestId);
-              },
-              onConnected: () => {
-                console.log('[Relay] Connected to relay server');
-              },
-              onDisconnected: () => {
-                console.log('[Relay] Disconnected from relay server');
-              },
+              onCancelInput: (data) => inputProvider.handleCancelInput(data),
+              onPong: (data) => inputProvider.handlePong(data),
+              onStateRequest: (requestId) => inputProvider.handleStateRequest(requestId),
+              onStateResponse: (data) => inputProvider.handleStateResponse(data),
+              onConnected: () => console.log('[Relay] Connected to relay server'),
+              onDisconnected: () => console.log('[Relay] Disconnected from relay server'),
             },
           );
 
           inputProvider.setConnection(_connection);
           _connection.connect();
-        }
-      }
 
-      _runner.start();
+          const serverHello = await inputProvider.serverHello;
+          if (disposed) { inputProvider.dispose(); return; }
+          console.log('[Relay] ServerHello received, serverTick =', serverHello.serverTick);
+
+          const seededConfig = new ECSConfig({ ...inputProvider.ecsConfig, seed: serverHello.seed });
+          _runner = new CircleSumoRunner(seededConfig, inputProvider, CircleSumoSystems, CircleSumoSignals);
+          _runner.start();
+
+          if (serverHello.serverTick > 0) {
+            _runner.Simulation.clock.setAccumulatedTime(serverHello.serverTick * seededConfig.frameLength);
+          }
+        } else {
+          // Relay provider without match info — should not happen
+          _runner = new CircleSumoRunner(inputProvider.ecsConfig, inputProvider, CircleSumoSystems, CircleSumoSignals);
+          _runner.start();
+        }
+      } else {
+        // Local play — no seed needed, start immediately
+        _runner = new CircleSumoRunner(inputProvider.ecsConfig, inputProvider, CircleSumoSystems, CircleSumoSignals);
+        _runner.start();
+      }
 
       // Subscribe to signals
       const playerFinishedSignal = _runner.DIContainer.resolve(PlayerFinishedGameSignal);

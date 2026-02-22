@@ -6,7 +6,6 @@ import {
   type MatchFoundPlayerData,
 } from '@lagless/matchmaking';
 import { createLogger, setLogLevel, LogLevel, UUID } from '@lagless/misc';
-import { pack128BufferTo2x64 } from '@lagless/core';
 import { createWsRouter } from './ws-router.js';
 import { generateToken, validateToken } from './token.js';
 import { corsHeaders, corsJson } from './cors.js';
@@ -64,12 +63,11 @@ export class RelayGameServer {
 
       log.info(`Match formed: ${matchId} (${players.length}P${fillBots ? ` + ${botsNeeded}B` : ''})`);
 
-      const { seed0, seed1 } = pack128BufferTo2x64(UUID.fromString(matchId).asUint8());
+      const seed = UUID.fromString(matchId).asUint8();
 
       await roomRegistry.createRoom(
         { matchId, roomType: scope, players: allPlayers },
-        seed0,
-        seed1,
+        seed,
         JSON.stringify({ gameType: scope }),
       );
 

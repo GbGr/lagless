@@ -13,9 +13,7 @@ import { createContext, FC, ReactNode, useContext, useEffect, useState } from 'r
 import { useTick } from '@pixi/react';
 import { useNavigate } from 'react-router-dom';
 import { ProviderStore } from '../hooks/use-start-match';
-import { LocalInputProvider } from '@lagless/core';
-import { RPC } from '@lagless/core';
-import { createHashReporter } from '@lagless/core';
+import { ECSConfig, LocalInputProvider, RPC, createHashReporter } from '@lagless/core';
 import { RelayInputProvider, RelayConnection } from '@lagless/relay-client';
 import { getMatchInfo } from '../hooks/use-start-multiplayer-match';
 import { UUID } from '@lagless/misc';
@@ -69,12 +67,48 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
         return;
       }
 
-      _runner = new SyncTestRunner(
-        inputProvider.ecsConfig,
-        inputProvider,
-        SyncTestSystems,
-        SyncTestSignals,
-      );
+      // If this is a multiplayer match, connect and await ServerHello
+      // before creating the runner so the simulation starts with the correct PRNG seed.
+      if (inputProvider instanceof RelayInputProvider) {
+        const matchInfo = getMatchInfo(inputProvider);
+        if (matchInfo) {
+          _connection = new RelayConnection(
+            {
+              serverUrl: matchInfo.serverUrl,
+              matchId: matchInfo.matchId,
+              token: matchInfo.token,
+            },
+            {
+              onServerHello: (data) => inputProvider.handleServerHello(data),
+              onTickInputFanout: (data) => inputProvider.handleTickInputFanout(data),
+              onCancelInput: (data) => inputProvider.handleCancelInput(data),
+              onPong: (data) => inputProvider.handlePong(data),
+              onStateRequest: (requestId) => inputProvider.handleStateRequest(requestId),
+              onStateResponse: (data) => {
+                inputProvider.handleStateResponse(data);
+                console.log('[Relay] StateResponse received, state transfer at tick', data.tick);
+              },
+              onConnected: () => console.log('[Relay] Connected to relay server'),
+              onDisconnected: () => console.log('[Relay] Disconnected from relay server'),
+            },
+          );
+
+          inputProvider.setConnection(_connection);
+          _connection.connect();
+
+          const serverHello = await inputProvider.serverHello;
+          if (disposed) { inputProvider.dispose(); return; }
+          console.log('[Relay] ServerHello received, serverTick =', serverHello.serverTick);
+
+          const seededConfig = new ECSConfig({ ...inputProvider.ecsConfig, seed: serverHello.seed });
+          _runner = new SyncTestRunner(seededConfig, inputProvider, SyncTestSystems, SyncTestSignals);
+        } else {
+          _runner = new SyncTestRunner(inputProvider.ecsConfig, inputProvider, SyncTestSystems, SyncTestSignals);
+        }
+      } else {
+        // Local play — no seed needed
+        _runner = new SyncTestRunner(inputProvider.ecsConfig, inputProvider, SyncTestSystems, SyncTestSignals);
+      }
 
       // Set up keyboard input drainer with hash reporting
       const reportHash = createHashReporter(_runner, {
@@ -104,52 +138,15 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
         reportHash(addRPC);
       });
 
-      // If multiplayer, connect to relay server
-      if (inputProvider instanceof RelayInputProvider) {
-        const matchInfo = getMatchInfo(inputProvider);
-        if (matchInfo) {
-          _connection = new RelayConnection(
-            {
-              serverUrl: matchInfo.serverUrl,
-              matchId: matchInfo.matchId,
-              token: matchInfo.token,
-            },
-            {
-              onServerHello: (data) => {
-                inputProvider.handleServerHello(data);
-                console.log('[Relay] ServerHello received, synced to tick', data.serverTick);
-              },
-              onTickInputFanout: (data) => {
-                inputProvider.handleTickInputFanout(data);
-              },
-              onCancelInput: (data) => {
-                inputProvider.handleCancelInput(data);
-              },
-              onPong: (data) => {
-                inputProvider.handlePong(data);
-              },
-              onStateRequest: (requestId) => {
-                inputProvider.handleStateRequest(requestId);
-              },
-              onStateResponse: (data) => {
-                inputProvider.handleStateResponse(data);
-                console.log('[Relay] StateResponse received, state transfer at tick', data.tick);
-              },
-              onConnected: () => {
-                console.log('[Relay] Connected to relay server');
-              },
-              onDisconnected: () => {
-                console.log('[Relay] Disconnected from relay server');
-              },
-            },
-          );
+      // Start runner + clock sync for multiplayer
+      _runner.start();
 
-          inputProvider.setConnection(_connection);
-          _connection.connect();
+      if (inputProvider instanceof RelayInputProvider) {
+        const serverHello = await inputProvider.serverHello; // already resolved, instant
+        if (serverHello.serverTick > 0) {
+          _runner.Simulation.clock.setAccumulatedTime(serverHello.serverTick * _runner.Config.frameLength);
         }
       }
-
-      _runner.start();
 
       // For local play, inject PlayerJoined RPC manually
       if (inputProvider instanceof LocalInputProvider) {

@@ -52,8 +52,7 @@ export class RelayRoom {
   private readonly _serverEventJournal: ValidatedInput[] = [];
   private readonly _context: RoomContextImpl;
   private readonly _createdAt: number;
-  private readonly _seed0: number;
-  private readonly _seed1: number;
+  private readonly _seed: Uint8Array;
   private readonly _scopeJson: string;
   private readonly _inputRegistry: InputRegistry;
 
@@ -74,13 +73,11 @@ export class RelayRoom {
       isBot: boolean;
       metadata: Record<string, unknown>;
     }>,
-    seed0: number,
-    seed1: number,
+    seed: Uint8Array,
     scopeJson = '{}',
   ) {
     this._createdAt = performance.now();
-    this._seed0 = seed0;
-    this._seed1 = seed1;
+    this._seed = seed;
     this._scopeJson = scopeJson;
     this._inputRegistry = inputRegistry;
     this._clock = new ServerClock(_config.tickRateHz);
@@ -530,8 +527,7 @@ export class RelayRoom {
     }));
 
     return packServerHello({
-      seed0: this._seed0,
-      seed1: this._seed1,
+      seed: this._seed,
       playerSlot: forSlot,
       serverTick: this._clock.tick,
       maxPlayers: this._config.maxPlayers,

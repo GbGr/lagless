@@ -39,7 +39,7 @@ export class PlayerConnectionSystem implements IECSSystem {
   ) {}
 
   public update(tick: number): void {
-    const playerJoinedRPC = this._InputProvider.getTickRPCs(tick, PlayerJoined);
+    const playerJoinedRPC = this._InputProvider.collectTickRPCs(tick, PlayerJoined);
     const maxPlayers = this._ECSConfig.maxPlayers;
     // place players in a circle around the origin
     const angleStep = MathOps.PI_2 / maxPlayers;

@@ -792,6 +792,45 @@ describe('InputHandler', () => {
       expect(results[0].input.seq).toBe(1);
     }
   });
+
+  it('should return payload as independent copy, not a view into source buffer', () => {
+    const { handler } = createInputHandler();
+    const payload = new Uint8Array([10, 20, 30]);
+    const raw = buildRawBatch([
+      { tick: 5, slot: 0, seq: 1, payload },
+    ]);
+
+    const results = handler.validateClientInputBatch(0, raw);
+    expect(results.length).toBe(1);
+    expect(results[0].accepted).toBe(true);
+    if (!results[0].accepted) return;
+
+    // Mutating the source buffer must not affect the payload
+    new Uint8Array(raw).fill(0);
+    expect(new Uint8Array(results[0].input.payload)).toEqual(new Uint8Array([10, 20, 30]));
+  });
+
+  it('should return independent payloads for each input in batch', () => {
+    const { handler } = createInputHandler();
+    const raw = buildRawBatch([
+      { tick: 5, slot: 0, seq: 1, payload: new Uint8Array([1, 2]) },
+      { tick: 6, slot: 0, seq: 2, payload: new Uint8Array([3, 4]) },
+    ]);
+
+    const results = handler.validateClientInputBatch(0, raw);
+    expect(results.length).toBe(2);
+    expect(results[0].accepted).toBe(true);
+    expect(results[1].accepted).toBe(true);
+    if (!results[0].accepted || !results[1].accepted) return;
+
+    // Mutating source doesn't affect either payload
+    new Uint8Array(raw).fill(0);
+    expect(new Uint8Array(results[0].input.payload)).toEqual(new Uint8Array([1, 2]));
+    expect(new Uint8Array(results[1].input.payload)).toEqual(new Uint8Array([3, 4]));
+
+    // Each payload has its own ArrayBuffer
+    expect(results[0].input.payload.buffer).not.toBe(results[1].input.payload.buffer);
+  });
 });
 
 // ─── uuidToBytes (BUG 5 — PlayerId encoding) ────────────────

@@ -46,8 +46,6 @@ export const HeaderSchema = new BinarySchema({
 });
 
 export const ServerHelloSchema = new BinarySchema({
-  seed0: FieldType.Float64,
-  seed1: FieldType.Float64,
   playerSlot: FieldType.Uint8,
   serverTick: FieldType.Uint32,
   maxPlayers: FieldType.Uint8,
@@ -118,8 +116,7 @@ export interface ServerHelloPlayer {
 }
 
 export interface ServerHelloData {
-  readonly seed0: number;
-  readonly seed1: number;
+  readonly seed: Uint8Array; // 16-byte PRNG seed
   readonly playerSlot: number;
   readonly serverTick: number;
   readonly maxPlayers: number;
@@ -179,9 +176,8 @@ export function packServerHello(data: ServerHelloData): Uint8Array {
   const pipeline = new BinarySchemaPackPipeline();
 
   packHeader(pipeline, MsgType.ServerHello);
+  pipeline.appendView(data.seed); // 16-byte PRNG seed
   pipeline.pack(ServerHelloSchema, {
-    seed0: data.seed0,
-    seed1: data.seed1,
     playerSlot: data.playerSlot,
     serverTick: data.serverTick,
     maxPlayers: data.maxPlayers,
@@ -340,39 +336,44 @@ export function unpackHeader(data: ArrayBuffer): { version: number; type: MsgTyp
 }
 
 export function unpackServerHello(data: ArrayBuffer): ServerHelloData {
-  const pipeline = new BinarySchemaUnpackPipeline(data);
-  pipeline.unpack(HeaderSchema); // skip header
-  const hello = pipeline.unpack(ServerHelloSchema);
+  const uint8 = new Uint8Array(data);
+  const view = new DataView(data);
+  let offset = HeaderSchema.byteLength; // skip header (2B)
 
-  const remaining = new Uint8Array(pipeline.sliceRemaining());
-  let offset = 0;
+  // Read 16-byte seed
+  const seed = uint8.slice(offset, offset + 16);
+  offset += 16;
 
+  // Read schema fields manually (matches ServerHelloSchema field order)
+  const playerSlot = view.getUint8(offset); offset += 1;
+  const serverTick = view.getUint32(offset, LE); offset += 4;
+  const maxPlayers = view.getUint8(offset); offset += 1;
+  const playerCount = view.getUint8(offset); offset += 1;
+
+  // Players
   const players: ServerHelloPlayer[] = [];
-  for (let i = 0; i < hello.playerCount; i++) {
-    const playerId = remaining.slice(offset, offset + 16);
+  for (let i = 0; i < playerCount; i++) {
+    const playerId = uint8.slice(offset, offset + 16);
     offset += 16;
-    const slot = remaining[offset++];
-    const isBot = remaining[offset++] === 1;
-    const view = new DataView(remaining.buffer, remaining.byteOffset + offset, 2);
-    const metadataLen = view.getUint16(0, LE);
+    const slot = uint8[offset++];
+    const isBot = uint8[offset++] === 1;
+    const metadataLen = view.getUint16(offset, LE);
     offset += 2;
-    const metadataJson = new TextDecoder().decode(remaining.slice(offset, offset + metadataLen));
+    const metadataJson = new TextDecoder().decode(uint8.slice(offset, offset + metadataLen));
     offset += metadataLen;
     players.push({ playerId, slot, isBot, metadataJson });
   }
 
   // Scope JSON
-  const scopeView = new DataView(remaining.buffer, remaining.byteOffset + offset, 2);
-  const scopeLen = scopeView.getUint16(0, LE);
+  const scopeLen = view.getUint16(offset, LE);
   offset += 2;
-  const scopeJson = new TextDecoder().decode(remaining.slice(offset, offset + scopeLen));
+  const scopeJson = new TextDecoder().decode(uint8.slice(offset, offset + scopeLen));
 
   return {
-    seed0: hello.seed0,
-    seed1: hello.seed1,
-    playerSlot: hello.playerSlot,
-    serverTick: hello.serverTick,
-    maxPlayers: hello.maxPlayers,
+    seed,
+    playerSlot,
+    serverTick,
+    maxPlayers,
     players,
     scopeJson,
   };
@@ -465,37 +466,11 @@ export function unpackTickInputFanout(data: ArrayBuffer): FanoutData {
     const seq = view.getUint32(offset, LE); offset += 4;
     const kind = view.getUint8(offset) as TickInputKind; offset += 1;
     const payloadLength = view.getUint16(offset, LE); offset += 2;
-    const payload = new Uint8Array(data, offset, payloadLength);
+    const payload = new Uint8Array(data.slice(offset, offset + payloadLength));
     offset += payloadLength;
 
     inputs.push({ tick, playerSlot, seq, kind, payload });
   }
 
   return { serverTick, inputs };
-}
-
-/**
- * Unpack TickInputBatch (client→server batch of inputs).
- * Format: Header(2) + inputCount(u8) + [TickInputSchema + payload]×N
- */
-export function unpackTickInputBatchManual(data: ArrayBuffer): TickInputData[] {
-  const view = new DataView(data);
-  let offset = HeaderSchema.byteLength; // skip header
-
-  const inputCount = view.getUint8(offset); offset += 1;
-
-  const inputs: TickInputData[] = [];
-  for (let i = 0; i < inputCount; i++) {
-    const tick = view.getUint32(offset, LE); offset += 4;
-    const playerSlot = view.getUint8(offset); offset += 1;
-    const seq = view.getUint32(offset, LE); offset += 4;
-    const kind = view.getUint8(offset) as TickInputKind; offset += 1;
-    const payloadLength = view.getUint16(offset, LE); offset += 2;
-    const payload = new Uint8Array(data, offset, payloadLength);
-    offset += payloadLength;
-
-    inputs.push({ tick, playerSlot, seq, kind, payload });
-  }
-
-  return inputs;
 }

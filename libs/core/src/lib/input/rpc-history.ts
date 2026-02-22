@@ -50,7 +50,6 @@ const compareRPCs = (a: RPC, b: RPC): number =>
 // ─────────────────────────────────────────────────────────────────────────────
 
 export class RPCHistory {
-  private readonly _resultBuffer: RPC[] = [];
   private readonly _history: Map<number, RPC[]> = new Map();
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -104,28 +103,23 @@ export class RPCHistory {
   }
 
   /**
-   * Returns RPCs matching the given input type at the specified tick.
-   *
-   * **WARNING: The returned array is an internal buffer reused across calls.**
-   * Do NOT store the reference — copy it if you need to keep the data.
-   * The array is valid only until the next call to `getTickRPCs`.
+   * Returns a new array of RPCs matching the given input type at the specified tick.
+   * Each call allocates a fresh array — safe to store and use across multiple calls.
    */
-  public getTickRPCs<TInputCtor extends IAbstractInputConstructor>(
+  public collectTickRPCs<TInputCtor extends IAbstractInputConstructor>(
     tick: number,
     InputCtor: TInputCtor
   ): ReadonlyArray<RPC<InstanceType<TInputCtor>>> {
-    this._resultBuffer.length = 0;
-
     const rpcs = this._history.get(tick);
-    if (rpcs) {
-      for (const rpc of rpcs) {
-        if (rpc.inputId === InputCtor.id) {
-          this._resultBuffer.push(rpc as RPC<InstanceType<TInputCtor>>);
-        }
+    if (!rpcs) return [];
+
+    const result: RPC<InstanceType<TInputCtor>>[] = [];
+    for (const rpc of rpcs) {
+      if (rpc.inputId === InputCtor.id) {
+        result.push(rpc as RPC<InstanceType<TInputCtor>>);
       }
     }
-
-    return this._resultBuffer as unknown as ReadonlyArray<RPC<InstanceType<TInputCtor>>>;
+    return result;
   }
 
   public removePlayerInputsAtTick(playerSlot: number, tick: number, seq: number): void {

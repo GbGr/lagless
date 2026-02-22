@@ -47,7 +47,7 @@ describe('AbstractInputProvider', () => {
       provider.addRemoteRpc(rpc);
 
       const InputCtor = TestInputCtor;
-      const result = provider.getTickRPCs(100, InputCtor);
+      const result = provider.collectTickRPCs(100, InputCtor);
       expect(result.length).toBe(1);
       expect(result[0].meta.playerSlot).toBe(1);
     });
@@ -57,7 +57,7 @@ describe('AbstractInputProvider', () => {
       provider.addRemoteRpc(makeRPC(100, 2, 1, 1));
 
       const InputCtor = TestInputCtor;
-      const result = provider.getTickRPCs(100, InputCtor);
+      const result = provider.collectTickRPCs(100, InputCtor);
       expect(result.length).toBe(2);
     });
   });
@@ -72,8 +72,8 @@ describe('AbstractInputProvider', () => {
       provider.addRemoteRpcBatch(rpcs);
 
       const InputCtor = TestInputCtor;
-      expect(provider.getTickRPCs(100, InputCtor).length).toBe(2);
-      expect(provider.getTickRPCs(101, InputCtor).length).toBe(1);
+      expect(provider.collectTickRPCs(100, InputCtor).length).toBe(2);
+      expect(provider.collectTickRPCs(101, InputCtor).length).toBe(1);
     });
   });
 
@@ -85,7 +85,7 @@ describe('AbstractInputProvider', () => {
       provider.removeRpcAt(1, 100, 5);
 
       const InputCtor = TestInputCtor;
-      const result = provider.getTickRPCs(100, InputCtor);
+      const result = provider.collectTickRPCs(100, InputCtor);
       expect(result.length).toBe(1);
       expect(result[0].meta.playerSlot).toBe(2);
     });
@@ -96,7 +96,7 @@ describe('AbstractInputProvider', () => {
       provider.removeRpcAt(3, 100, 5); // wrong slot
 
       const InputCtor = TestInputCtor;
-      expect(provider.getTickRPCs(100, InputCtor).length).toBe(1);
+      expect(provider.collectTickRPCs(100, InputCtor).length).toBe(1);
     });
   });
 

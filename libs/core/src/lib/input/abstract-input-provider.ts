@@ -147,11 +147,11 @@ export abstract class AbstractInputProvider {
     };
   }
 
-  public getTickRPCs<TInputCtor extends IAbstractInputConstructor>(
+  public collectTickRPCs<TInputCtor extends IAbstractInputConstructor>(
     tick: number,
     InputCtor: TInputCtor
   ): ReadonlyArray<RPC<InstanceType<TInputCtor>>> {
-    return this._rpcHistory.getTickRPCs(tick, InputCtor);
+    return this._rpcHistory.collectTickRPCs(tick, InputCtor);
   }
 
   /**

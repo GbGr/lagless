@@ -35,8 +35,7 @@ export class RoomRegistry {
 
   public async createRoom(
     request: CreateMatchRequest,
-    seed0: number,
-    seed1: number,
+    seed: Uint8Array,
     scopeJson = '{}',
   ): Promise<RelayRoom> {
     const roomType = this._roomTypes.get(request.roomType);
@@ -55,8 +54,7 @@ export class RoomRegistry {
       roomType.hooks,
       roomType.inputRegistry,
       request.players,
-      seed0,
-      seed1,
+      seed,
       scopeJson,
     );
 

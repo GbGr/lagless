@@ -43,7 +43,7 @@ export abstract class AbstractHashVerificationSystem implements IECSSystem {
   protected abstract readonly _playerResourceClass: IPlayerResourceConstructor;
 
   public update(tick: number): void {
-    const rpcs = this._InputProvider.getTickRPCs(tick, this._reportHashRpc) as unknown as Array<{ meta: { playerSlot: number }, data: { hash: number, atTick: number } }>;
+    const rpcs = this._InputProvider.collectTickRPCs(tick, this._reportHashRpc) as unknown as Array<{ meta: { playerSlot: number }, data: { hash: number, atTick: number } }>;
 
     for (const rpc of rpcs) {
       const playerResource = this._PlayerResources.get(this._playerResourceClass, rpc.meta.playerSlot) as unknown as { safe: HashPlayerResourceProxy };

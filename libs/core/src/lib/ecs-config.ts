@@ -1,12 +1,6 @@
-export type RawSeed = [
-  number, number, number, number, number, number, number, number,
-  number, number, number, number, number, number, number, number,
-]; // 128-bit seed for PRNG
+export type RawSeed = Uint8Array; // 128-bit (16-byte) seed for PRNG
 
-const ZERO_SEED: RawSeed = [
-  0, 0, 0, 0, 0, 0, 0, 0,
-  0, 0, 0, 0, 0, 0, 0, 0,
-];
+const ZERO_SEED: RawSeed = new Uint8Array(16);
 
 export class ECSConfig {
   public readonly seed: RawSeed;

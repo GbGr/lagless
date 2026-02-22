@@ -32,13 +32,13 @@ describe('RPCHistory', () => {
       const rpc = makeRPC(10, 0, 1, 1);
       history.addRPC(rpc);
 
-      const result = history.getTickRPCs(10, InputA);
+      const result = history.collectTickRPCs(10, InputA);
       expect(result.length).toBe(1);
       expect(result[0]).toBe(rpc);
     });
 
     it('should return empty for non-existent tick', () => {
-      const result = history.getTickRPCs(999, InputA);
+      const result = history.collectTickRPCs(999, InputA);
       expect(result.length).toBe(0);
     });
 
@@ -46,7 +46,7 @@ describe('RPCHistory', () => {
       history.addRPC(makeRPC(10, 0, 1, 1)); // InputA
       history.addRPC(makeRPC(10, 0, 2, 2)); // InputB
 
-      const resultA = history.getTickRPCs(10, InputA);
+      const resultA = history.collectTickRPCs(10, InputA);
       expect(resultA.length).toBe(1);
       expect(resultA[0].inputId).toBe(1);
     });
@@ -58,7 +58,7 @@ describe('RPCHistory', () => {
       history.addRPC(makeRPC(10, 0, 1));
       history.addRPC(makeRPC(10, 1, 1));
 
-      const result = history.getTickRPCs(10, InputA);
+      const result = history.collectTickRPCs(10, InputA);
       expect(result.length).toBe(3);
       expect(result[0].meta.playerSlot).toBe(0);
       expect(result[1].meta.playerSlot).toBe(1);
@@ -70,7 +70,7 @@ describe('RPCHistory', () => {
       history.addRPC(makeRPC(10, 0, 1));
       history.addRPC(makeRPC(10, 0, 2));
 
-      const result = history.getTickRPCs(10, InputA);
+      const result = history.collectTickRPCs(10, InputA);
       expect(result.length).toBe(3);
       expect(result[0].meta.ordinal).toBe(1);
       expect(result[1].meta.ordinal).toBe(2);
@@ -82,7 +82,7 @@ describe('RPCHistory', () => {
       history.addRPC(makeRPC(10, 1, 1)); // remote
       history.addRPC(makeRPC(10, 0, 1)); // local (lower slot, should come first)
 
-      const result = history.getTickRPCs(10, InputA);
+      const result = history.collectTickRPCs(10, InputA);
       expect(result[0].meta.playerSlot).toBe(0);
       expect(result[1].meta.playerSlot).toBe(1);
     });
@@ -97,11 +97,11 @@ describe('RPCHistory', () => {
       ];
       history.addBatch(rpcs);
 
-      expect(history.getTickRPCs(10, InputA).length).toBe(2);
-      expect(history.getTickRPCs(11, InputA).length).toBe(1);
+      expect(history.collectTickRPCs(10, InputA).length).toBe(2);
+      expect(history.collectTickRPCs(11, InputA).length).toBe(1);
 
       // Should be sorted within tick 10
-      const tick10 = history.getTickRPCs(10, InputA);
+      const tick10 = history.collectTickRPCs(10, InputA);
       expect(tick10[0].meta.playerSlot).toBe(0);
       expect(tick10[1].meta.playerSlot).toBe(2);
     });
@@ -115,7 +115,7 @@ describe('RPCHistory', () => {
 
       history.removePlayerInputsAtTick(0, 10, 5);
 
-      const result = history.getTickRPCs(10, InputA);
+      const result = history.collectTickRPCs(10, InputA);
       expect(result.length).toBe(1);
       expect(result[0].meta.playerSlot).toBe(1);
     });
@@ -133,20 +133,21 @@ describe('RPCHistory', () => {
     });
   });
 
-  describe('getTickRPCs shared buffer', () => {
-    it('should reuse the same internal buffer across calls', () => {
+  describe('collectTickRPCs returns independent arrays', () => {
+    it('should return a fresh array per call', () => {
       history.addRPC(makeRPC(10, 0, 1, 1));
       history.addRPC(makeRPC(11, 0, 1, 1));
 
-      const result1 = history.getTickRPCs(10, InputA);
+      const result1 = history.collectTickRPCs(10, InputA);
       expect(result1.length).toBe(1);
 
-      // Second call clears the buffer
-      const result2 = history.getTickRPCs(11, InputA);
+      const result2 = history.collectTickRPCs(11, InputA);
       expect(result2.length).toBe(1);
 
-      // result1 reference now points to the reused buffer which has been overwritten
-      // This is expected behavior — documented as ephemeral
+      // result1 is not affected by the second call
+      expect(result1.length).toBe(1);
+      expect(result1[0].meta.tick).toBe(10);
+      expect(result2[0].meta.tick).toBe(11);
     });
   });
 
@@ -206,8 +207,8 @@ describe('RPCHistory', () => {
       h2.addBatch(rpcs);
 
       // Both should have identical ordering
-      const r1 = h1.getTickRPCs(10, InputA);
-      const r2 = h2.getTickRPCs(10, InputA);
+      const r1 = h1.collectTickRPCs(10, InputA);
+      const r2 = h2.collectTickRPCs(10, InputA);
 
       expect(r1.length).toBe(r2.length);
       for (let i = 0; i < r1.length; i++) {
@@ -230,8 +231,8 @@ describe('RPCHistory', () => {
       h2.addRPC(makeRPC(10, 0, 1, 1, 1));
       h2.addRPC(makeRPC(10, 1, 1, 1, 1));
 
-      const r1 = h1.getTickRPCs(10, InputA);
-      const r2 = h2.getTickRPCs(10, InputA);
+      const r1 = h1.collectTickRPCs(10, InputA);
+      const r2 = h2.collectTickRPCs(10, InputA);
 
       expect(r1.length).toBe(3);
       for (let i = 0; i < r1.length; i++) {
@@ -251,7 +252,7 @@ describe('RPCHistory', () => {
       h.addRPC(makeRPC(10, 0, 1, 1, 3));
       h.addRPC(makeRPC(10, 0, 1, 1, 1));
 
-      const result = h.getTickRPCs(10, InputA);
+      const result = h.collectTickRPCs(10, InputA);
       expect(result.length).toBe(3);
       expect(result[0].meta.seq).toBe(1);
       expect(result[1].meta.seq).toBe(3);
@@ -269,11 +270,11 @@ describe('RPCHistory', () => {
       const InputAll = { id: 1 } as unknown as IAbstractInputConstructor;
       const InputAll2 = { id: 2 } as unknown as IAbstractInputConstructor;
 
-      const moves = h.getTickRPCs(10, InputAll);
+      const moves = h.collectTickRPCs(10, InputAll);
       expect(moves.length).toBe(1);
       expect(moves[0].meta.ordinal).toBe(1);
 
-      const looks = h.getTickRPCs(10, InputAll2);
+      const looks = h.collectTickRPCs(10, InputAll2);
       expect(looks.length).toBe(1);
       expect(looks[0].meta.ordinal).toBe(2);
     });
@@ -285,7 +286,7 @@ describe('RPCHistory', () => {
       h.addRPC(makeRPC(10, 0, 1, 1, 1)); // local
       h.addRPC(makeRPC(10, 1, 1, 1, 5)); // remote (different seq, same ordinal)
 
-      const result = h.getTickRPCs(10, InputA);
+      const result = h.collectTickRPCs(10, InputA);
       expect(result.length).toBe(2);
 
       // slot 0 before slot 1

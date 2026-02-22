@@ -85,7 +85,12 @@ export class PRNGManager implements IAbstractMemory {
 
   // ---------- Seeding ----------
 
-  /** Seed from 128 bits: Uint32Array(4) | Uint8Array(16) | string (UUID) | number fallback. */
+  /** Re-seed the PRNG from a 16-byte seed (e.g. received via ServerHello). */
+  public reseed(seed: RawSeed): void {
+    this.seed128(seed);
+  }
+
+  /** Seed from 128 bits (Uint8Array of 16 bytes). */
   private seed128(seed: RawSeed): void {
     const s = this._state;
 
@@ -139,26 +144,6 @@ export class PRNGManager implements IAbstractMemory {
     const hash = mix32(s[0] ^ rotl32(s[1], 8) ^ rotl32(s[2], 16) ^ rotl32(s[3], 24));
     return hash.toString(16).padStart(8, '0');
   }
-}
-
-const SEED_2x64_TYPED_ARRAY = new Float64Array(2);
-export const seedFrom2x64 = (seed0: number, seed1: number): RawSeed => {
-  const seed = new Uint8Array(16);
-  SEED_2x64_TYPED_ARRAY[0] = seed0;
-  SEED_2x64_TYPED_ARRAY[1] = seed1;
-  const seedBytes = new Uint8Array(SEED_2x64_TYPED_ARRAY.buffer);
-  seed.set(seedBytes);
-  return seed as unknown as RawSeed;
-};
-
-export const pack128BufferTo2x64 = (seedUint8: Uint8Array): { seed0: number; seed1: number } => {
-  if (seedUint8.length !== 16) throw new Error('Invalid seed length; expected 16 bytes.');
-  const seedBytes = new Uint8Array(SEED_2x64_TYPED_ARRAY.buffer);
-  seedBytes.set(seedUint8);
-  return {
-    seed0: SEED_2x64_TYPED_ARRAY[0],
-    seed1: SEED_2x64_TYPED_ARRAY[1],
-  };
 }
 
 // ---------- Helper functions (pure, inlineable) ----------

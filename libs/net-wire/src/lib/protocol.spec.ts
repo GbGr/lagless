@@ -32,6 +32,9 @@ describe('Header', () => {
 
 describe('ServerHello', () => {
   it('should roundtrip with players and scope', () => {
+    const seed = new Uint8Array(16);
+    for (let i = 0; i < 16; i++) seed[i] = (i * 17 + 3) & 0xFF;
+
     const playerId1 = new Uint8Array(16);
     playerId1[0] = 0xAB;
     playerId1[15] = 0xCD;
@@ -40,8 +43,7 @@ describe('ServerHello', () => {
     playerId2[0] = 0x12;
 
     const data: ServerHelloData = {
-      seed0: 1.234567890123,
-      seed1: 9.876543210987,
+      seed,
       playerSlot: 2,
       serverTick: 1000,
       maxPlayers: 4,
@@ -55,8 +57,7 @@ describe('ServerHello', () => {
     const packed = packServerHello(data);
     const unpacked = unpackServerHello(packed.buffer as ArrayBuffer);
 
-    expect(unpacked.seed0).toBeCloseTo(data.seed0, 10);
-    expect(unpacked.seed1).toBeCloseTo(data.seed1, 10);
+    expect(new Uint8Array(unpacked.seed)).toEqual(seed);
     expect(unpacked.playerSlot).toBe(2);
     expect(unpacked.serverTick).toBe(1000);
     expect(unpacked.maxPlayers).toBe(4);
@@ -83,7 +84,7 @@ describe('ServerHello', () => {
     });
 
     const data: ServerHelloData = {
-      seed0: 42, seed1: 99,
+      seed: new Uint8Array(16).fill(42),
       playerSlot: 0,
       serverTick: 500,
       maxPlayers: 2,
@@ -100,7 +101,7 @@ describe('ServerHello', () => {
 
   it('should roundtrip with no players', () => {
     const data: ServerHelloData = {
-      seed0: 0, seed1: 0, playerSlot: 0, serverTick: 0, maxPlayers: 2,
+      seed: new Uint8Array(16), playerSlot: 0, serverTick: 0, maxPlayers: 2,
       players: [], scopeJson: '{}',
     };
     const packed = packServerHello(data);
@@ -216,6 +217,51 @@ describe('TickInputFanout', () => {
 
     expect(unpacked.inputs.length).toBe(1);
     expect(new Uint8Array(unpacked.inputs[0].payload)).toEqual(bigPayload);
+  });
+
+  it('should return payload as independent copy, not a view into source buffer', () => {
+    const originalPayload = new Uint8Array([10, 20, 30]);
+    const data: FanoutData = {
+      serverTick: 1,
+      inputs: [{ tick: 5, playerSlot: 0, seq: 1, kind: TickInputKind.Client, payload: originalPayload }],
+    };
+
+    const packed = packTickInputFanout(data);
+    const sourceBuffer = packed.buffer as ArrayBuffer;
+    const unpacked = unpackTickInputFanout(sourceBuffer);
+
+    const payload = unpacked.inputs[0].payload;
+
+    // Payload must not share the source ArrayBuffer
+    expect(payload.buffer).not.toBe(sourceBuffer);
+
+    // Mutating the source buffer must not affect the payload
+    new Uint8Array(sourceBuffer).fill(0);
+    expect(new Uint8Array(payload)).toEqual(new Uint8Array([10, 20, 30]));
+  });
+
+  it('should return independent buffers for each payload in multi-input fanout', () => {
+    const data: FanoutData = {
+      serverTick: 1,
+      inputs: [
+        { tick: 5, playerSlot: 0, seq: 1, kind: TickInputKind.Client, payload: new Uint8Array([1, 2]) },
+        { tick: 5, playerSlot: 1, seq: 1, kind: TickInputKind.Client, payload: new Uint8Array([3, 4]) },
+      ],
+    };
+
+    const packed = packTickInputFanout(data);
+    const sourceBuffer = packed.buffer as ArrayBuffer;
+    const unpacked = unpackTickInputFanout(sourceBuffer);
+
+    // Each payload has its own ArrayBuffer
+    expect(unpacked.inputs[0].payload.buffer).not.toBe(unpacked.inputs[1].payload.buffer);
+    expect(unpacked.inputs[0].payload.buffer).not.toBe(sourceBuffer);
+    expect(unpacked.inputs[1].payload.buffer).not.toBe(sourceBuffer);
+
+    // Mutating source doesn't affect either payload
+    new Uint8Array(sourceBuffer).fill(0);
+    expect(new Uint8Array(unpacked.inputs[0].payload)).toEqual(new Uint8Array([1, 2]));
+    expect(new Uint8Array(unpacked.inputs[1].payload)).toEqual(new Uint8Array([3, 4]));
   });
 });
 

@@ -10,7 +10,7 @@ export class PlayerLeaveSystem implements IECSSystem {
   ) {}
 
   public update(tick: number): void {
-    const rpcs = this._InputProvider.getTickRPCs(tick, PlayerLeft);
+    const rpcs = this._InputProvider.collectTickRPCs(tick, PlayerLeft);
 
     for (const rpc of rpcs) {
       const player = this._PlayerResources.get(PlayerResource, rpc.data.slot);
