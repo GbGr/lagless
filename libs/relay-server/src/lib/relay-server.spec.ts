@@ -36,6 +36,8 @@ const MOCK_INPUT_REGISTRY: InputRegistry = {
   get: () => ({ id: 0, fields: [], byteLength: 0 }),
 };
 
+const TEST_SEED = new Uint8Array(16);
+
 async function createTestRoom(
   config: Partial<RoomTypeConfig> = {},
   hooks: RoomHooks = {},
@@ -55,8 +57,7 @@ async function createTestRoom(
     hooks,
     MOCK_INPUT_REGISTRY,
     players,
-    1.23456,
-    7.89012,
+    TEST_SEED,
     '{"gameType":"test"}',
   );
   await room.init();
@@ -492,7 +493,7 @@ describe('RoomRegistry', () => {
         { playerId: 'p1', isBot: false, metadata: {} },
         { playerId: 'p2', isBot: true, metadata: {} },
       ],
-    }, 1.0, 2.0);
+    }, TEST_SEED);
 
     expect(room.matchId).toBe('match-1');
     expect(registry.roomCount).toBe(1);
@@ -504,13 +505,13 @@ describe('RoomRegistry', () => {
       matchId: 'match-1',
       roomType: 'test-game',
       players: [{ playerId: 'p1', isBot: false, metadata: {} }],
-    }, 0, 0);
+    }, TEST_SEED);
 
     await expect(registry.createRoom({
       matchId: 'match-1',
       roomType: 'test-game',
       players: [{ playerId: 'p2', isBot: false, metadata: {} }],
-    }, 0, 0)).rejects.toThrow(/already exists/);
+    }, TEST_SEED)).rejects.toThrow(/already exists/);
   });
 
   it('should throw for unknown room type', async () => {
@@ -518,7 +519,7 @@ describe('RoomRegistry', () => {
       matchId: 'match-1',
       roomType: 'unknown',
       players: [],
-    }, 0, 0)).rejects.toThrow(/Unknown room type/);
+    }, TEST_SEED)).rejects.toThrow(/Unknown room type/);
   });
 
   it('should dispose all rooms', async () => {
@@ -526,13 +527,13 @@ describe('RoomRegistry', () => {
       matchId: 'match-1',
       roomType: 'test-game',
       players: [{ playerId: 'p1', isBot: false, metadata: {} }],
-    }, 0, 0);
+    }, TEST_SEED);
 
     await registry.createRoom({
       matchId: 'match-2',
       roomType: 'test-game',
       players: [{ playerId: 'p2', isBot: false, metadata: {} }],
-    }, 0, 0);
+    }, TEST_SEED);
 
     expect(registry.roomCount).toBe(2);
     await registry.dispose();
@@ -553,7 +554,7 @@ describe('RoomRegistry', () => {
       matchId: 'async-match',
       roomType: 'async-game',
       players: [{ playerId: 'p1', isBot: false, metadata: {} }],
-    }, 0, 0);
+    }, TEST_SEED);
 
     expect(hookDone).toBe(true);
     await asyncRegistry.dispose();
@@ -862,8 +863,7 @@ describe('uuidToBytes via buildServerHello', () => {
       {},
       MOCK_INPUT_REGISTRY,
       players,
-      1.0,
-      2.0,
+      TEST_SEED,
       '{}',
     );
     await room.init();
@@ -1066,7 +1066,7 @@ describe('RoomRegistry.findRoomForLateJoin', () => {
         { playerId: 'p1', isBot: false, metadata: {} },
         { playerId: 'p2', isBot: false, metadata: {} },
       ],
-    }, 1.0, 2.0);
+    }, TEST_SEED);
 
     const found = registry.findRoomForLateJoin('test-game');
     expect(found).toBeDefined();
@@ -1095,7 +1095,7 @@ describe('RoomRegistry.findRoomForLateJoin', () => {
         { playerId: 'p1', isBot: false, metadata: {} },
         { playerId: 'p2', isBot: false, metadata: {} },
       ],
-    }, 1.0, 2.0);
+    }, TEST_SEED);
 
     expect(registry.findRoomForLateJoin('test-game')).toBeUndefined();
 
@@ -1110,7 +1110,7 @@ describe('RoomRegistry.findRoomForLateJoin', () => {
       matchId: 'match-1',
       roomType: 'test-game',
       players: [{ playerId: 'p1', isBot: false, metadata: {} }],
-    }, 1.0, 2.0);
+    }, TEST_SEED);
 
     expect(registry.findRoomForLateJoin('test-game')).toBeUndefined();
 
@@ -1125,7 +1125,7 @@ describe('RoomRegistry.findRoomForLateJoin', () => {
       matchId: 'match-1',
       roomType: 'game-a',
       players: [{ playerId: 'p1', isBot: false, metadata: {} }],
-    }, 1.0, 2.0);
+    }, TEST_SEED);
 
     expect(registry.findRoomForLateJoin('game-b')).toBeUndefined();
 
