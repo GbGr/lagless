@@ -131,6 +131,7 @@ program
     console.log('Next steps:');
     console.log(`  cd ${packageName}`);
     console.log('  pnpm install');
+    console.log('  pnpm codegen        # Generate ECS code from schema');
     console.log('  pnpm dev:backend    # Start game server');
     console.log('  pnpm dev:frontend   # Start frontend dev server\n');
   });
