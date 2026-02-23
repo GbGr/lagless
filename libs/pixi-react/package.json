@@ -1,10 +1,10 @@
 {
   "name": "@lagless/pixi-react",
-  "version": "0.0.30",
+  "version": "0.0.33",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ppauel/lagless",
+    "url": "https://github.com/GbGr/lagless",
     "directory": "libs/pixi-react"
   },
   "type": "module",
@@ -29,7 +29,10 @@
     "@pixi/react": "^8.0.5",
     "neutrinoparticles.pixi": "^6.0.3"
   },
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "publishConfig": {
     "access": "public"
   }

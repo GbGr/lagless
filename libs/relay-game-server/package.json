@@ -1,10 +1,10 @@
 {
   "name": "@lagless/relay-game-server",
-  "version": "0.0.30",
+  "version": "0.0.33",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ppauel/lagless",
+    "url": "https://github.com/GbGr/lagless",
     "directory": "libs/relay-game-server"
   },
   "type": "module",
@@ -28,7 +28,10 @@
   "devDependencies": {
     "@types/bun": "latest"
   },
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "publishConfig": {
     "access": "public"
   }

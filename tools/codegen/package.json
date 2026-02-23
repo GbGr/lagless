@@ -1,10 +1,10 @@
 {
   "name": "@lagless/codegen",
-  "version": "0.0.30",
+  "version": "0.0.33",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ppauel/lagless",
+    "url": "https://github.com/GbGr/lagless",
     "directory": "tools/codegen"
   },
   "type": "module",

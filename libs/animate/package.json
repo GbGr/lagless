@@ -1,10 +1,10 @@
 {
   "name": "@lagless/animate",
-  "version": "0.0.30",
+  "version": "0.0.33",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ppauel/lagless",
+    "url": "https://github.com/GbGr/lagless",
     "directory": "libs/animate"
   },
   "type": "module",
@@ -41,7 +41,10 @@
   "dependencies": {
     "@swc/helpers": "~0.5.11"
   },
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "publishConfig": {
     "access": "public"
   }

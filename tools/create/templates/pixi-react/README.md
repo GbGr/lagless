@@ -1,6 +1,6 @@
 # <%= projectName %>
 
-A multiplayer game built with [Lagless](https://github.com/ppauel/lagless) — a deterministic ECS framework for real-time multiplayer browser games.
+A multiplayer game built with [Lagless](https://github.com/GbGr/lagless) — a deterministic ECS framework for real-time multiplayer browser games.
 
 ## Prerequisites
 
