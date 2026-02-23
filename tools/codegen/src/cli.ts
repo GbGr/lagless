@@ -46,7 +46,7 @@ async function generateFromConfig(options: CliOptions): Promise<void> {
   const { schema, projectName } = parseYamlConfig(configContent, configPath);
 
   // Determine output directory
-  const outputDir = outputPath || path.join(path.dirname(configPath), '..', 'code-gen');
+  const outputDir = outputPath || path.join(path.dirname(configPath), 'code-gen');
 
   // Determine templates directory
   const templateDir = templatesPath || path.join(DIRNAME, '..', 'files');
