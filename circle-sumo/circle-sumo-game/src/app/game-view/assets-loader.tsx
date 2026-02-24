@@ -16,7 +16,7 @@ import SHADOW from '../../assets/textures/SHADOW.png';
 import CARD_COMMON from '../../assets/textures/card_common.png';
 import CARD_RARE from '../../assets/textures/card_rare.png';
 import CARD_LEGENDARY from '../../assets/textures/card_legendary.png';
-import STAR from '../../assets/textures/star.png';
+import STAR from '../../assets/textures/Star.png';
 import { neutrinoLoadData } from './components/neutrino';
 
 export const AssetsBundle = {
