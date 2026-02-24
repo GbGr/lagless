@@ -62,6 +62,15 @@
     },
     {
       "path": "./tools/create"
+    },
+    {
+      "path": "./gravity-pong/gravity-pong-simulation"
+    },
+    {
+      "path": "./gravity-pong/gravity-pong-server"
+    },
+    {
+      "path": "./gravity-pong/gravity-pong-game"
     }
   ]
 }

@@ -1,0 +1,25 @@
+{
+  "name": "@lagless/gravity-pong-game",
+  "version": "0.0.1",
+  "private": true,
+  "dependencies": {
+    "@lagless/binary": "workspace:*",
+    "@lagless/misc": "workspace:*",
+    "@lagless/math": "workspace:*",
+    "@lagless/core": "workspace:*",
+    "@lagless/pixi-react": "workspace:*",
+    "@lagless/gravity-pong-simulation": "workspace:*",
+    "@lagless/react": "workspace:*",
+    "@lagless/relay-client": "workspace:*",
+    "@lagless/net-wire": "workspace:*",
+    "pixi.js": "8.12.0",
+    "@pixi/react": "^8.0.5",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-router-dom": "^7.6.1"
+  },
+  "devDependencies": {
+    "vite-plugin-wasm": "^3.5.0",
+    "vite-plugin-top-level-await": "^1.6.0"
+  }
+}

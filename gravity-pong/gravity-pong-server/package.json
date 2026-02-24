@@ -1,0 +1,31 @@
+{
+  "name": "@lagless/gravity-pong-server",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch run src/main.ts",
+    "start": "bun run src/main.ts"
+  },
+  "nx": {
+    "sourceRoot": "gravity-pong/gravity-pong-server/src",
+    "targets": {
+      "serve": {
+        "continuous": true,
+        "dependsOn": ["^build"],
+        "command": "bun run --conditions @lagless/source --watch {projectRoot}/src/main.ts",
+        "options": {
+          "cwd": "{workspaceRoot}"
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "@lagless/relay-game-server": "workspace:*",
+    "@lagless/misc": "workspace:*",
+    "@lagless/gravity-pong-simulation": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

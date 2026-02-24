@@ -1,0 +1,67 @@
+projectName: GravityPong
+components:
+  Transform2d:
+    positionX: float32
+    positionY: float32
+    prevPositionX: float32
+    prevPositionY: float32
+  Velocity2d:
+    velocityX: float32
+    velocityY: float32
+  Ball:
+    ownerSlot: uint8
+    active: uint8
+    radius: float32
+  GravitySource:
+    mass: float32
+    radius: float32
+    isBlackHole: uint8
+  Goal:
+    ownerSlot: uint8
+    halfWidth: float32
+
+singletons:
+  MatchState:
+    phase: uint8
+    scoreP0: uint8
+    scoreP1: uint8
+    phaseStartTick: uint32
+    roundNumber: uint8
+    ballsResolved: uint8
+
+playerResources:
+  PlayerResource:
+    id: uint8[16]
+    connected: uint8
+    score: uint8
+    hasShot: uint8
+    shootAngle: float32
+    shootPower: float32
+    ballEntity: uint32
+    lastReportedHash: uint32
+    lastReportedHashTick: uint32
+    hashMismatchCount: uint16
+
+inputs:
+  PlayerJoined:
+    slot: uint8
+    playerId: uint8[16]
+  PlayerLeft:
+    slot: uint8
+    reason: uint8
+  Shoot:
+    angle: float32
+    power: float32
+  ReportHash:
+    hash: uint32
+    atTick: uint32
+
+filters:
+  BallFilter:
+    include: [Transform2d, Ball]
+  GravitySourceFilter:
+    include: [Transform2d, GravitySource]
+  GoalFilter:
+    include: [Transform2d, Goal]
+  MovingFilter:
+    include: [Transform2d, Velocity2d]

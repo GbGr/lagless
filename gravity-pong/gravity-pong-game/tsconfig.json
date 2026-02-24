@@ -1,0 +1,37 @@
+{
+  "files": [],
+  "include": [],
+  "references": [
+    {
+      "path": "../../libs/net-wire"
+    },
+    {
+      "path": "../../libs/relay-client"
+    },
+    {
+      "path": "../../libs/react"
+    },
+    {
+      "path": "../gravity-pong-simulation"
+    },
+    {
+      "path": "../../libs/pixi-react"
+    },
+    {
+      "path": "../../libs/core"
+    },
+    {
+      "path": "../../libs/math"
+    },
+    {
+      "path": "../../libs/misc"
+    },
+    {
+      "path": "../../libs/binary"
+    },
+    {
+      "path": "./tsconfig.app.json"
+    }
+  ],
+  "extends": "../../tsconfig.base.json"
+}
