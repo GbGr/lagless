@@ -30,12 +30,11 @@ export class Collectible {
   }
 
   constructor(maxEntities: number, buffer: ArrayBuffer, memTracker: MemoryTracker) {
-    for (const [fieldName, TypedArrayConstructor] of Object.entries(Collectible.schema)) {
-      const typedArray = new TypedArrayConstructor(buffer, memTracker.ptr, maxEntities);
-      this.unsafe[fieldName as keyof typeof Collectible.schema] =
-        typedArray as Collectible['unsafe'][keyof Collectible['unsafe']];
-      memTracker.add(typedArray.byteLength);
-    }
+    this.unsafe.value = new Uint16Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.value.byteLength);
+
+    this.unsafe.spawnTick = new Uint32Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.spawnTick.byteLength);
 
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;

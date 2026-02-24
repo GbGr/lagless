@@ -9,6 +9,7 @@ export default defineConfig(() => ({
   //  plugins: [ nxViteTsPaths() ],
   // },
   test: {
+    passWithNoTests: true,
     name: '@lagless/misc',
     watch: false,
     globals: true,

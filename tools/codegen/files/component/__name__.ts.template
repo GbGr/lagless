@@ -41,11 +41,10 @@ export class <%= component.name %> {
   }
 
   constructor(maxEntities: number, buffer: ArrayBuffer, memTracker: MemoryTracker) {
-    for (const [fieldName, TypedArrayConstructor] of Object.entries(<%= component.name %>.schema)) {
-      const typedArray = new TypedArrayConstructor(buffer, memTracker.ptr, maxEntities);
-      this.unsafe[fieldName as keyof typeof <%= component.name %>.schema] = typedArray as <%= component.name %>['unsafe'][keyof <%= component.name %>['unsafe']];
-      memTracker.add(typedArray.byteLength);
-    }
+  <% for (const [fieldName, field] of Object.entries(fields)) { %>
+    this.unsafe.<%= fieldName %> = new <%= typeToArrayConstructor[field.type].name %>(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.<%= fieldName %>.byteLength);
+  <% } %>
 
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;

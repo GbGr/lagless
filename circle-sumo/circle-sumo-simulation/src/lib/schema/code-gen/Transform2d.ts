@@ -54,12 +54,23 @@ export class Transform2d {
   }
 
   constructor(maxEntities: number, buffer: ArrayBuffer, memTracker: MemoryTracker) {
-    for (const [fieldName, TypedArrayConstructor] of Object.entries(Transform2d.schema)) {
-      const typedArray = new TypedArrayConstructor(buffer, memTracker.ptr, maxEntities);
-      this.unsafe[fieldName as keyof typeof Transform2d.schema] =
-        typedArray as Transform2d['unsafe'][keyof Transform2d['unsafe']];
-      memTracker.add(typedArray.byteLength);
-    }
+    this.unsafe.positionX = new Float32Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.positionX.byteLength);
+
+    this.unsafe.positionY = new Float32Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.positionY.byteLength);
+
+    this.unsafe.rotation = new Float32Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.rotation.byteLength);
+
+    this.unsafe.prevPositionX = new Float32Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.prevPositionX.byteLength);
+
+    this.unsafe.prevPositionY = new Float32Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.prevPositionY.byteLength);
+
+    this.unsafe.prevRotation = new Float32Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.prevRotation.byteLength);
 
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;

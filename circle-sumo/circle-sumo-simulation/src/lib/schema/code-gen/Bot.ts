@@ -36,11 +36,14 @@ export class Bot {
   }
 
   constructor(maxEntities: number, buffer: ArrayBuffer, memTracker: MemoryTracker) {
-    for (const [fieldName, TypedArrayConstructor] of Object.entries(Bot.schema)) {
-      const typedArray = new TypedArrayConstructor(buffer, memTracker.ptr, maxEntities);
-      this.unsafe[fieldName as keyof typeof Bot.schema] = typedArray as Bot['unsafe'][keyof Bot['unsafe']];
-      memTracker.add(typedArray.byteLength);
-    }
+    this.unsafe.lastPanicTick = new Uint32Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.lastPanicTick.byteLength);
+
+    this.unsafe.nextDecisionTick = new Uint32Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.nextDecisionTick.byteLength);
+
+    this.unsafe.aggressiveness = new Float32Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.aggressiveness.byteLength);
 
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;

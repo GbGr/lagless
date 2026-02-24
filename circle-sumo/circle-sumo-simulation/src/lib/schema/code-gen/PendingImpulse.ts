@@ -30,12 +30,11 @@ export class PendingImpulse {
   }
 
   constructor(maxEntities: number, buffer: ArrayBuffer, memTracker: MemoryTracker) {
-    for (const [fieldName, TypedArrayConstructor] of Object.entries(PendingImpulse.schema)) {
-      const typedArray = new TypedArrayConstructor(buffer, memTracker.ptr, maxEntities);
-      this.unsafe[fieldName as keyof typeof PendingImpulse.schema] =
-        typedArray as PendingImpulse['unsafe'][keyof PendingImpulse['unsafe']];
-      memTracker.add(typedArray.byteLength);
-    }
+    this.unsafe.impulseX = new Float32Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.impulseX.byteLength);
+
+    this.unsafe.impulseY = new Float32Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.impulseY.byteLength);
 
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;

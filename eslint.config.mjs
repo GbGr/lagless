@@ -15,6 +15,7 @@ export default [
       '**/vite.config.*.timestamp*',
       '**/vitest.config.*.timestamp*',
       '**/.react-router',
+      '**/templates/**',
     ],
   },
   {
