@@ -62,6 +62,9 @@
     },
     {
       "path": "./tools/create"
+    },
+    {
+      "path": "./libs/physics3d"
     }
   ]
 }

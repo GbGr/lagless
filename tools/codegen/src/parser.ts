@@ -15,8 +15,11 @@ import {
 } from '@lagless/core';
 import { parse } from 'yaml';
 
+export type SimulationType = 'raw' | 'physics2d' | 'physics3d';
+
 export interface ECSConfig {
   projectName?: string;
+  simulationType?: SimulationType;
   components?: Record<string, Record<string, string>>;
   singletons?: Record<string, Record<string, string>>;
   playerResources?: Record<string, Record<string, string>>;
@@ -74,12 +77,17 @@ export function getProjectNameFromConfigPath(configPath: string): string {
   return projectName;
 }
 
-export function parseYamlConfig(configContent: string, configPath?: string): { schema: ECSSchema; projectName: string } {
+export function parseYamlConfig(
+  configContent: string,
+  configPath?: string,
+): { schema: ECSSchema; projectName: string; simulationType: SimulationType } {
   const rawConfig = parse(configContent) as ECSConfig;
 
   if (!rawConfig.components && !rawConfig.singletons) {
     throw new Error('Config must contain at least one of: components, singletons');
   }
+
+  const simulationType: SimulationType = rawConfig.simulationType ?? 'raw';
 
   // Determine project name: from config or from path
   let projectName: string;
@@ -89,6 +97,52 @@ export function parseYamlConfig(configContent: string, configPath?: string): { s
     projectName = getProjectNameFromConfigPath(configPath);
   } else {
     throw new Error('projectName must be specified in config or configPath must be provided');
+  }
+
+  // Auto-prepend physics components if needed
+  if (simulationType === 'physics3d') {
+    if (!rawConfig.components) rawConfig.components = {};
+
+    if (!rawConfig.components['Transform3d']) {
+      rawConfig.components = {
+        Transform3d: {
+          positionX: 'float32',
+          positionY: 'float32',
+          positionZ: 'float32',
+          rotationX: 'float32',
+          rotationY: 'float32',
+          rotationZ: 'float32',
+          rotationW: 'float32',
+          prevPositionX: 'float32',
+          prevPositionY: 'float32',
+          prevPositionZ: 'float32',
+          prevRotationX: 'float32',
+          prevRotationY: 'float32',
+          prevRotationZ: 'float32',
+          prevRotationW: 'float32',
+        },
+        ...rawConfig.components,
+      };
+    }
+
+    if (!rawConfig.components['PhysicsBody3d']) {
+      // Insert after Transform3d
+      const entries = Object.entries(rawConfig.components);
+      const transform3dIdx = entries.findIndex(([name]) => name === 'Transform3d');
+      const insertIdx = transform3dIdx >= 0 ? transform3dIdx + 1 : 0;
+      entries.splice(insertIdx, 0, [
+        'PhysicsBody3d',
+        {
+          bodyHandle: 'uint32',
+          bodyType: 'uint8',
+          colliderHandle: 'uint32',
+          mass: 'float32',
+          linearDamping: 'float32',
+          angularDamping: 'float32',
+        },
+      ]);
+      rawConfig.components = Object.fromEntries(entries);
+    }
   }
 
   const components: ComponentDefinition[] = [];
@@ -176,6 +230,22 @@ export function parseYamlConfig(configContent: string, configPath?: string): { s
     }
   }
 
+  // Auto-add PhysicsBody3dFilter for physics3d
+  if (simulationType === 'physics3d') {
+    const hasPhysicsFilter = filters.some((f) => f.name === 'PhysicsBody3dFilter');
+    if (!hasPhysicsFilter) {
+      const physicsBody = components.find((c) => c.name === 'PhysicsBody3d');
+      const transform3d = components.find((c) => c.name === 'Transform3d');
+      if (physicsBody && transform3d) {
+        filters.push({
+          name: 'PhysicsBody3dFilter',
+          include: [physicsBody, transform3d],
+          exclude: [],
+        });
+      }
+    }
+  }
+
   const inputs = new Array<IInputDefinition>();
   // Parse inputs
   if (rawConfig.inputs) {
@@ -196,5 +266,5 @@ export function parseYamlConfig(configContent: string, configPath?: string): { s
   }
 
   const schema = { components, singletons, filters, playerResources, inputs };
-  return { schema, projectName };
+  return { schema, projectName, simulationType };
 }

@@ -1,6 +1,7 @@
 import { ECSSchema, FieldDefinition } from '@lagless/core';
 import { generateFromTemplate as processTemplate, FileOperations } from './template-engine.js';
 import { FieldTypeReverse, getTypeSizeBytes, typedArrayConstructors, typeToArrayConstructor } from '@lagless/binary';
+import { SimulationType } from './parser.js';
 
 export interface GenerateCodeOptions {
   schema: ECSSchema;
@@ -8,6 +9,7 @@ export interface GenerateCodeOptions {
   outputDir: string;
   templateDir: string;
   fileOperations: FileOperations;
+  simulationType?: SimulationType;
 }
 
 export function generateBarrelFileContent(schema: ECSSchema, projectName: string): string {
@@ -168,9 +170,13 @@ export async function generateCode(options: GenerateCodeOptions): Promise<void> 
     fileOperations,
   });
 
-  // Generate Runner class
+  // Generate Runner class (template varies by simulationType)
+  const simulationType = options.simulationType ?? 'raw';
+  const runnerTemplateDir =
+    simulationType === 'physics3d' ? 'runner-physics3d' : simulationType === 'physics2d' ? 'runner-physics2d' : 'runner';
+
   await processTemplate({
-    templateDir: joinPath(templateDir, 'runner'),
+    templateDir: joinPath(templateDir, runnerTemplateDir),
     outputDir,
     data: {
       projectName,

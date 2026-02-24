@@ -14,12 +14,12 @@ export class ECSSimulation {
   private readonly _signalsRegistry: SignalsRegistry;
   private readonly _frameLength: number;
   private readonly _snapshotRate: number;
-  private readonly _initialSnapshot!: ArrayBuffer;
+  protected readonly _initialSnapshot!: ArrayBuffer;
   private readonly _systems = new Array<IECSSystem>();
   private readonly _onTickHandlers = new Set<(tick: number) => void>();
 
   private _interpolationFactor = 0;
-  private _snapshotHistory: SnapshotHistory<ArrayBuffer>;
+  protected _snapshotHistory: SnapshotHistory<ArrayBuffer>;
 
   public get tick(): number {
     return this.mem.tickManager.tick;
@@ -30,7 +30,7 @@ export class ECSSimulation {
   }
 
   constructor(
-    private readonly _ECSConfig: ECSConfig,
+    protected readonly _ECSConfig: ECSConfig,
     private readonly _ECSDeps: ECSDeps,
     private readonly _inputProvider: AbstractInputProvider,
   ) {

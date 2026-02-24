@@ -19,7 +19,7 @@ export default async function (tree: Tree, options: GeneratorOptions) {
   const configContent = tree.read(configPath, 'utf-8');
   if (!configContent) throw new Error(`Config file is empty: ${configPath}`);
 
-  const { schema, projectName } = parseYamlConfig(configContent, configPath);
+  const { schema, projectName, simulationType } = parseYamlConfig(configContent, configPath);
 
   // Generate output directory from config path (../code-gen)
   const outputDir = joinPathFragments(configPath, '../code-gen');
@@ -66,6 +66,7 @@ export default async function (tree: Tree, options: GeneratorOptions) {
     outputDir,
     templateDir,
     fileOperations,
+    simulationType,
   });
 
   await formatFiles(tree);

@@ -7,4 +7,5 @@ export default [
   'libs/relay-server',
   'libs/relay-client',
   'libs/matchmaking',
+  'libs/physics3d',
 ];

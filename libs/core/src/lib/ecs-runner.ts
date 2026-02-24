@@ -17,9 +17,10 @@ export abstract class ECSRunner {
     public readonly Systems: Array<IECSSystemConstructor>,
     public readonly Signals: Array<ISignalConstructor> = [],
     public readonly Deps: ECSDeps,
+    simulation?: ECSSimulation,
   ) {
     this.DIContainer = new Container();
-    this.Simulation = new ECSSimulation(this.Config, this.Deps, this.InputProviderInstance);
+    this.Simulation = simulation ?? new ECSSimulation(this.Config, this.Deps, this.InputProviderInstance);
     this.InputProviderInstance.init(this.Simulation);
 
     const mem = this.Simulation.mem;

@@ -424,6 +424,25 @@ importers:
         specifier: ~0.5.11
         version: 0.5.17
 
+  libs/physics3d:
+    dependencies:
+      '@lagless/core':
+        specifier: workspace:*
+        version: link:../core
+      '@lagless/misc':
+        specifier: workspace:*
+        version: link:../misc
+      '@swc/helpers':
+        specifier: ~0.5.11
+        version: 0.5.17
+    devDependencies:
+      '@dimforge/rapier3d-compat':
+        specifier: ^0.14.0
+        version: 0.14.0
+      unplugin-swc:
+        specifier: ^1.5.7
+        version: 1.5.7(@swc/core@1.15.11(@swc/helpers@0.5.17))(rollup@4.52.4)
+
   libs/pixi-react:
     dependencies:
       '@lagless/binary':
@@ -1338,6 +1357,9 @@ packages:
 
   '@bufbuild/protobuf@2.10.1':
     resolution: {integrity: sha512-ckS3+vyJb5qGpEYv/s1OebUHDi/xSNtfgw1wqKZo7MR9F2z+qXr0q5XagafAG/9O0QPVIUfST0smluYSTpYFkg==}
+
+  '@dimforge/rapier3d-compat@0.14.0':
+    resolution: {integrity: sha512-/uHrUzS+CRQ+NQrrJCEDUkhwHlNsAAexbNXgbN9sHY+GwR+SFFAFrxRr8Llf5/AJZzqiLANdQIfJ63Cw4gJVqw==}
 
   '@discoveryjs/json-ext@0.5.7':
     resolution: {integrity: sha512-dBVuXR082gk3jsFp7Rd/JI4kytwGHecnCoTtXFb7DB6CNHp4rg5k1bhg0nWdLGLnOV71lmDzGQaLMy8iPLY0pw==}
@@ -10239,6 +10261,8 @@ snapshots:
   '@borewit/text-codec@0.1.1': {}
 
   '@bufbuild/protobuf@2.10.1': {}
+
+  '@dimforge/rapier3d-compat@0.14.0': {}
 
   '@discoveryjs/json-ext@0.5.7': {}
 
