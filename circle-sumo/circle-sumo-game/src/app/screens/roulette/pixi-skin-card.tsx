@@ -7,6 +7,8 @@ import STAR from '../../../assets/textures/star.png';
 import { Assets, Sprite, Texture } from 'pixi.js';
 import { PlayerView } from '../../game-view/components/player-view';
 
+console.log({ STAR });
+
 const STARS_GAP = 8;
 const CARD_SCALE = 0.5;
 const STAR_SCALE = 0.5;
