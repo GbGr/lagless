@@ -8,8 +8,8 @@ export class BotFilter extends AbstractFilter {
   public static readonly include: Array<IComponentConstructor> = [Bot, Transform2d, CircleBody];
   public static readonly exclude: Array<IComponentConstructor> = [];
 
-  public readonly includeMask: number = 138;
-  public readonly excludeMask: number = 0;
+  public readonly includeMask: number[] = [138];
+  public readonly excludeMask: number[] = [0];
 }
 
 Object.defineProperty(BotFilter, 'name', { value: 'BotFilter' });

@@ -1,5 +1,7 @@
 import { AbstractInputProvider, ECSConfig, ECSRunner, ECSDeps, IECSSystemConstructor } from '@lagless/core';
 import { ISignalConstructor } from '@lagless/core';
+import { CollisionLayers } from '@lagless/physics-shared';
+import { CollisionEvents3d } from './collision-events-3d.js';
 import { PhysicsConfig3d } from './physics-config-3d.js';
 import { PhysicsSimulation3d } from './physics-simulation-3d.js';
 import { PhysicsWorldManager3d } from './physics-world-manager-3d.js';
@@ -8,6 +10,7 @@ import { RapierModule3d } from './rapier-types.js';
 export abstract class PhysicsRunner3d extends ECSRunner {
   public readonly PhysicsWorldManager: PhysicsWorldManager3d;
   public readonly PhysicsConfig: PhysicsConfig3d;
+  public readonly CollisionEvents: CollisionEvents3d;
   public override readonly Simulation: PhysicsSimulation3d;
 
   protected constructor(
@@ -18,6 +21,7 @@ export abstract class PhysicsRunner3d extends ECSRunner {
     Deps: ECSDeps,
     rapier: RapierModule3d,
     physicsConfig?: PhysicsConfig3d,
+    collisionLayers?: CollisionLayers,
   ) {
     const config = physicsConfig ?? new PhysicsConfig3d();
     const worldManager = new PhysicsWorldManager3d(rapier, config, Config.frameLength);
@@ -28,10 +32,16 @@ export abstract class PhysicsRunner3d extends ECSRunner {
     this.PhysicsWorldManager = worldManager;
     this.PhysicsConfig = config;
     this.Simulation = simulation;
+    this.CollisionEvents = worldManager.collisionEvents;
 
     // Register physics types in DI container so game systems can inject them
     this.DIContainer.register(PhysicsWorldManager3d, worldManager);
     this.DIContainer.register(PhysicsConfig3d, config);
+    this.DIContainer.register(CollisionEvents3d, worldManager.collisionEvents);
+
+    if (collisionLayers) {
+      this.DIContainer.register(CollisionLayers, collisionLayers);
+    }
   }
 
   public override dispose(): void {

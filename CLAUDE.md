@@ -78,7 +78,7 @@ ArrayBuffer
 ├─ ComponentsManager    (SoA: each component field → TypedArray[maxEntities])
 ├─ SingletonsManager    (global typed fields)
 ├─ FiltersManager       (per-filter: Uint32 length + Uint32[maxEntities] entity IDs)
-├─ EntitiesManager      (nextId, removedStack, componentMasks: Uint32[maxEntities])
+├─ EntitiesManager      (nextId, removedStack, componentMasks: Uint32[maxEntities × maskWords])
 └─ PlayerResourcesManager (per-player typed fields × maxPlayers)
 ```
 
@@ -86,10 +86,11 @@ Snapshot = `ArrayBuffer.slice(0)`. Rollback = `Uint8Array.set()` from snapshot. 
 
 ### Entity System
 
-- Entity = integer index (0 to maxEntities-1). Component presence tracked via `Uint32` bitmask (max 32 component types).
-- Component IDs are powers of 2, assigned by codegen in YAML declaration order.
-- Filters maintain live entity lists matching include/exclude component masks. Filter data is in the shared ArrayBuffer — restored on rollback.
-- Entity recycling via LIFO removed-stack. Sentinel: `0xFFFFFFFF`.
+- Entity = integer index (0 to maxEntities-1). Component presence tracked via bitmask (up to 64 component types).
+- Component IDs are sequential bit indices (0, 1, 2, ...), assigned by codegen in YAML declaration order. Mask width auto-detected: 1 Uint32 word for ≤32 components, 2 words for 33-64.
+- **Tag components:** Components with no fields (`Frozen:` or `Frozen: {}` in YAML) are auto-detected as tags. Zero memory per entity, only occupy a bitmask bit. Work in filters and prefabs like normal components.
+- Filters maintain live entity lists matching include/exclude component masks (`number[]`). Filter data is in the shared ArrayBuffer — restored on rollback.
+- Entity recycling via LIFO removed-stack. Sentinel: `0xFFFFFFFF` (all mask words).
 
 ### Simulation Loop (ECSSimulation.update)
 
@@ -250,9 +251,17 @@ Create three packages: `my-game/my-game-simulation/`, `my-game/my-game-client/`,
 - Cross-package deps use `workspace:*` protocol
 - ESM everywhere — internal imports in built libs use `.js` extension
 
+## Physics Libraries
+
+- **[@lagless/physics-shared](libs/physics-shared/)** — Shared code: BodyType, ColliderEntityMap, CollisionLayers, CollisionEventsBase, PhysicsSimulationBase. No Rapier dependency.
+- **[@lagless/physics3d](libs/physics3d/)** — Rapier 3D integration. [Documentation](libs/physics3d/README.md)
+- **[@lagless/physics2d](libs/physics2d/)** — Rapier 2D integration. [Documentation](libs/physics2d/README.md)
+
+Codegen: `simulationType: 'physics3d'` auto-prepends Transform3d (14 fields) + PhysicsRefs. `simulationType: 'physics2d'` auto-prepends Transform2d (6 fields) + PhysicsRefs.
+
 ## Key Design Constraints
 
-- **32 component types max** (Uint32 bitmask). Upgrade path: two Uint32 words.
+- **64 component types max** (auto-detected: 1 Uint32 word for ≤32 components, 2 words for 33-64). Component IDs are bit indices (0, 1, 2, ...), not bitmask values.
 - **Determinism is paramount.** Same inputs + same seed = identical simulation on every client. Any system logic touching PRNG, math, or input ordering must preserve this.
 - **Server never runs simulation.** Relay model trusts clients. Cheat detection would require server-side replay (not implemented).
 - **RPCHistory grows unbounded** — no pruning of old ticks. Acceptable for current game session lengths.

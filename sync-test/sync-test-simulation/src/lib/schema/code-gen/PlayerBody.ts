@@ -2,7 +2,7 @@
 import { MemoryTracker } from '@lagless/binary';
 
 export class PlayerBody {
-  public static readonly ID = 4;
+  public static readonly ID = 2;
   public static readonly schema = {
     playerSlot: Uint8Array,
 

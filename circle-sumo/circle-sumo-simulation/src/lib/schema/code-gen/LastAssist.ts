@@ -2,7 +2,7 @@
 import { MemoryTracker } from '@lagless/binary';
 
 export class LastAssist {
-  public static readonly ID = 64;
+  public static readonly ID = 6;
   public static readonly schema = {
     hasAssister: Uint8Array,
 

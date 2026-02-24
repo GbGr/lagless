@@ -8,8 +8,8 @@ export class SumoCharacterFilter extends AbstractFilter {
   public static readonly include: Array<IComponentConstructor> = [Transform2d, Velocity2d, CircleBody];
   public static readonly exclude: Array<IComponentConstructor> = [];
 
-  public readonly includeMask: number = 14;
-  public readonly excludeMask: number = 0;
+  public readonly includeMask: number[] = [14];
+  public readonly excludeMask: number[] = [0];
 }
 
 Object.defineProperty(SumoCharacterFilter, 'name', { value: 'SumoCharacterFilter' });

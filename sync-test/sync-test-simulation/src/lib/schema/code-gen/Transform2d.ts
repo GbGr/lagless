@@ -2,7 +2,7 @@
 import { MemoryTracker } from '@lagless/binary';
 
 export class Transform2d {
-  public static readonly ID = 1;
+  public static readonly ID = 0;
   public static readonly schema = {
     positionX: Float32Array,
 

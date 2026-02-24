@@ -1,9 +1,12 @@
+import { BodyType } from '@lagless/physics-shared';
 import { PhysicsWorldManager3d } from './physics-world-manager-3d.js';
 
-/**
- * Utility interface for components used in physics sync.
- * Game codegen will produce concrete classes matching this shape.
- */
+export type { IPhysicsRefsComponent, IFilter } from '@lagless/physics-shared';
+export { BodyType as BodyType3d } from '@lagless/physics-shared';
+
+/** @deprecated Use IPhysicsRefsComponent instead */
+export type { IPhysicsRefsComponent as IPhysicsBody3dComponent } from '@lagless/physics-shared';
+
 export interface ITransform3dComponent {
   positionX: { get(entity: number): number; set(entity: number, v: number): void };
   positionY: { get(entity: number): number; set(entity: number, v: number): void };
@@ -21,31 +24,8 @@ export interface ITransform3dComponent {
   prevRotationW: { get(entity: number): number; set(entity: number, v: number): void };
 }
 
-export interface IPhysicsBody3dComponent {
-  bodyHandle: { get(entity: number): number; set(entity: number, v: number): void };
-  bodyType: { get(entity: number): number; set(entity: number, v: number): void };
-  colliderHandle: { get(entity: number): number; set(entity: number, v: number): void };
-}
-
-export interface IFilter {
-  readonly length: number;
-  entities(index: number): number;
-}
-
-/** Body type constants matching the auto-generated PhysicsBody3d.bodyType field. */
-export const BodyType3d = {
-  DYNAMIC: 0,
-  FIXED: 1,
-  KINEMATIC_POSITION: 2,
-  KINEMATIC_VELOCITY: 3,
-} as const;
-
 export class PhysicsStepSync3d {
-  /**
-   * Save current transform positions into prev fields for interpolation.
-   * Call BEFORE stepping the physics world.
-   */
-  static savePrevTransforms(filter: IFilter, transform: ITransform3dComponent): void {
+  static savePrevTransforms(filter: import('@lagless/physics-shared').IFilter, transform: ITransform3dComponent): void {
     for (let i = 0; i < filter.length; i++) {
       const e = filter.entities(i);
       transform.prevPositionX.set(e, transform.positionX.get(e));
@@ -58,22 +38,18 @@ export class PhysicsStepSync3d {
     }
   }
 
-  /**
-   * Write ECS positions to Rapier for kinematic bodies.
-   * Call BEFORE stepping the physics world.
-   */
   static syncKinematicToRapier(
-    filter: IFilter,
-    physicsBody: IPhysicsBody3dComponent,
+    filter: import('@lagless/physics-shared').IFilter,
+    physicsRefs: import('@lagless/physics-shared').IPhysicsRefsComponent,
     transform: ITransform3dComponent,
     worldManager: PhysicsWorldManager3d,
   ): void {
     for (let i = 0; i < filter.length; i++) {
       const e = filter.entities(i);
-      const type = physicsBody.bodyType.get(e);
-      if (type !== BodyType3d.KINEMATIC_POSITION && type !== BodyType3d.KINEMATIC_VELOCITY) continue;
+      const type = physicsRefs.bodyType.get(e);
+      if (type !== BodyType.KINEMATIC_POSITION && type !== BodyType.KINEMATIC_VELOCITY) continue;
 
-      const body = worldManager.getBody(physicsBody.bodyHandle.get(e));
+      const body = worldManager.getBody(physicsRefs.bodyHandle.get(e));
       body.setNextKinematicTranslation({
         x: transform.positionX.get(e),
         y: transform.positionY.get(e),
@@ -88,22 +64,18 @@ export class PhysicsStepSync3d {
     }
   }
 
-  /**
-   * Read Rapier positions back to ECS for dynamic bodies.
-   * Call AFTER stepping the physics world.
-   */
   static syncDynamicFromRapier(
-    filter: IFilter,
-    physicsBody: IPhysicsBody3dComponent,
+    filter: import('@lagless/physics-shared').IFilter,
+    physicsRefs: import('@lagless/physics-shared').IPhysicsRefsComponent,
     transform: ITransform3dComponent,
     worldManager: PhysicsWorldManager3d,
   ): void {
     for (let i = 0; i < filter.length; i++) {
       const e = filter.entities(i);
-      const type = physicsBody.bodyType.get(e);
-      if (type !== BodyType3d.DYNAMIC) continue;
+      const type = physicsRefs.bodyType.get(e);
+      if (type !== BodyType.DYNAMIC) continue;
 
-      const body = worldManager.getBody(physicsBody.bodyHandle.get(e));
+      const body = worldManager.getBody(physicsRefs.bodyHandle.get(e));
       const pos = body.translation();
       const rot = body.rotation();
 

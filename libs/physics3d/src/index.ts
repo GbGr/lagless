@@ -4,3 +4,6 @@ export * from './lib/physics-world-manager-3d.js';
 export * from './lib/physics-simulation-3d.js';
 export * from './lib/physics-runner-3d.js';
 export * from './lib/physics-step-sync-3d.js';
+export * from './lib/collision-layers-3d.js';
+export * from './lib/collision-events-3d.js';
+export * from './lib/collider-entity-map-3d.js';

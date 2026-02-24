@@ -2,7 +2,7 @@
 import { MemoryTracker } from '@lagless/binary';
 
 export class Collectible {
-  public static readonly ID = 8;
+  public static readonly ID = 3;
   public static readonly schema = {
     value: Uint16Array,
 

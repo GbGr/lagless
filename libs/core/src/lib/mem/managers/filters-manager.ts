@@ -6,7 +6,11 @@ import { MemoryTracker } from '@lagless/binary';
 export class FiltersManager implements IAbstractMemory {
   private readonly _filtersInstances = new Map<IFilterConstructor, IFilterInstance>();
 
-  constructor(private readonly _ECSConfig: ECSConfig, private readonly _ECSDeps: ECSDeps) {}
+  constructor(
+    private readonly _ECSConfig: ECSConfig,
+    private readonly _ECSDeps: ECSDeps,
+    _maskWords?: 1 | 2,
+  ) {}
 
   public init(arrayBuffer: ArrayBuffer, tracker: MemoryTracker): void {
     for (const FilterConstructor of this._ECSDeps.filters) {
@@ -39,12 +43,25 @@ export class FiltersManager implements IAbstractMemory {
     }
   }
 
-  public updateEntityInAllFilters(entity: number, componentsMask: number): void {
+  public updateEntityInAllFilters(entity: number, masks: Uint32Array, maskBase: number, maskWords: number): void {
     for (const filterInstance of this._filtersInstances.values()) {
-      const includeOk = !filterInstance.includeMask
-        || (componentsMask & filterInstance.includeMask) === filterInstance.includeMask;
-      const excludeOk = !filterInstance.excludeMask
-        || (componentsMask & filterInstance.excludeMask) === 0;
+      let includeOk = true;
+      let excludeOk = true;
+
+      for (let w = 0; w < maskWords; w++) {
+        const entityMaskWord = masks[maskBase + w];
+        const incWord = filterInstance.includeMask[w] ?? 0;
+        const excWord = filterInstance.excludeMask[w] ?? 0;
+
+        if (incWord && ((entityMaskWord & incWord) >>> 0) !== (incWord >>> 0)) {
+          includeOk = false;
+          break;
+        }
+        if (excWord && (entityMaskWord & excWord) !== 0) {
+          excludeOk = false;
+          break;
+        }
+      }
 
       if (includeOk && excludeOk) {
         filterInstance.addEntityToFilter(entity);

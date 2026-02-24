@@ -2,7 +2,7 @@
 import { MemoryTracker } from '@lagless/binary';
 
 export class Skin {
-  public static readonly ID = 1;
+  public static readonly ID = 0;
   public static readonly schema = {
     skinId: Uint16Array,
   };

@@ -40,6 +40,11 @@ export interface RapierRigidBody3d {
 export interface RapierCollider3d {
   handle: number;
   parent(): RapierRigidBody3d | null;
+  isSensor(): boolean;
+  collisionGroups(): number;
+  setCollisionGroups(groups: number): void;
+  setActiveEvents(events: number): void;
+  setSensor(isSensor: boolean): void;
 }
 
 export interface RapierRigidBodyDesc {
@@ -58,11 +63,28 @@ export interface RapierColliderDesc {
   setDensity(density: number): RapierColliderDesc;
   setMass(mass: number): RapierColliderDesc;
   setSensor(isSensor: boolean): RapierColliderDesc;
+  setCollisionGroups(groups: number): RapierColliderDesc;
+  setActiveEvents(events: number): RapierColliderDesc;
+}
+
+export interface RapierEventQueue {
+  free(): void;
+  drainCollisionEvents(f: (h1: number, h2: number, started: boolean) => void): void;
+  drainContactForceEvents(f: (event: RapierTempContactForceEvent) => void): void;
+  clear(): void;
+}
+
+export interface RapierTempContactForceEvent {
+  collider1(): number;
+  collider2(): number;
+  totalForceMagnitude(): number;
+  maxForceMagnitude(): number;
+  maxForceDirection(): RapierVector3;
 }
 
 export interface RapierWorld3d {
   timestep: number;
-  step(): void;
+  step(eventQueue?: RapierEventQueue): void;
   free(): void;
   takeSnapshot(): Uint8Array;
   getRigidBody(handle: number): RapierRigidBody3d;
@@ -91,5 +113,13 @@ export interface RapierModule3d {
     trimesh(vertices: Float32Array, indices: Uint32Array): RapierColliderDesc;
     cylinder(halfHeight: number, radius: number): RapierColliderDesc;
     cone(halfHeight: number, radius: number): RapierColliderDesc;
+  };
+  EventQueue: {
+    new (autoDrain: boolean): RapierEventQueue;
+  };
+  ActiveEvents: {
+    NONE: number;
+    COLLISION_EVENTS: number;
+    CONTACT_FORCE_EVENTS: number;
   };
 }

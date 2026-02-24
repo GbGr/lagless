@@ -2,7 +2,7 @@
 import { MemoryTracker } from '@lagless/binary';
 
 export class Bot {
-  public static readonly ID = 128;
+  public static readonly ID = 7;
   public static readonly schema = {
     lastPanicTick: Uint32Array,
 

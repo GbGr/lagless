@@ -65,6 +65,12 @@
     },
     {
       "path": "./libs/physics3d"
+    },
+    {
+      "path": "./libs/physics-shared"
+    },
+    {
+      "path": "./libs/physics2d"
     }
   ]
 }

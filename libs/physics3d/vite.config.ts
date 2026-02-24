@@ -19,6 +19,9 @@ export default defineConfig(() => ({
       sourceMaps: true,
     }) as PluginOption,
   ],
+  resolve: {
+    conditions: ['@lagless/source'],
+  },
   test: {
     name: '@lagless/physics3d',
     watch: false,

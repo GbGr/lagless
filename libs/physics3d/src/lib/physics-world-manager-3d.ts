@@ -1,8 +1,11 @@
 import { createLogger } from '@lagless/misc';
+import { ColliderEntityMap } from '@lagless/physics-shared';
+import { CollisionEvents3d } from './collision-events-3d.js';
 import { PhysicsConfig3d } from './physics-config-3d.js';
 import {
   RapierCollider3d,
   RapierColliderDesc,
+  RapierEventQueue,
   RapierModule3d,
   RapierRigidBody3d,
   RapierRigidBodyDesc,
@@ -14,6 +17,9 @@ const log = createLogger('PhysicsWorldManager3d');
 export class PhysicsWorldManager3d {
   private _world: RapierWorld3d;
   private readonly _substeps: number;
+  private readonly _substepDt: number;
+  private readonly _collisionEvents: CollisionEvents3d;
+  private readonly _colliderEntityMap = new ColliderEntityMap();
 
   public get world(): RapierWorld3d {
     return this._world;
@@ -23,7 +29,13 @@ export class PhysicsWorldManager3d {
     return this._substeps;
   }
 
-  private readonly _substepDt: number;
+  public get colliderEntityMap(): ColliderEntityMap {
+    return this._colliderEntityMap;
+  }
+
+  public get collisionEvents(): CollisionEvents3d {
+    return this._collisionEvents;
+  }
 
   constructor(
     private readonly _rapier: RapierModule3d,
@@ -39,16 +51,20 @@ export class PhysicsWorldManager3d {
     this._substeps = _config.substeps;
     this._substepDt = (frameLengthMs / 1000) / this._substeps;
     this._world.timestep = this._substepDt;
+    this._collisionEvents = new CollisionEvents3d(_rapier);
   }
 
   /**
    * Step the physics world for one ECS frame.
    * Executes `substeps` Rapier steps, each with a fixed dt derived from frameLength / substeps.
+   * When collision events are enabled, drains the event queue after all substeps.
    */
   public step(): void {
+    const eq = this._collisionEvents.eventQueue as RapierEventQueue;
     for (let i = 0; i < this._substeps; i++) {
-      this._world.step();
+      this._world.step(eq);
     }
+    this._collisionEvents.drain(this._colliderEntityMap, this._world);
   }
 
   public takeSnapshot(): Uint8Array {
@@ -68,6 +84,15 @@ export class PhysicsWorldManager3d {
       return;
     }
     this._world = restored;
+  }
+
+  // Entity-collider mapping
+  public registerCollider(colliderHandle: number, entity: number): void {
+    this._colliderEntityMap.set(colliderHandle, entity);
+  }
+
+  public unregisterCollider(colliderHandle: number): void {
+    this._colliderEntityMap.delete(colliderHandle);
   }
 
   // Body factories
@@ -95,19 +120,40 @@ export class PhysicsWorldManager3d {
     return this._world.createRigidBody(desc);
   }
 
-  // Collider factories
-  public createBallCollider(radius: number, parent?: RapierRigidBody3d): RapierCollider3d {
+  // Collider factories (with optional collision groups and active events)
+  public createBallCollider(
+    radius: number,
+    parent?: RapierRigidBody3d,
+    groups?: number,
+    activeEvents?: number,
+  ): RapierCollider3d {
     const desc = this._rapier.ColliderDesc.ball(radius);
+    if (groups !== undefined) desc.setCollisionGroups(groups);
+    if (activeEvents !== undefined) desc.setActiveEvents(activeEvents);
     return this._world.createCollider(desc, parent);
   }
 
-  public createCuboidCollider(hx: number, hy: number, hz: number, parent?: RapierRigidBody3d): RapierCollider3d {
+  public createCuboidCollider(
+    hx: number, hy: number, hz: number,
+    parent?: RapierRigidBody3d,
+    groups?: number,
+    activeEvents?: number,
+  ): RapierCollider3d {
     const desc = this._rapier.ColliderDesc.cuboid(hx, hy, hz);
+    if (groups !== undefined) desc.setCollisionGroups(groups);
+    if (activeEvents !== undefined) desc.setActiveEvents(activeEvents);
     return this._world.createCollider(desc, parent);
   }
 
-  public createCapsuleCollider(halfHeight: number, radius: number, parent?: RapierRigidBody3d): RapierCollider3d {
+  public createCapsuleCollider(
+    halfHeight: number, radius: number,
+    parent?: RapierRigidBody3d,
+    groups?: number,
+    activeEvents?: number,
+  ): RapierCollider3d {
     const desc = this._rapier.ColliderDesc.capsule(halfHeight, radius);
+    if (groups !== undefined) desc.setCollisionGroups(groups);
+    if (activeEvents !== undefined) desc.setActiveEvents(activeEvents);
     return this._world.createCollider(desc, parent);
   }
 
@@ -150,6 +196,7 @@ export class PhysicsWorldManager3d {
   }
 
   public dispose(): void {
+    this._collisionEvents.dispose();
     this._world.free();
   }
 }

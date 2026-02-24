@@ -6,7 +6,7 @@ import { Prefab } from '../../prefab.js';
 import { IComponentConstructor } from '../../types/index.js';
 import { MemoryTracker } from '@lagless/binary';
 
-/** Sentinel value indicating an entity slot is unused / removed. */
+/** Sentinel value indicating an entity slot is unused / removed. All mask words are set to 0xFFFFFFFF. */
 export const ENTITY_REMOVED_MASK = 0xFFFFFFFF;
 
 export class EntitiesManager implements IAbstractMemory {
@@ -19,6 +19,7 @@ export class EntitiesManager implements IAbstractMemory {
     private readonly _ECSConfig: ECSConfig,
     private readonly _ComponentsMemory: ComponentsManager,
     private readonly _FiltersMemory: FiltersManager,
+    private readonly _maskWords: 1 | 2 = 1,
   ) {}
 
   public createEntity(prefab?: Prefab): number {
@@ -31,13 +32,20 @@ export class EntitiesManager implements IAbstractMemory {
       throw new Error(`Maximum number of entities (${this._ECSConfig.maxEntities}) exceeded`);
     }
 
-    this._entitiesComponentsMasks[entity] = 0;
+    // Clear all mask words for the entity
+    const base = entity * this._maskWords;
+    for (let w = 0; w < this._maskWords; w++) {
+      this._entitiesComponentsMasks[base + w] = 0;
+    }
 
     if (prefab) {
       for (const [ ComponentConstructor, Values ] of prefab) {
-        const componentInstance = this._ComponentsMemory.get(ComponentConstructor);
-        this._entitiesComponentsMasks[entity] |= ComponentConstructor.ID;
+        const bitIndex = ComponentConstructor.ID;
+        const wordOffset = bitIndex >>> 5;
+        const bit = 1 << (bitIndex & 31);
+        this._entitiesComponentsMasks[base + wordOffset] |= bit;
         if (!Values) continue;
+        const componentInstance = this._ComponentsMemory.get(ComponentConstructor);
         for (const [ fieldName, value ] of Object.entries(Values)) {
           if (value === undefined) continue;
           componentInstance.unsafe[fieldName as keyof typeof componentInstance.unsafe][entity] = value;
@@ -45,7 +53,7 @@ export class EntitiesManager implements IAbstractMemory {
       }
     }
 
-    this.updateFilters(entity, this._entitiesComponentsMasks[entity]);
+    this.updateFilters(entity);
 
     return entity;
   }
@@ -55,45 +63,71 @@ export class EntitiesManager implements IAbstractMemory {
       throw new Error(`Entity ID ${entity} is out of bounds`);
     }
 
-    // Guard against double removal
-    if (this._entitiesComponentsMasks[entity] === ENTITY_REMOVED_MASK) {
-      return;
-    }
+    const base = entity * this._maskWords;
 
-    this._entitiesComponentsMasks[entity] = ENTITY_REMOVED_MASK;
+    // Guard against double removal (all mask words must be sentinel)
+    let isRemoved = true;
+    for (let w = 0; w < this._maskWords; w++) {
+      if (this._entitiesComponentsMasks[base + w] !== ENTITY_REMOVED_MASK) {
+        isRemoved = false;
+        break;
+      }
+    }
+    if (isRemoved) return;
+
+    // Set all mask words to sentinel
+    for (let w = 0; w < this._maskWords; w++) {
+      this._entitiesComponentsMasks[base + w] = ENTITY_REMOVED_MASK;
+    }
 
     // Add the entity to the removed entities stack
     this._removedEntities[this._removedEntitiesLength[0]] = entity;
     this._removedEntitiesLength[0]++;
 
-    this.updateFilters(entity, ENTITY_REMOVED_MASK);
+    this._FiltersMemory.removeEntityFromAllFilters(entity);
   }
 
   public isEntityAlive(entity: number): boolean {
     if (entity < 0 || entity >= this._ECSConfig.maxEntities) return false;
-    return this._entitiesComponentsMasks[entity] !== ENTITY_REMOVED_MASK;
+    const base = entity * this._maskWords;
+    for (let w = 0; w < this._maskWords; w++) {
+      if (this._entitiesComponentsMasks[base + w] !== ENTITY_REMOVED_MASK) return true;
+    }
+    return false;
   }
 
   public addComponent(entity: number, ComponentConstructor: IComponentConstructor): void {
-    this._entitiesComponentsMasks[entity] |= ComponentConstructor.ID;
-    this.updateFilters(entity, this._entitiesComponentsMasks[entity]);
+    const bitIndex = ComponentConstructor.ID;
+    const base = entity * this._maskWords;
+    const wordOffset = bitIndex >>> 5;
+    this._entitiesComponentsMasks[base + wordOffset] |= 1 << (bitIndex & 31);
+    this.updateFilters(entity);
   }
 
   public removeComponent(entity: number, ComponentConstructor: IComponentConstructor): void {
-    this._entitiesComponentsMasks[entity] &= ~ComponentConstructor.ID;
-    this.updateFilters(entity, this._entitiesComponentsMasks[entity]);
+    const bitIndex = ComponentConstructor.ID;
+    const base = entity * this._maskWords;
+    const wordOffset = bitIndex >>> 5;
+    this._entitiesComponentsMasks[base + wordOffset] &= ~(1 << (bitIndex & 31));
+    this.updateFilters(entity);
   }
 
   public hasComponent(entity: number, ComponentConstructor: IComponentConstructor): boolean {
     if (entity < 0 || entity >= this._ECSConfig.maxEntities) {
       throw new Error(`Entity ID ${entity} is out of bounds`);
     }
-    return (this._entitiesComponentsMasks[entity] & ComponentConstructor.ID) !== 0;
+    const bitIndex = ComponentConstructor.ID;
+    const base = entity * this._maskWords;
+    const wordOffset = bitIndex >>> 5;
+    return (this._entitiesComponentsMasks[base + wordOffset] & (1 << (bitIndex & 31))) !== 0;
   }
 
   public hasPrefab(entity: number, prefab: Prefab): boolean {
+    const base = entity * this._maskWords;
     for (const [ ComponentConstructor ] of prefab) {
-      if ((this._entitiesComponentsMasks[entity] & ComponentConstructor.ID) === 0) {
+      const bitIndex = ComponentConstructor.ID;
+      const wordOffset = bitIndex >>> 5;
+      if ((this._entitiesComponentsMasks[base + wordOffset] & (1 << (bitIndex & 31))) === 0) {
         return false;
       }
     }
@@ -101,11 +135,22 @@ export class EntitiesManager implements IAbstractMemory {
     return true;
   }
 
-  private updateFilters(entity: number, componentMask: number): void {
-    if (componentMask === ENTITY_REMOVED_MASK || componentMask === 0) {
+  private updateFilters(entity: number): void {
+    const base = entity * this._maskWords;
+
+    // Check if entity has any components set (all words zero means empty)
+    let isEmpty = true;
+    for (let w = 0; w < this._maskWords; w++) {
+      if (this._entitiesComponentsMasks[base + w] !== 0) {
+        isEmpty = false;
+        break;
+      }
+    }
+
+    if (isEmpty) {
       this._FiltersMemory.removeEntityFromAllFilters(entity);
     } else {
-      this._FiltersMemory.updateEntityInAllFilters(entity, componentMask);
+      this._FiltersMemory.updateEntityInAllFilters(entity, this._entitiesComponentsMasks, base, this._maskWords);
     }
   }
 
@@ -130,7 +175,7 @@ export class EntitiesManager implements IAbstractMemory {
     this._removedEntities = new Uint32Array(arrayBuffer, tracker.ptr, this._ECSConfig.maxEntities);
     tracker.add(this._removedEntities.byteLength);
 
-    this._entitiesComponentsMasks = new Uint32Array(arrayBuffer, tracker.ptr, this._ECSConfig.maxEntities);
+    this._entitiesComponentsMasks = new Uint32Array(arrayBuffer, tracker.ptr, this._ECSConfig.maxEntities * this._maskWords);
     this._entitiesComponentsMasks.fill(ENTITY_REMOVED_MASK);
     tracker.add(this._entitiesComponentsMasks.byteLength);
   }
@@ -139,6 +184,6 @@ export class EntitiesManager implements IAbstractMemory {
     tracker.add(Uint32Array.BYTES_PER_ELEMENT); // nextEntityId
     tracker.add(Uint32Array.BYTES_PER_ELEMENT); // removedEntitiesLength
     tracker.add(this._ECSConfig.maxEntities * Uint32Array.BYTES_PER_ELEMENT); // removedEntities
-    tracker.add(this._ECSConfig.maxEntities * Uint32Array.BYTES_PER_ELEMENT); // entitiesComponentsMasks
+    tracker.add(this._ECSConfig.maxEntities * this._maskWords * Uint32Array.BYTES_PER_ELEMENT); // entitiesComponentsMasks
   }
 }

@@ -2,7 +2,7 @@
 import { MemoryTracker } from '@lagless/binary';
 
 export class PendingImpulse {
-  public static readonly ID = 16;
+  public static readonly ID = 4;
   public static readonly schema = {
     impulseX: Float32Array,
 

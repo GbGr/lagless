@@ -39,9 +39,10 @@
     }
   },
   "dependencies": {
-    "@swc/helpers": "~0.5.11",
     "@lagless/core": "workspace:*",
-    "@lagless/misc": "workspace:*"
+    "@lagless/misc": "workspace:*",
+    "@lagless/physics-shared": "workspace:*",
+    "@swc/helpers": "~0.5.11"
   },
   "peerDependencies": {
     "@dimforge/rapier3d-compat": ">=0.14.0"

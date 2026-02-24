@@ -20,7 +20,7 @@ export type SimulationType = 'raw' | 'physics2d' | 'physics3d';
 export interface ECSConfig {
   projectName?: string;
   simulationType?: SimulationType;
-  components?: Record<string, Record<string, string>>;
+  components?: Record<string, Record<string, string> | null>;
   singletons?: Record<string, Record<string, string>>;
   playerResources?: Record<string, Record<string, string>>;
   filters?: Record<string, { include?: string[]; exclude?: string[] }>;
@@ -125,20 +125,54 @@ export function parseYamlConfig(
       };
     }
 
-    if (!rawConfig.components['PhysicsBody3d']) {
+    if (!rawConfig.components['PhysicsRefs']) {
       // Insert after Transform3d
       const entries = Object.entries(rawConfig.components);
       const transform3dIdx = entries.findIndex(([name]) => name === 'Transform3d');
       const insertIdx = transform3dIdx >= 0 ? transform3dIdx + 1 : 0;
       entries.splice(insertIdx, 0, [
-        'PhysicsBody3d',
+        'PhysicsRefs',
         {
-          bodyHandle: 'uint32',
+          bodyHandle: 'float64',
+          colliderHandle: 'float64',
           bodyType: 'uint8',
-          colliderHandle: 'uint32',
-          mass: 'float32',
-          linearDamping: 'float32',
-          angularDamping: 'float32',
+          collisionLayer: 'uint16',
+        },
+      ]);
+      rawConfig.components = Object.fromEntries(entries);
+    }
+  }
+
+  // Auto-prepend physics2d components if needed
+  if (simulationType === 'physics2d') {
+    if (!rawConfig.components) rawConfig.components = {};
+
+    if (!rawConfig.components['Transform2d']) {
+      rawConfig.components = {
+        Transform2d: {
+          positionX: 'float32',
+          positionY: 'float32',
+          rotation: 'float32',
+          prevPositionX: 'float32',
+          prevPositionY: 'float32',
+          prevRotation: 'float32',
+        },
+        ...rawConfig.components,
+      };
+    }
+
+    if (!rawConfig.components['PhysicsRefs']) {
+      // Insert after Transform2d
+      const entries = Object.entries(rawConfig.components);
+      const transform2dIdx = entries.findIndex(([name]) => name === 'Transform2d');
+      const insertIdx = transform2dIdx >= 0 ? transform2dIdx + 1 : 0;
+      entries.splice(insertIdx, 0, [
+        'PhysicsRefs',
+        {
+          bodyHandle: 'float64',
+          colliderHandle: 'float64',
+          bodyType: 'uint8',
+          collisionLayer: 'uint16',
         },
       ]);
       rawConfig.components = Object.fromEntries(entries);
@@ -148,22 +182,31 @@ export function parseYamlConfig(
   const components: ComponentDefinition[] = [];
   const singletons: SingletonDefinition[] = [];
 
-  // Parse components
+  // Parse components (ID is now a bit index: 0, 1, 2, ... instead of bitmask value)
   let componentIdx = 0;
   if (rawConfig.components) {
-    for (const [componentName, componentFields] of Object.entries<Record<string, string>>(rawConfig.components)) {
+    for (const [componentName, rawComponentFields] of Object.entries(rawConfig.components)) {
+      const componentFields = (rawComponentFields ?? {}) as Record<string, string>;
       const fields: Record<string, FieldDefinition> = {};
 
       for (const [fieldName, fieldType] of Object.entries<string>(componentFields)) {
         fields[fieldName] = parseFieldType(fieldType);
       }
 
+      const isTag = Object.keys(fields).length === 0;
+
       components.push({
         name: componentName,
-        id: Math.pow(2, componentIdx++),
+        id: componentIdx++,
         fields,
+        isTag,
       });
     }
+  }
+
+  // Validate component count (max 64 supported with two Uint32 mask words)
+  if (components.length > 64) {
+    throw new Error(`Too many components (${components.length}). Maximum supported is 64.`);
   }
 
   // Parse singletons
@@ -230,16 +273,32 @@ export function parseYamlConfig(
     }
   }
 
-  // Auto-add PhysicsBody3dFilter for physics3d
+  // Auto-add PhysicsRefsFilter for physics3d
   if (simulationType === 'physics3d') {
-    const hasPhysicsFilter = filters.some((f) => f.name === 'PhysicsBody3dFilter');
+    const hasPhysicsFilter = filters.some((f) => f.name === 'PhysicsRefsFilter');
     if (!hasPhysicsFilter) {
-      const physicsBody = components.find((c) => c.name === 'PhysicsBody3d');
+      const physicsRefs = components.find((c) => c.name === 'PhysicsRefs');
       const transform3d = components.find((c) => c.name === 'Transform3d');
-      if (physicsBody && transform3d) {
+      if (physicsRefs && transform3d) {
         filters.push({
-          name: 'PhysicsBody3dFilter',
-          include: [physicsBody, transform3d],
+          name: 'PhysicsRefsFilter',
+          include: [physicsRefs, transform3d],
+          exclude: [],
+        });
+      }
+    }
+  }
+
+  // Auto-add PhysicsRefsFilter for physics2d
+  if (simulationType === 'physics2d') {
+    const hasPhysicsFilter = filters.some((f) => f.name === 'PhysicsRefsFilter');
+    if (!hasPhysicsFilter) {
+      const physicsRefs = components.find((c) => c.name === 'PhysicsRefs');
+      const transform2d = components.find((c) => c.name === 'Transform2d');
+      if (physicsRefs && transform2d) {
+        filters.push({
+          name: 'PhysicsRefsFilter',
+          include: [physicsRefs, transform2d],
           exclude: [],
         });
       }
