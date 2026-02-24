@@ -33,7 +33,7 @@ export function parseInputFieldType(fieldName: string, fieldType: string): Input
   return {
     name: fieldName,
     ...res,
-    type: typeStringToFieldType[res.type],
+    type: typeStringToFieldType[res.type as keyof typeof typeStringToFieldType],
     byteLength: res.isArray && res.arrayLength ? getTypeSizeBytes(res.type) * res.arrayLength : getTypeSizeBytes(res.type),
   };
 }

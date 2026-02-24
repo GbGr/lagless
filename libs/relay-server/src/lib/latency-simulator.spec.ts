@@ -34,8 +34,6 @@ describe('LatencySimulator', () => {
 
   it('applies jitter within range', () => {
     const sim = new LatencySimulator({ delayMs: 100, jitterMs: 50, packetLossPercent: 0 });
-    const calls: number[] = [];
-
     // Run many samples to verify jitter range
     for (let i = 0; i < 100; i++) {
       const fn = vi.fn();

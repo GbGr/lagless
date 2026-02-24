@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { ComponentDefinition, FilterDefinition } from '@lagless/core';
 import { parseYamlConfig } from '../parser.js';
 
 describe('parseYamlConfig — bit index IDs', () => {
@@ -79,7 +80,7 @@ components:
   Dead: {}
 `;
     const { schema } = parseYamlConfig(yaml);
-    expect(schema.components.map(c => ({ name: c.name, id: c.id, isTag: c.isTag }))).toEqual([
+    expect(schema.components.map((c: ComponentDefinition) => ({ name: c.name, id: c.id, isTag: c.isTag }))).toEqual([
       { name: 'Transform', id: 0, isTag: false },
       { name: 'Frozen', id: 1, isTag: true },
       { name: 'Velocity', id: 2, isTag: false },
@@ -105,11 +106,11 @@ filters:
       - Frozen
 `;
     const { schema } = parseYamlConfig(yaml);
-    const frozenFilter = schema.filters.find(f => f.name === 'FrozenFilter')!;
+    const frozenFilter = schema.filters.find((f: FilterDefinition) => f.name === 'FrozenFilter')!;
     expect(frozenFilter.include[0].name).toBe('Frozen');
     expect(frozenFilter.include[0].isTag).toBe(true);
 
-    const aliveFilter = schema.filters.find(f => f.name === 'AliveFilter')!;
+    const aliveFilter = schema.filters.find((f: FilterDefinition) => f.name === 'AliveFilter')!;
     expect(aliveFilter.exclude[0].name).toBe('Frozen');
     expect(aliveFilter.exclude[0].isTag).toBe(true);
   });

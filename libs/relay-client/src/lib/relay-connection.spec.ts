@@ -297,7 +297,6 @@ describe('RelayConnection', () => {
       MockWebSocket.instances[0].simulateOpen();
       conn.disconnect();
 
-      const sentAfterDisconnect = MockWebSocket.instances[0].sent.length;
       vi.advanceTimersByTime(PING_WARMUP_INTERVAL_MS * 10);
 
       // No more pings after disconnect

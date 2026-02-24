@@ -45,7 +45,7 @@ export const CollectibleView = filterView(({ entity }, ref) => {
 
   return (
     <pixiContainer ref={containerRef}>
-      <pixiGraphics ref={graphicsRef} />
+      <pixiGraphics ref={graphicsRef} draw={() => {/* drawing handled in onCreate */}} />
     </pixiContainer>
   );
 });

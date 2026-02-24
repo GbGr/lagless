@@ -3,7 +3,9 @@ import {
   SyncTestSystems,
   SyncTestSignals,
   CollectSignal,
+  CollectData,
   DivergenceSignal,
+  DivergenceData,
   MoveInput,
   PlayerJoined,
   ReportHash,
@@ -13,7 +15,7 @@ import { createContext, FC, ReactNode, useContext, useEffect, useState } from 'r
 import { useTick } from '@pixi/react';
 import { useNavigate } from 'react-router-dom';
 import { ProviderStore } from '../hooks/use-start-match';
-import { ECSConfig, LocalInputProvider, ReplayInputProvider, RPC, createHashReporter } from '@lagless/core';
+import { ECSConfig, LocalInputProvider, ReplayInputProvider, RPC, createHashReporter, SignalEvent } from '@lagless/core';
 import { RelayInputProvider, RelayConnection } from '@lagless/relay-client';
 import { getMatchInfo } from '../hooks/use-start-multiplayer-match';
 import { UUID } from '@lagless/misc';
@@ -170,12 +172,12 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
 
       // Subscribe to signals
       const collectSignal = _runner.DIContainer.resolve(CollectSignal);
-      collectSignal.Predicted.subscribe((e) => {
+      collectSignal.Predicted.subscribe((e: SignalEvent<CollectData>) => {
         console.log(`[Collect] Player ${e.data.playerSlot} collected coin at (${e.data.x.toFixed(0)}, ${e.data.y.toFixed(0)}) +${e.data.value}`);
       });
 
       const divergenceSignal = _runner.DIContainer.resolve(DivergenceSignal);
-      divergenceSignal.Predicted.subscribe((e) => {
+      divergenceSignal.Predicted.subscribe((e: SignalEvent<DivergenceData>) => {
         console.warn(`[DIVERGENCE] Players ${e.data.slotA} vs ${e.data.slotB}: hash ${e.data.hashA} != ${e.data.hashB} at tick ${e.data.atTick}`);
       });
 

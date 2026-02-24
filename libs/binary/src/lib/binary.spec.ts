@@ -212,7 +212,7 @@ describe('BinarySchemaPackPipeline / UnpackPipeline', () => {
 
     const packed = pipeline.toUint8Array();
 
-    const unpackPipeline = new BinarySchemaUnpackPipeline(packed.buffer);
+    const unpackPipeline = new BinarySchemaUnpackPipeline(packed.buffer as ArrayBuffer);
     const header = unpackPipeline.unpack(headerSchema);
     const body = unpackPipeline.unpack(bodySchema);
 
@@ -228,11 +228,11 @@ describe('BinarySchemaPackPipeline / UnpackPipeline', () => {
 
     const pipeline = new BinarySchemaPackPipeline();
     pipeline.pack(headerSchema, { type: 42 });
-    pipeline.appendBuffer(rawPayload.buffer);
+    pipeline.appendBuffer(rawPayload.buffer as ArrayBuffer);
 
     const packed = pipeline.toUint8Array();
 
-    const unpackPipeline = new BinarySchemaUnpackPipeline(packed.buffer);
+    const unpackPipeline = new BinarySchemaUnpackPipeline(packed.buffer as ArrayBuffer);
     const header = unpackPipeline.unpack(headerSchema);
     const remaining = new Uint8Array(unpackPipeline.sliceRemaining());
 

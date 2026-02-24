@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { ComponentDefinition, FieldDefinition, FilterDefinition } from '@lagless/core';
 import { parseYamlConfig } from '../parser.js';
 
 describe('parseYamlConfig — simulationType', () => {
@@ -63,8 +64,8 @@ components:
     hp: uint16
 `;
     const result = parseYamlConfig(yaml, 'my-game/my-game-simulation/src/lib/schema/ecs.yaml');
-    const names = result.schema.components.map((c) => c.name);
-    expect(names.filter((n) => n === 'Transform3d')).toHaveLength(1);
+    const names = result.schema.components.map((c: ComponentDefinition) => c.name);
+    expect(names.filter((n: string) => n === 'Transform3d')).toHaveLength(1);
     expect(names).toContain('PhysicsRefs');
   });
 
@@ -90,9 +91,9 @@ components:
     hp: uint16
 `;
     const result = parseYamlConfig(yaml, 'my-game/my-game-simulation/src/lib/schema/ecs.yaml');
-    const physicsFilter = result.schema.filters.find((f) => f.name === 'PhysicsRefsFilter');
+    const physicsFilter = result.schema.filters.find((f: FilterDefinition) => f.name === 'PhysicsRefsFilter');
     expect(physicsFilter).toBeDefined();
-    expect(physicsFilter!.include.map((c) => c.name)).toEqual(['PhysicsRefs', 'Transform3d']);
+    expect(physicsFilter!.include.map((c: ComponentDefinition) => c.name)).toEqual(['PhysicsRefs', 'Transform3d']);
     expect(physicsFilter!.exclude).toEqual([]);
   });
 
@@ -107,7 +108,7 @@ filters:
     include: [PhysicsRefs]
 `;
     const result = parseYamlConfig(yaml, 'my-game/my-game-simulation/src/lib/schema/ecs.yaml');
-    const physicsFilter = result.schema.filters.find((f) => f.name === 'PhysicsRefsFilter');
+    const physicsFilter = result.schema.filters.find((f: FilterDefinition) => f.name === 'PhysicsRefsFilter');
     expect(physicsFilter).toBeDefined();
     // User's filter only includes PhysicsRefs (not Transform3d)
     expect(physicsFilter!.include).toHaveLength(1);
@@ -122,7 +123,7 @@ components:
     hp: uint16
 `;
     const result = parseYamlConfig(yaml, 'my-game/my-game-simulation/src/lib/schema/ecs.yaml');
-    const physicsRefs = result.schema.components.find((c) => c.name === 'PhysicsRefs');
+    const physicsRefs = result.schema.components.find((c: ComponentDefinition) => c.name === 'PhysicsRefs');
     expect(physicsRefs).toBeDefined();
     expect(physicsRefs!.fields['bodyHandle'].type).toBe('float64');
     expect(physicsRefs!.fields['colliderHandle'].type).toBe('float64');
@@ -162,8 +163,8 @@ components:
     hp: uint16
 `;
     const result = parseYamlConfig(yaml, 'my-game/my-game-simulation/src/lib/schema/ecs.yaml');
-    const names = result.schema.components.map((c) => c.name);
-    expect(names.filter((n) => n === 'Transform2d')).toHaveLength(1);
+    const names = result.schema.components.map((c: ComponentDefinition) => c.name);
+    expect(names.filter((n: string) => n === 'Transform2d')).toHaveLength(1);
     expect(names).toContain('PhysicsRefs');
   });
 
@@ -188,9 +189,9 @@ components:
     hp: uint16
 `;
     const result = parseYamlConfig(yaml, 'my-game/my-game-simulation/src/lib/schema/ecs.yaml');
-    const physicsFilter = result.schema.filters.find((f) => f.name === 'PhysicsRefsFilter');
+    const physicsFilter = result.schema.filters.find((f: FilterDefinition) => f.name === 'PhysicsRefsFilter');
     expect(physicsFilter).toBeDefined();
-    expect(physicsFilter!.include.map((c) => c.name)).toEqual(['PhysicsRefs', 'Transform2d']);
+    expect(physicsFilter!.include.map((c: ComponentDefinition) => c.name)).toEqual(['PhysicsRefs', 'Transform2d']);
     expect(physicsFilter!.exclude).toEqual([]);
   });
 
@@ -205,7 +206,7 @@ filters:
     include: [PhysicsRefs]
 `;
     const result = parseYamlConfig(yaml, 'my-game/my-game-simulation/src/lib/schema/ecs.yaml');
-    const physicsFilter = result.schema.filters.find((f) => f.name === 'PhysicsRefsFilter');
+    const physicsFilter = result.schema.filters.find((f: FilterDefinition) => f.name === 'PhysicsRefsFilter');
     expect(physicsFilter).toBeDefined();
     expect(physicsFilter!.include).toHaveLength(1);
     expect(physicsFilter!.include[0].name).toBe('PhysicsRefs');
@@ -219,7 +220,7 @@ components:
     hp: uint16
 `;
     const result = parseYamlConfig(yaml, 'my-game/my-game-simulation/src/lib/schema/ecs.yaml');
-    const physicsRefs = result.schema.components.find((c) => c.name === 'PhysicsRefs');
+    const physicsRefs = result.schema.components.find((c: ComponentDefinition) => c.name === 'PhysicsRefs');
     expect(physicsRefs).toBeDefined();
     expect(physicsRefs!.fields['bodyHandle'].type).toBe('float64');
     expect(physicsRefs!.fields['colliderHandle'].type).toBe('float64');
@@ -235,14 +236,14 @@ components:
     hp: uint16
 `;
     const result = parseYamlConfig(yaml, 'my-game/my-game-simulation/src/lib/schema/ecs.yaml');
-    const transform = result.schema.components.find((c) => c.name === 'Transform2d');
+    const transform = result.schema.components.find((c: ComponentDefinition) => c.name === 'Transform2d');
     expect(transform).toBeDefined();
     const fieldNames = Object.keys(transform!.fields);
     expect(fieldNames).toEqual([
       'positionX', 'positionY', 'rotation',
       'prevPositionX', 'prevPositionY', 'prevRotation',
     ]);
-    for (const field of Object.values(transform!.fields)) {
+    for (const field of Object.values(transform!.fields) as FieldDefinition[]) {
       expect(field.type).toBe('float32');
       expect(field.isArray).toBe(false);
     }

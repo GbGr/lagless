@@ -85,9 +85,7 @@ export const useStartMultiplayerMatch = () => {
     };
 
     ws.onclose = () => {
-      if (state === 'queuing') {
-        setState('idle');
-      }
+      setState((prev) => (prev === 'queuing' ? 'idle' : prev));
     };
   }, [state]);
 

@@ -2,10 +2,11 @@ import {
   CircleSumoRunner,
   CircleSumoSignals,
   CircleSumoSystems,
+  GameOverData,
   GameOverSignal,
   PlayerFinishedGameSignal,
 } from '@lagless/circle-sumo-simulation';
-import { ECSConfig } from '@lagless/core';
+import { ECSConfig, SignalEvent } from '@lagless/core';
 import { createContext, FC, ReactNode, useContext, useEffect, useState } from 'react';
 import { useTick } from '@pixi/react';
 import { useNavigate } from 'react-router-dom';
@@ -114,9 +115,9 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
       });
 
       const gameOverSignal = _runner.DIContainer.resolve(GameOverSignal);
-      gameOverSignal.Cancelled.subscribe((e) => console.log(`Cancelled Game Over at tick ${e.tick}`));
-      gameOverSignal.Verified.subscribe((e) => console.log(`Verified Game Over at tick ${e.tick}`));
-      gameOverSignal.Predicted.subscribe((e) => console.log(`Predicted Game Over at tick ${e.tick}`));
+      gameOverSignal.Cancelled.subscribe((e: SignalEvent<GameOverData>) => console.log(`Cancelled Game Over at tick ${e.tick}`));
+      gameOverSignal.Verified.subscribe((e: SignalEvent<GameOverData>) => console.log(`Verified Game Over at tick ${e.tick}`));
+      gameOverSignal.Predicted.subscribe((e: SignalEvent<GameOverData>) => console.log(`Predicted Game Over at tick ${e.tick}`));
       gameOverSignal.Verified.subscribe(() => {
         inputProvider.dispose();
         _connection?.disconnect();

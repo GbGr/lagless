@@ -5,6 +5,7 @@ import { useViewport } from '../viewport-provider';
 import { useRunner } from '../runner-provider';
 import { MathOps, Vector2 } from '@lagless/math';
 import { LookAt, Move } from '@lagless/circle-sumo-simulation';
+import { IAbstractInputConstructor, InputData } from '@lagless/core';
 import { toFloat32 } from '@lagless/binary';
 import ARROW from '../../../assets/textures/ARROW.png';
 import ARROW_GRADIENT from '../../../assets/textures/ARROW_GRADIENT.png';
@@ -217,7 +218,7 @@ export const DirectionArrowView = forwardRef<
   useEffect(() => {
     const state = stateRef.current;
 
-    const unsubscribe = runner.InputProviderInstance.drainInputs((addRPC) => {
+    const unsubscribe = runner.InputProviderInstance.drainInputs((addRPC: <T extends IAbstractInputConstructor>(ctor: T, data: InputData<InstanceType<T>>) => void) => {
       // state.lookAtDirection is angle in sim-space,
       // keep the original sign convention with minus if your sim expects it.
       if (state.prevLookAtDirection !== state.lookAtDirection) {

@@ -281,8 +281,7 @@ describe('RelayInputProvider', () => {
       const { provider, simulation } = createTestSetup(0);
 
       // Advance simulation a bit
-      simulation.update(simulation.clock.frameLength * 5);
-      const tickBefore = simulation.tick;
+      simulation.update(simulation.frameLength * 5);
 
       // Create a fake state buffer
       const stateBuffer = simulation.mem.exportSnapshot();

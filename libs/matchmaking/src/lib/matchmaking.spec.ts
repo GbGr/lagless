@@ -5,7 +5,6 @@ import { MatchmakingService } from './matchmaking-service.js';
 import type {
   QueueEntry, ScopeConfig, FormedMatch,
   MatchmakingMessage, MatchFoundPlayerData,
-  TryLateJoinFn,
 } from './types.js';
 
 // ─── Helpers ────────────────────────────────────────────────
