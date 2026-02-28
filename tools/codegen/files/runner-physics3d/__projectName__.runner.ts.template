@@ -2,6 +2,7 @@
 import { AbstractInputProvider, ECSConfig } from '@lagless/core';
 import { IECSSystemConstructor, ISignalConstructor } from '@lagless/core';
 import { PhysicsRunner3d, PhysicsConfig3d, RapierModule3d } from '@lagless/physics3d';
+import { CollisionLayers } from '@lagless/physics-shared';
 
 import { <%= projectName %>Core } from './<%= projectName %>.core.js';
 
@@ -13,7 +14,9 @@ export class <%= projectName %>Runner extends PhysicsRunner3d {
     Signals: Array<ISignalConstructor> = [],
     rapier: RapierModule3d,
     physicsConfig?: PhysicsConfig3d,
+    collisionLayers?: CollisionLayers,
+    extraRegistrations?: Array<[unknown, unknown]>,
   ) {
-    super(Config, InputProviderInstance, Systems, Signals, <%= projectName %>Core, rapier, physicsConfig);
+    super(Config, InputProviderInstance, Systems, Signals, <%= projectName %>Core, rapier, physicsConfig, collisionLayers, extraRegistrations);
   }
 }

@@ -18,6 +18,7 @@ export abstract class ECSRunner {
     public readonly Signals: Array<ISignalConstructor> = [],
     public readonly Deps: ECSDeps,
     simulation?: ECSSimulation,
+    extraRegistrations?: Array<[unknown, unknown]>,
   ) {
     this.DIContainer = new Container();
     this.Simulation = simulation ?? new ECSSimulation(this.Config, this.Deps, this.InputProviderInstance);
@@ -45,6 +46,13 @@ export abstract class ECSRunner {
     }
     // player resources
     this.DIContainer.register(PlayerResources, mem.playerResourcesManager.PlayerResources);
+
+    // extra registrations (from subclasses like PhysicsRunner3d)
+    if (extraRegistrations) {
+      for (const [token, instance] of extraRegistrations) {
+        this.DIContainer.register(token as new (...args: unknown[]) => unknown, instance);
+      }
+    }
 
     // signals
     const signalInstances = this.Signals.map((SignalConstructor) => {

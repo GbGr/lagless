@@ -10,7 +10,10 @@ import {
   MemoryTracker,
   toFloat32,
   getFastHash,
+  truncateToFieldType,
+  sanitizeInputData,
 } from './binary.js';
+import { InputFieldDefinition } from './types.js';
 
 // ─────────────────────────────────────────────────────────────
 // packBatchBuffers / unpackBatchBuffers
@@ -294,6 +297,98 @@ describe('toFloat32', () => {
     const val = toFloat32(3.141592653589793);
     expect(val).toBeCloseTo(3.14159, 5);
     expect(val).not.toBe(3.141592653589793); // precision loss
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// truncateToFieldType
+// ─────────────────────────────────────────────────────────────
+
+describe('truncateToFieldType', () => {
+  it('should truncate float32', () => {
+    const v = truncateToFieldType(FieldType.Float32, 3.141592653589793);
+    expect(v).toBe(Math.fround(3.141592653589793));
+    expect(v).not.toBe(3.141592653589793);
+  });
+
+  it('should not change float64', () => {
+    const v = truncateToFieldType(FieldType.Float64, 3.141592653589793);
+    expect(v).toBe(3.141592653589793);
+  });
+
+  it('should truncate uint8', () => {
+    expect(truncateToFieldType(FieldType.Uint8, 256)).toBe(0);
+    expect(truncateToFieldType(FieldType.Uint8, 255)).toBe(255);
+    expect(truncateToFieldType(FieldType.Uint8, 0x1FF)).toBe(0xFF);
+  });
+
+  it('should truncate uint16', () => {
+    expect(truncateToFieldType(FieldType.Uint16, 65536)).toBe(0);
+    expect(truncateToFieldType(FieldType.Uint16, 65535)).toBe(65535);
+  });
+
+  it('should truncate uint32', () => {
+    expect(truncateToFieldType(FieldType.Uint32, 4294967296)).toBe(0);
+    expect(truncateToFieldType(FieldType.Uint32, 4294967295)).toBe(4294967295);
+  });
+
+  it('should truncate int8', () => {
+    expect(truncateToFieldType(FieldType.Int8, 128)).toBe(-128);
+    expect(truncateToFieldType(FieldType.Int8, -129)).toBe(127);
+    expect(truncateToFieldType(FieldType.Int8, 127)).toBe(127);
+  });
+
+  it('should truncate int16', () => {
+    expect(truncateToFieldType(FieldType.Int16, 32768)).toBe(-32768);
+    expect(truncateToFieldType(FieldType.Int16, -32769)).toBe(32767);
+  });
+
+  it('should truncate int32', () => {
+    expect(truncateToFieldType(FieldType.Int32, 2147483648)).toBe(-2147483648);
+    expect(truncateToFieldType(FieldType.Int32, 2.5)).toBe(2);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// sanitizeInputData
+// ─────────────────────────────────────────────────────────────
+
+describe('sanitizeInputData', () => {
+  it('should truncate float32 fields to float32 precision', () => {
+    const fields: InputFieldDefinition[] = [
+      { name: 'dirX', type: FieldType.Float32, isArray: false, byteLength: 4 },
+      { name: 'dirY', type: FieldType.Float32, isArray: false, byteLength: 4 },
+    ];
+    const data: Record<string, number> = { dirX: 0.7071067811865476, dirY: 0.7071067811865476 };
+    sanitizeInputData(fields, data);
+    expect(data.dirX).toBe(Math.fround(0.7071067811865476));
+    expect(data.dirY).toBe(Math.fround(0.7071067811865476));
+  });
+
+  it('should truncate mixed field types correctly', () => {
+    const fields: InputFieldDefinition[] = [
+      { name: 'slot', type: FieldType.Uint8, isArray: false, byteLength: 1 },
+      { name: 'value', type: FieldType.Float32, isArray: false, byteLength: 4 },
+      { name: 'bigVal', type: FieldType.Float64, isArray: false, byteLength: 8 },
+    ];
+    const data: Record<string, number> = { slot: 5, value: 1.23456789, bigVal: 1.23456789 };
+    sanitizeInputData(fields, data);
+    expect(data.slot).toBe(5);
+    expect(data.value).toBe(Math.fround(1.23456789));
+    expect(data.bigVal).toBe(1.23456789);
+  });
+
+  it('should skip array fields', () => {
+    const fields: InputFieldDefinition[] = [
+      { name: 'id', type: FieldType.Uint8, isArray: true, arrayLength: 16, byteLength: 16 },
+      { name: 'val', type: FieldType.Float32, isArray: false, byteLength: 4 },
+    ];
+    const arr = new Uint8Array(16);
+    arr[0] = 42;
+    const data: Record<string, number | Uint8Array> = { id: arr, val: 1.5 };
+    sanitizeInputData(fields, data);
+    expect(data.id).toBe(arr); // untouched
+    expect(data.val).toBe(Math.fround(1.5));
   });
 });
 

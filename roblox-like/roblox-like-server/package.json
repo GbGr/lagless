@@ -1,0 +1,32 @@
+{
+  "name": "@lagless/roblox-like-server",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch run src/main.ts",
+    "start": "bun run src/main.ts"
+  },
+  "nx": {
+    "sourceRoot": "roblox-like/roblox-like-server/src",
+    "targets": {
+      "serve": {
+        "continuous": true,
+        "dependsOn": ["^build"],
+        "command": "bun run --conditions @lagless/source --watch {projectRoot}/src/main.ts",
+        "options": {
+          "cwd": "{workspaceRoot}"
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "@lagless/relay-game-server": "workspace:*",
+    "@lagless/relay-server": "workspace:*",
+    "@lagless/misc": "workspace:*",
+    "@lagless/roblox-like-simulation": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

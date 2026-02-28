@@ -187,6 +187,39 @@ describe('PlayerConnection', () => {
     conn.markDisconnected();
     expect(conn.hasConnectedBefore).toBe(true);
   });
+
+  it('should not be ready after connect (before markReady)', () => {
+    const ws = createMockWs();
+    const conn = new PlayerConnection(playerInfo, null);
+    conn.connect(ws);
+    expect(conn.isReady).toBe(false);
+  });
+
+  it('should be ready after markReady', () => {
+    const ws = createMockWs();
+    const conn = new PlayerConnection(playerInfo, null);
+    conn.connect(ws);
+    conn.markReady();
+    expect(conn.isReady).toBe(true);
+  });
+
+  it('should reset isReady on markDisconnected', () => {
+    const ws = createMockWs();
+    const conn = new PlayerConnection(playerInfo, null);
+    conn.connect(ws);
+    conn.markReady();
+    conn.markDisconnected();
+    expect(conn.isReady).toBe(false);
+  });
+
+  it('should reset isReady on markGone', () => {
+    const ws = createMockWs();
+    const conn = new PlayerConnection(playerInfo, null);
+    conn.connect(ws);
+    conn.markReady();
+    conn.markGone();
+    expect(conn.isReady).toBe(false);
+  });
 });
 
 // ─── RelayRoom ──────────────────────────────────────────────
@@ -577,6 +610,7 @@ describe('StateTransfer', () => {
     const info: PlayerInfo = { playerId: 'p1', slot: 0, isBot: false, metadata: {} };
     const conn = new PlayerConnection(info, null);
     conn.connect(ws);
+    conn.markReady();
 
     const connections = new Map<number, PlayerConnection>([[0, conn]]);
     const promise = st.requestState(connections);
@@ -607,6 +641,7 @@ describe('StateTransfer', () => {
       const info: PlayerInfo = { playerId: `p${i}`, slot: i, isBot: false, metadata: {} };
       const conn = new PlayerConnection(info, null);
       conn.connect(ws);
+      conn.markReady();
       connections.set(i, conn);
     }
 
@@ -634,6 +669,7 @@ describe('StateTransfer', () => {
       const info: PlayerInfo = { playerId: `p${i}`, slot: i, isBot: false, metadata: {} };
       const conn = new PlayerConnection(info, null);
       conn.connect(ws);
+      conn.markReady();
       connections.set(i, conn);
     }
 
@@ -656,6 +692,7 @@ describe('StateTransfer', () => {
     const info: PlayerInfo = { playerId: 'p1', slot: 0, isBot: false, metadata: {} };
     const conn = new PlayerConnection(info, null);
     conn.connect(ws);
+    conn.markReady();
 
     const connections = new Map<number, PlayerConnection>([[0, conn]]);
     const result = await st.requestState(connections);
@@ -669,6 +706,7 @@ describe('StateTransfer', () => {
     const info: PlayerInfo = { playerId: 'p1', slot: 0, isBot: false, metadata: {} };
     const conn = new PlayerConnection(info, null);
     conn.connect(ws);
+    conn.markReady();
 
     const connections = new Map<number, PlayerConnection>([[0, conn]]);
     const promise = st.requestState(connections);

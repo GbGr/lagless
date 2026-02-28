@@ -82,6 +82,10 @@ export class PhysicsWorldManager2d {
       return;
     }
     this._world = restored;
+    // CRITICAL: QueryPipeline is NOT included in the Rapier snapshot format.
+    // After restoreSnapshot(), the world has a fresh empty QueryPipeline.
+    // Any scene queries (ray casts, shape casts) will return wrong results until rebuilt.
+    this._world.updateSceneQueries();
   }
 
   // Entity-collider mapping

@@ -1,0 +1,32 @@
+{
+  "name": "@lagless/animation-controller",
+  "version": "0.0.1",
+  "type": "module",
+  "exports": {
+    ".": {
+      "@lagless/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "nx": {
+    "sourceRoot": "libs/animation-controller/src",
+    "targets": {
+      "build": {
+        "executor": "@nx/js:swc",
+        "outputs": ["{options.outputPath}"],
+        "options": {
+          "outputPath": "libs/animation-controller/dist",
+          "main": "libs/animation-controller/src/index.ts",
+          "tsConfig": "libs/animation-controller/tsconfig.lib.json",
+          "skipTypeCheck": true,
+          "stripLeadingPaths": true
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "@swc/helpers": "~0.5.11",
+    "@lagless/math": "workspace:*"
+  }
+}

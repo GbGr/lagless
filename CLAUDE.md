@@ -33,6 +33,7 @@ pnpm exec nx run-many -t lint test build typecheck
 # ECS codegen from YAML schema
 pnpm exec nx g @lagless/codegen:ecs --configPath circle-sumo/circle-sumo-simulation/src/lib/schema/ecs.yaml
 pnpm exec nx g @lagless/codegen:ecs --configPath sync-test/sync-test-simulation/src/lib/schema/ecs.yaml
+pnpm exec nx g @lagless/codegen:ecs --configPath roblox-like/roblox-like-simulation/src/lib/schema/ecs.yaml
 
 # Run Circle Sumo:
 # Terminal 1 — game server
@@ -45,6 +46,12 @@ pnpm exec nx serve @lagless/circle-sumo-game
 pnpm exec nx serve @lagless/sync-test-server
 # Terminal 2 — game client (Vite, port 4201)
 pnpm exec nx serve @lagless/sync-test-game
+
+# Run Roblox-Like (3D character controller test):
+# Terminal 1 — game server
+pnpm exec nx serve @lagless/roblox-like-server
+# Terminal 2 — game client (Vite, port 4202)
+pnpm exec nx serve @lagless/roblox-like-game
 ```
 
 ## Architecture
@@ -61,10 +68,15 @@ math ────┤
          │                                            ▼
          │                                   relay-game-server
          │
+         └─► physics-shared ──► physics2d (rapier2d)
+         │                  └─► physics3d (rapier3d) ──► character-controller-3d
+         │
+         └─► animation-controller
+         │
          └─► game-simulation ──► game-client
                                  game-server (uses relay-game-server)
 
-Games: circle-sumo (gameplay), sync-test (determinism/late-join/reconnect testing)
+Games: circle-sumo (gameplay), sync-test (determinism/late-join/reconnect testing), roblox-like (3D character controller + BabylonJS)
 ```
 
 ### Memory Model (core)
@@ -258,6 +270,14 @@ Create three packages: `my-game/my-game-simulation/`, `my-game/my-game-client/`,
 - **[@lagless/physics2d](libs/physics2d/)** — Rapier 2D integration. [Documentation](libs/physics2d/README.md)
 
 Codegen: `simulationType: 'physics3d'` auto-prepends Transform3d (14 fields) + PhysicsRefs. `simulationType: 'physics2d'` auto-prepends Transform2d (6 fields) + PhysicsRefs.
+
+## Character Controller & Animation
+
+- **[@lagless/character-controller-3d](libs/character-controller-3d/)** — Deterministic 3D character movement via Rapier KCC. Config, manager, abstract system.
+- **[@lagless/animation-controller](libs/animation-controller/)** — Deterministic animation FSM + view adapter. AnimationStateMachine, LocomotionBlendCalculator, AnimationViewAdapter.
+- **[Character Controller Documentation](CHARACTER_CONTROLLER.MD)** — Architecture, best practices, system execution order.
+
+Games: `roblox-like/` (3D character controller test with BabylonJS)
 
 ## Key Design Constraints
 

@@ -233,11 +233,11 @@ export class RelayInputProvider extends AbstractInputProvider {
       return;
     }
 
-    const state = this._simulation.mem.exportSnapshot();
+    const state = this._simulation.exportStateForTransfer();
     const tick = this._simulation.tick;
     const hash = this._simulation.mem.getHash();
 
-    log.info(`Responding to StateRequest #${requestId}: tick=${tick}, hash=0x${hash.toString(16)}`);
+    log.info(`Responding to StateRequest #${requestId}: tick=${tick}, hash=0x${hash.toString(16)}, size=${state.byteLength}`);
 
     this._connection?.sendStateResponse({
       requestId,
@@ -259,7 +259,7 @@ export class RelayInputProvider extends AbstractInputProvider {
 
     log.info(`State transfer: tick=${data.tick}, hash=0x${data.hash.toString(16)}, size=${data.state.byteLength}`);
 
-    this._simulation.applyExternalState(data.state, data.tick);
+    this._simulation.applyStateFromTransfer(data.state, data.tick);
     this._rpcHistory.clear();
     this._invalidateRollbackTick = undefined;
     this._clockSync.reset();

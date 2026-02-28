@@ -48,9 +48,11 @@ export class PhysicsSimulationBase extends ECSSimulation {
   }
 
   public override applyExternalState(state: ArrayBuffer, tick: number): void {
-    super.applyExternalState(state, tick);
-    // Reset rapier snapshot history — old physics snapshots are from a different timeline
+    // Reset rapier snapshot history BEFORE super call — super.applyExternalState()
+    // calls this.saveSnapshot(tick), which writes to _rapierSnapshotHistory.
+    // If we reset after, the old _lastTick causes "Ticks must be non-decreasing".
     this._rapierSnapshotHistory = new SnapshotHistory<Uint8Array>(this._ECSConfig.snapshotHistorySize);
+    super.applyExternalState(state, tick);
   }
 
   /**
@@ -68,5 +70,51 @@ export class PhysicsSimulationBase extends ECSSimulation {
    */
   public exportPhysicsSnapshot(): Uint8Array {
     return this._physicsWorldManager.takeSnapshot();
+  }
+
+  /**
+   * Export combined ECS + Rapier state for network transfer.
+   * Format: [ecsLength:u32LE][ecsBytes][rapierBytes]
+   */
+  public override exportStateForTransfer(): ArrayBuffer {
+    const ecsSnapshot = this.mem.exportSnapshot();
+    const rapierSnapshot = this._physicsWorldManager.takeSnapshot();
+
+    const blob = new ArrayBuffer(4 + ecsSnapshot.byteLength + rapierSnapshot.byteLength);
+    const view = new DataView(blob);
+    view.setUint32(0, ecsSnapshot.byteLength, true);
+    new Uint8Array(blob, 4, ecsSnapshot.byteLength).set(new Uint8Array(ecsSnapshot));
+    new Uint8Array(blob, 4 + ecsSnapshot.byteLength).set(rapierSnapshot);
+
+    log.info(`exportStateForTransfer: ecs=${ecsSnapshot.byteLength} rapier=${rapierSnapshot.byteLength} total=${blob.byteLength}`);
+    return blob;
+  }
+
+  /**
+   * Apply combined ECS + Rapier state from network transfer.
+   * Splits the blob, applies ECS state, restores Rapier world, saves snapshot.
+   */
+  public override applyStateFromTransfer(blob: ArrayBuffer, tick: number): void {
+    const view = new DataView(blob);
+    const ecsLength = view.getUint32(0, true);
+    const ecsState = blob.slice(4, 4 + ecsLength);
+    const rapierBytes = new Uint8Array(blob, 4 + ecsLength);
+
+    log.info(`applyStateFromTransfer: tick=${tick} ecs=${ecsLength} rapier=${rapierBytes.byteLength}`);
+
+    // Reset rapier history before super call (which calls saveSnapshot)
+    this._rapierSnapshotHistory = new SnapshotHistory<Uint8Array>(this._ECSConfig.snapshotHistorySize);
+
+    // Apply ECS state (calls applyExternalState → saveSnapshot)
+    this.applyExternalState(ecsState, tick);
+
+    // Restore Rapier world from transferred snapshot
+    this._physicsWorldManager.restoreSnapshot(rapierBytes);
+
+    // Save rapier snapshot at this tick (overwrite the empty one saved by applyExternalState)
+    this._rapierSnapshotHistory = new SnapshotHistory<Uint8Array>(this._ECSConfig.snapshotHistorySize);
+    this._rapierSnapshotHistory.set(tick, this._physicsWorldManager.takeSnapshot());
+
+    this.notifyStateTransferHandlers(tick);
   }
 }

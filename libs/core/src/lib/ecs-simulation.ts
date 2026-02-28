@@ -17,6 +17,8 @@ export class ECSSimulation {
   protected readonly _initialSnapshot!: ArrayBuffer;
   private readonly _systems = new Array<IECSSystem>();
   private readonly _onTickHandlers = new Set<(tick: number) => void>();
+  private readonly _onRollbackHandlers = new Set<(tick: number) => void>();
+  private readonly _onStateTransferHandlers = new Set<(tick: number) => void>();
 
   private _interpolationFactor = 0;
   protected _snapshotHistory: SnapshotHistory<ArrayBuffer>;
@@ -52,6 +54,16 @@ export class ECSSimulation {
 
   public removeTickHandler(handler: (tick: number) => void): void {
     this._onTickHandlers.delete(handler);
+  }
+
+  public addRollbackHandler(handler: (tick: number) => void): () => void {
+    this._onRollbackHandlers.add(handler);
+    return () => { this._onRollbackHandlers.delete(handler); };
+  }
+
+  public addStateTransferHandler(handler: (tick: number) => void): () => void {
+    this._onStateTransferHandlers.add(handler);
+    return () => { this._onStateTransferHandlers.delete(handler); };
   }
 
   public registerSystems(systems: IECSSystem[]): void {
@@ -110,6 +122,27 @@ export class ECSSimulation {
     this._signalsRegistry.dispose();
   }
 
+  /**
+   * Export simulation state for network state transfer (late-join / reconnect).
+   * Override in subclasses to include additional state (e.g. physics world).
+   */
+  public exportStateForTransfer(): ArrayBuffer {
+    return this.mem.exportSnapshot();
+  }
+
+  /**
+   * Apply state received from network state transfer (late-join / reconnect).
+   * Override in subclasses to restore additional state (e.g. physics world).
+   */
+  public applyStateFromTransfer(blob: ArrayBuffer, tick: number): void {
+    this.applyExternalState(blob, tick);
+    this.notifyStateTransferHandlers(tick);
+  }
+
+  protected notifyStateTransferHandlers(tick: number): void {
+    for (const handler of this._onStateTransferHandlers) handler(tick);
+  }
+
   public update(dt: number) {
     this.clock.update(dt);
 
@@ -133,6 +166,8 @@ export class ECSSimulation {
     if (rollbackTick === undefined || rollbackTick > currentTick) return;
 
     this.rollback(rollbackTick);
+
+    for (const handler of this._onRollbackHandlers) handler(this.tick);
   }
 
   private simulationTicks(currentTick: number, toTick: number): void {

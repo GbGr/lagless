@@ -85,6 +85,8 @@ export interface RapierWorld2d {
   createCollider(desc: RapierColliderDesc2d, parent?: RapierRigidBody2d): RapierCollider2d;
   removeRigidBody(body: RapierRigidBody2d): void;
   removeCollider(collider: RapierCollider2d, wakeUp: boolean): void;
+  /** Rebuilds the query pipeline (BVH) from current collider positions. Must be called after restoreSnapshot(). */
+  updateSceneQueries(): void;
 }
 
 export interface RapierModule2d {

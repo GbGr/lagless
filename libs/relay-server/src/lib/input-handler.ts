@@ -135,6 +135,7 @@ export class InputHandler {
 
     let sentCount = 0;
     for (const conn of connections.values()) {
+      if (!conn.isReady) continue;
       if (conn.isConnected) sentCount++;
       conn.send(fanout);
     }
@@ -156,6 +157,7 @@ export class InputHandler {
     });
 
     for (const conn of connections.values()) {
+      if (!conn.isReady) continue;
       conn.send(fanout);
     }
   }

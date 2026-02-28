@@ -93,6 +93,45 @@ export interface RapierWorld3d {
   createCollider(desc: RapierColliderDesc, parent?: RapierRigidBody3d): RapierCollider3d;
   removeRigidBody(body: RapierRigidBody3d): void;
   removeCollider(collider: RapierCollider3d, wakeUp: boolean): void;
+  createCharacterController(offset: number): RapierKinematicCharacterController;
+  /** Rebuilds the query pipeline (BVH) from current collider positions. Must be called after restoreSnapshot(). */
+  updateSceneQueries(): void;
+}
+
+// ─── Kinematic Character Controller ────────────────────────
+
+export interface RapierCharacterCollision {
+  toi: number;
+  witness1: RapierVector3;
+  witness2: RapierVector3;
+  normal1: RapierVector3;
+  normal2: RapierVector3;
+  translationDeltaApplied: RapierVector3;
+  translationDeltaRemaining: RapierVector3;
+}
+
+export interface RapierKinematicCharacterController {
+  setUp(up: RapierVector3): void;
+  setMaxSlopeClimbAngle(angle: number): void;
+  setMinSlopeSlideAngle(angle: number): void;
+  enableAutostep(maxHeight: number, minWidth: number, includeDynamicBodies: boolean): void;
+  disableAutostep(): void;
+  enableSnapToGround(distance: number): void;
+  disableSnapToGround(): void;
+  setSlideEnabled(enabled: boolean): void;
+  setCharacterMass(mass: number): void;
+  setApplyImpulsesToDynamicBodies(apply: boolean): void;
+  computeColliderMovement(
+    collider: RapierCollider3d,
+    desiredTranslation: RapierVector3,
+    filterFlags?: number,
+    filterGroups?: number,
+  ): void;
+  computedMovement(): RapierVector3;
+  computedGrounded(): boolean;
+  numComputedCollisions(): number;
+  computedCollision(index: number): RapierCharacterCollision | null;
+  free(): void;
 }
 
 export interface RapierModule3d {
@@ -121,5 +160,15 @@ export interface RapierModule3d {
     NONE: number;
     COLLISION_EVENTS: number;
     CONTACT_FORCE_EVENTS: number;
+  };
+  QueryFilterFlags: {
+    ONLY_DYNAMIC: number;
+    ONLY_KINEMATIC: number;
+    ONLY_FIXED: number;
+    EXCLUDE_DYNAMIC: number;
+    EXCLUDE_KINEMATIC: number;
+    EXCLUDE_FIXED: number;
+    EXCLUDE_SENSORS: number;
+    EXCLUDE_SOLIDS: number;
   };
 }

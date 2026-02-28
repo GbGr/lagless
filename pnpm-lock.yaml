@@ -360,11 +360,35 @@ importers:
         specifier: ~0.5.11
         version: 0.5.17
 
+  libs/animation-controller:
+    dependencies:
+      '@lagless/math':
+        specifier: workspace:*
+        version: link:../math
+      '@swc/helpers':
+        specifier: ~0.5.11
+        version: 0.5.17
+
   libs/binary:
     dependencies:
       tslib:
         specifier: ^2.3.0
         version: 2.8.1
+
+  libs/character-controller-3d:
+    dependencies:
+      '@lagless/core':
+        specifier: workspace:*
+        version: link:../core
+      '@lagless/math':
+        specifier: workspace:*
+        version: link:../math
+      '@lagless/physics3d':
+        specifier: workspace:*
+        version: link:../physics3d
+      '@swc/helpers':
+        specifier: ~0.5.11
+        version: 0.5.17
 
   libs/core:
     dependencies:
@@ -572,6 +596,123 @@ importers:
         specifier: ~0.5.11
         version: 0.5.17
 
+  roblox-like/roblox-like-game:
+    dependencies:
+      '@abraham/reflection':
+        specifier: ^0.12.0
+        version: 0.12.0
+      '@babylonjs/core':
+        specifier: ^7.0.0
+        version: 7.54.3
+      '@dimforge/rapier3d-compat':
+        specifier: ^0.14.0
+        version: 0.14.0
+      '@lagless/animation-controller':
+        specifier: workspace:*
+        version: link:../../libs/animation-controller
+      '@lagless/binary':
+        specifier: workspace:*
+        version: link:../../libs/binary
+      '@lagless/character-controller-3d':
+        specifier: workspace:*
+        version: link:../../libs/character-controller-3d
+      '@lagless/core':
+        specifier: workspace:*
+        version: link:../../libs/core
+      '@lagless/math':
+        specifier: workspace:*
+        version: link:../../libs/math
+      '@lagless/misc':
+        specifier: workspace:*
+        version: link:../../libs/misc
+      '@lagless/net-wire':
+        specifier: workspace:*
+        version: link:../../libs/net-wire
+      '@lagless/physics3d':
+        specifier: workspace:*
+        version: link:../../libs/physics3d
+      '@lagless/react':
+        specifier: workspace:*
+        version: link:../../libs/react
+      '@lagless/relay-client':
+        specifier: workspace:*
+        version: link:../../libs/relay-client
+      '@lagless/roblox-like-simulation':
+        specifier: workspace:*
+        version: link:../roblox-like-simulation
+      react:
+        specifier: 19.1.0
+        version: 19.1.0
+      react-dom:
+        specifier: 19.1.0
+        version: 19.1.0(react@19.1.0)
+      react-router-dom:
+        specifier: ^7.6.1
+        version: 7.13.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+    devDependencies:
+      vite-plugin-top-level-await:
+        specifier: ^1.6.0
+        version: 1.6.0(@swc/helpers@0.5.17)(rollup@4.52.4)(vite@7.2.2(@types/node@20.19.9)(jiti@2.4.2)(less@4.4.2)(sass-embedded@1.93.3)(sass@1.94.0)(terser@5.44.0)(yaml@2.8.1))
+      vite-plugin-wasm:
+        specifier: ^3.5.0
+        version: 3.5.0(vite@7.2.2(@types/node@20.19.9)(jiti@2.4.2)(less@4.4.2)(sass-embedded@1.93.3)(sass@1.94.0)(terser@5.44.0)(yaml@2.8.1))
+
+  roblox-like/roblox-like-server:
+    dependencies:
+      '@lagless/misc':
+        specifier: workspace:*
+        version: link:../../libs/misc
+      '@lagless/relay-game-server':
+        specifier: workspace:*
+        version: link:../../libs/relay-game-server
+      '@lagless/relay-server':
+        specifier: workspace:*
+        version: link:../../libs/relay-server
+      '@lagless/roblox-like-simulation':
+        specifier: workspace:*
+        version: link:../roblox-like-simulation
+    devDependencies:
+      '@types/bun':
+        specifier: latest
+        version: 1.3.9
+
+  roblox-like/roblox-like-simulation:
+    dependencies:
+      '@lagless/animation-controller':
+        specifier: workspace:*
+        version: link:../../libs/animation-controller
+      '@lagless/binary':
+        specifier: workspace:*
+        version: link:../../libs/binary
+      '@lagless/character-controller-3d':
+        specifier: workspace:*
+        version: link:../../libs/character-controller-3d
+      '@lagless/core':
+        specifier: workspace:*
+        version: link:../../libs/core
+      '@lagless/math':
+        specifier: workspace:*
+        version: link:../../libs/math
+      '@lagless/misc':
+        specifier: workspace:*
+        version: link:../../libs/misc
+      '@lagless/physics-shared':
+        specifier: workspace:*
+        version: link:../../libs/physics-shared
+      '@lagless/physics3d':
+        specifier: workspace:*
+        version: link:../../libs/physics3d
+      '@swc/helpers':
+        specifier: ~0.5.11
+        version: 0.5.17
+    devDependencies:
+      '@dimforge/rapier3d-compat':
+        specifier: ^0.14.0
+        version: 0.14.0
+      unplugin-swc:
+        specifier: ^1.5.7
+        version: 1.5.7(@swc/core@1.15.11(@swc/helpers@0.5.17))(rollup@4.52.4)
+
   sync-test/sync-test-game:
     dependencies:
       '@lagless/binary':
@@ -703,6 +844,9 @@ importers:
         version: 3.1.5
 
 packages:
+
+  '@abraham/reflection@0.12.0':
+    resolution: {integrity: sha512-OoLlgBE5u18mc61pJNamEh2OtFpHjtvDi1pV4ojnnH77juCvQw/Z3YlHF8TJiorU7/V6UuGApFzsi+bieug7fg==}
 
   '@abraham/reflection@0.13.0':
     resolution: {integrity: sha512-sQYhhraGPPRP6zoqpqpSaoYL+XY5KNmQCcoB3IuQh1z1aWmkHXcxwyTxRkTJ60L2aUjrbiqIqoYkrB/1c7kjQA==}
@@ -1385,6 +1529,9 @@ packages:
   '@babel/types@7.28.4':
     resolution: {integrity: sha512-bkFqkLhh3pMBUQQkpVgWDWq/lqzc2678eUyDlTBhRqhCHFguYYGM0Efga7tYk4TogG/3x0EEl66/OQ+WGbWB/Q==}
     engines: {node: '>=6.9.0'}
+
+  '@babylonjs/core@7.54.3':
+    resolution: {integrity: sha512-P5ncXVd8GEUJLhwloP9V0oVwQYIrvZztguVeLlvd5Rx+9aQnenKjpV8auJ6SRsUlAmNZU4pFTKzwF6o2EUfhAw==}
 
   '@bcoe/v8-coverage@0.2.3':
     resolution: {integrity: sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==}
@@ -9430,6 +9577,8 @@ packages:
 
 snapshots:
 
+  '@abraham/reflection@0.12.0': {}
+
   '@abraham/reflection@0.13.0': {}
 
   '@alloc/quick-lru@5.2.0': {}
@@ -10297,6 +10446,8 @@ snapshots:
     dependencies:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.27.1
+
+  '@babylonjs/core@7.54.3': {}
 
   '@bcoe/v8-coverage@0.2.3': {}
 

@@ -52,16 +52,24 @@ export abstract class AbstractHashVerificationSystem implements IECSSystem {
       safe.lastReportedHashTick = rpc.data.atTick;
     }
 
+    // Wait until reported hashes are "confirmed" — old enough that any
+    // rollback for that tick has already happened and corrected the state.
+    // Without this delay, a hash computed before rollback (stale timeline)
+    // causes false-positive divergence when compared with a post-rollback hash.
+    const confirmationDelay = this._ECSConfig.maxInputDelayTick * 2;
+
     const maxPlayers = this._ECSConfig.maxPlayers;
     for (let a = 0; a < maxPlayers; a++) {
       const pa = this._PlayerResources.get(this._playerResourceClass, a) as unknown as { safe: HashPlayerResourceProxy };
       const safeA = pa.safe as HashPlayerResourceProxy;
       if (safeA.connected === 0 || safeA.lastReportedHashTick === 0) continue;
+      if (tick - safeA.lastReportedHashTick < confirmationDelay) continue;
 
       for (let b = a + 1; b < maxPlayers; b++) {
         const pb = this._PlayerResources.get(this._playerResourceClass, b) as unknown as { safe: HashPlayerResourceProxy };
         const safeB = pb.safe as HashPlayerResourceProxy;
         if (safeB.connected === 0 || safeB.lastReportedHashTick === 0) continue;
+        if (tick - safeB.lastReportedHashTick < confirmationDelay) continue;
 
         if (safeA.lastReportedHashTick === safeB.lastReportedHashTick &&
           safeA.lastReportedHash !== safeB.lastReportedHash) {

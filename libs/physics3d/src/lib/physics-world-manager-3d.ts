@@ -84,6 +84,12 @@ export class PhysicsWorldManager3d {
       return;
     }
     this._world = restored;
+    // CRITICAL: QueryPipeline is NOT included in the Rapier snapshot format.
+    // After restoreSnapshot(), the world has a fresh empty QueryPipeline.
+    // computeColliderMovement() queries the QueryPipeline, so if we don't rebuild it
+    // here, KCC will detect no collisions on the first tick after rollback,
+    // causing non-deterministic movement and client divergence.
+    this._world.updateSceneQueries();
   }
 
   // Entity-collider mapping

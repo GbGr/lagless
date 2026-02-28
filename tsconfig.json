@@ -71,6 +71,21 @@
     },
     {
       "path": "./libs/physics2d"
+    },
+    {
+      "path": "./roblox-like/roblox-like-simulation"
+    },
+    {
+      "path": "./roblox-like/roblox-like-server"
+    },
+    {
+      "path": "./libs/character-controller-3d"
+    },
+    {
+      "path": "./roblox-like/roblox-like-game"
+    },
+    {
+      "path": "./libs/animation-controller"
     }
   ]
 }
