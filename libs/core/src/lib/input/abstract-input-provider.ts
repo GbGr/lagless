@@ -23,6 +23,8 @@ export abstract class AbstractInputProvider {
 
   public abstract playerSlot: number;
 
+  public abstract get verifiedTick(): number;
+
   public abstract getInvalidateRollbackTick(): void | number;
 
   constructor(

@@ -20,7 +20,9 @@
     "targets": {
       "build": {
         "executor": "@nx/js:swc",
-        "outputs": ["{options.outputPath}"],
+        "outputs": [
+          "{options.outputPath}"
+        ],
         "options": {
           "outputPath": "roblox-like/roblox-like-simulation/dist",
           "main": "roblox-like/roblox-like-simulation/src/index.ts",

@@ -24,6 +24,9 @@
       "path": "../../libs/misc"
     },
     {
+      "path": "../../libs/dev-tools"
+    },
+    {
       "path": "../../libs/relay-game-server"
     }
   ]

@@ -11,6 +11,10 @@ const REPLAY_DATA_OFFSET = FPS_OFFSET + 1;
 export class ReplayInputProvider extends AbstractInputProvider {
   public override playerSlot = 0;
 
+  public override get verifiedTick(): number {
+    return this._simulation?.tick ?? -1;
+  }
+
   public override getInvalidateRollbackTick() {
     return undefined;
   }

@@ -2,6 +2,8 @@ import { ECSSystem, IECSSystem, InputProvider, PlayerResources } from '@lagless/
 import { MathOps } from '@lagless/math';
 import { CharacterMove, CharacterState, CharacterFilter, PlayerResource } from '../schema/code-gen/index.js';
 
+const finite = (v: number): number => Number.isFinite(v) ? v : 0;
+
 @ECSSystem()
 export class ApplyCharacterInputSystem implements IECSSystem {
   constructor(
@@ -27,9 +29,10 @@ export class ApplyCharacterInputSystem implements IECSSystem {
       const entity = playerResource.safe.entity;
       if (playerResource.safe.connected === 0) continue;
 
-      const dirX = rpc.data.directionX;
-      const dirZ = rpc.data.directionZ;
-      const cameraYaw = rpc.data.cameraYaw;
+      // Sanitize input: reject NaN/Infinity, clamp direction to [-1, 1]
+      const dirX = MathOps.clamp(finite(rpc.data.directionX), -1, 1);
+      const dirZ = MathOps.clamp(finite(rpc.data.directionZ), -1, 1);
+      const cameraYaw = finite(rpc.data.cameraYaw);
 
       // Transform camera-relative direction to world-space
       const cosYaw = MathOps.cos(cameraYaw);

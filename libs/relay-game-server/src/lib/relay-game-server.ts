@@ -10,13 +10,14 @@ import { createWsRouter } from './ws-router.js';
 import { generateToken, validateToken } from './token.js';
 import { corsHeaders, corsJson } from './cors.js';
 import { setupLatencySimulator, handleLatencyEndpoint, type LatencyState } from './latency-setup.js';
-import type { RelayGameServerConfig, RouteHelpers } from './types.js';
+import type { RelayGameServerConfig, RouteHandler, RouteHelpers } from './types.js';
 
 export class RelayGameServer {
   private readonly _config: RelayGameServerConfig;
   private readonly _roomRegistry: RoomRegistry;
   private readonly _matchmaking: MatchmakingService;
   private readonly _latencyState: LatencyState;
+  private readonly _additionalRoutes: RouteHandler[] = [];
 
   constructor(config: RelayGameServerConfig) {
     this._config = config;
@@ -116,6 +117,10 @@ export class RelayGameServer {
     setupLatencySimulator(this._roomRegistry, this._latencyState);
   }
 
+  public addCustomRoute(handler: RouteHandler): void {
+    this._additionalRoutes.push(handler);
+  }
+
   public start(): void {
     const config = this._config;
     const log = createLogger(config.loggerName);
@@ -123,7 +128,7 @@ export class RelayGameServer {
     const roomRegistry = this._roomRegistry;
     const matchmaking = this._matchmaking;
     const latencyState = this._latencyState;
-    const customRoutes = config.customRoutes ?? [];
+    const customRoutes = [...(config.customRoutes ?? []), ...this._additionalRoutes];
     const authCustomizer = config.authResponseCustomizer;
 
     const helpers: RouteHelpers = { corsHeaders, corsJson };

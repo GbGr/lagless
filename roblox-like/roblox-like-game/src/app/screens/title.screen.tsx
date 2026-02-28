@@ -1,10 +1,27 @@
-import { FC } from 'react';
+import { FC, useEffect } from 'react';
 import { useStartMatch } from '../hooks/use-start-match';
 import { useStartMultiplayerMatch } from '../hooks/use-start-multiplayer-match';
+import { DevBridge } from '@lagless/react';
 
 export const TitleScreen: FC = () => {
   const { isBusy, startMatch } = useStartMatch();
   const { state, queuePosition, error, startMatch: startMultiplayer, cancel } = useStartMultiplayerMatch();
+
+  // Dev-bridge: auto-match on URL param or parent command
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('autoMatch') === 'true' && state === 'idle') {
+      startMultiplayer();
+    }
+    const bridge = DevBridge.fromUrlParams();
+    if (!bridge) return;
+    bridge.sendMatchState(state === 'idle' ? 'idle' : state);
+    return bridge.onParentMessage((msg) => {
+      if (msg.type === 'dev-bridge:start-match' && state === 'idle') {
+        startMultiplayer();
+      }
+    });
+  }, [state]);
 
   return (
     <div style={styles.container}>

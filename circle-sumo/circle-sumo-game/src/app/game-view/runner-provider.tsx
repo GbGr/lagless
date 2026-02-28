@@ -12,6 +12,7 @@ import { useTick } from '@pixi/react';
 import { useNavigate } from 'react-router-dom';
 import { ProviderStore } from '../hooks/use-start-match';
 import { RelayInputProvider, RelayConnection } from '@lagless/relay-client';
+import { useDevBridge } from '@lagless/react';
 import { getMatchInfo } from '../hooks/use-start-multiplayer-match';
 
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -132,6 +133,8 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
       _runner?.dispose();
     };
   }, [v, navigate]);
+
+  useDevBridge(runner);
 
   return !runner ? null : <RunnerContext.Provider value={runner}>{children}</RunnerContext.Provider>;
 };

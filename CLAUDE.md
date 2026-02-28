@@ -52,6 +52,10 @@ pnpm exec nx serve @lagless/sync-test-game
 pnpm exec nx serve @lagless/roblox-like-server
 # Terminal 2 — game client (Vite, port 4202)
 pnpm exec nx serve @lagless/roblox-like-game
+
+# Run Dev Player (multiplayer testing tool, port 4210):
+# Requires game server + game client to be running
+pnpm exec nx serve @lagless/dev-player
 ```
 
 ## Architecture
@@ -74,9 +78,12 @@ math ────┤
          └─► animation-controller
          │
          └─► game-simulation ──► game-client
-                                 game-server (uses relay-game-server)
+                                 game-server (uses relay-game-server + dev-tools)
+
+dev-tools ──► relay-server, relay-game-server (dev-only, never in production)
 
 Games: circle-sumo (gameplay), sync-test (determinism/late-join/reconnect testing), roblox-like (3D character controller + BabylonJS)
+Tools: dev-player (multiplayer testing UI, port 4210)
 ```
 
 ### Memory Model (core)
@@ -113,9 +120,10 @@ Snapshot = `ArrayBuffer.slice(0)`. Rollback = `Uint8Array.set()` from snapshot. 
 4. simulationTicks(current, target):
    for each tick:
      a. tickManager.setTick(++tick)
-     b. systems[i].update(tick)   — sequential, deterministic order
-     c. signalsRegistry.onTick()  — verify/cancel predictions
-     d. saveSnapshot (if snapshotRate match)
+     b. systems[i].update(tick)          — sequential, deterministic order
+     c. hashHistory.set() (if interval)  — store hash for verified reporting
+     d. signalsRegistry.onTick(verifiedTick) — verify/cancel predictions
+     e. saveSnapshot (if snapshotRate match)
 5. inputProvider.update()         — drain input sources, send to server
 6. interpolationFactor = leftover / frameLength
 ```
@@ -125,19 +133,20 @@ Snapshot = `ArrayBuffer.slice(0)`. Rollback = `Uint8Array.set()` from snapshot. 
 RPCs have deterministic ordering: sorted by `(playerSlot, ordinal, seq)` — identical regardless of network arrival order. Input delay: local inputs are scheduled at `currentTick + inputDelay` ticks ahead, giving them time to reach the server before that tick.
 
 **InputProvider hierarchy:**
-- `AbstractInputProvider` — base class with drainers, RPCHistory, sequence management
-- `LocalInputProvider` — single-player, no rollback
-- `ReplayInputProvider` — pre-recorded inputs from binary
-- `RelayInputProvider` (relay-client) — multiplayer: prediction + rollback on remote inputs/CancelInput
+- `AbstractInputProvider` — base class with drainers, RPCHistory, sequence management, abstract `verifiedTick`
+- `LocalInputProvider` — single-player, no rollback, `verifiedTick = tick`
+- `ReplayInputProvider` — pre-recorded inputs from binary, `verifiedTick = tick`
+- `RelayInputProvider` (relay-client) — multiplayer: prediction + rollback on remote inputs/CancelInput, `verifiedTick = maxServerTick - 1`
 
 ### Signals (Rollback-Aware Events)
 
-```
-System emits signal → Predicted fires (play sound, show VFX)
-Tick verified (maxInputDelayTick later):
-  - Still present → Verified fires
-  - Missing after rollback → Cancelled fires (stop sound)
-```
+Three event streams: **Predicted** (instant feedback), **Verified** (survived all rollbacks), **Cancelled** (rolled back). Verification is driven by `verifiedTick` — the latest tick guaranteed to never be rolled back. [Full documentation](SIGNALS.MD)
+
+**`verifiedTick`** is an abstract getter on `AbstractInputProvider`:
+- `LocalInputProvider` / `ReplayInputProvider`: `= simulation.tick` (immediate — no rollback possible)
+- `RelayInputProvider`: `= max(received serverTick/sTick) - 1` (server-confirmed, hard guarantee)
+
+`ECSSimulation` passes `inputProvider.verifiedTick` to `SignalsRegistry.onTick()` each tick. Signals process all ticks from `_lastVerifiedTick + 1` up to `verifiedTick` — comparing `_awaitingVerification` (what was predicted) against `_pending` (what exists after re-simulation).
 
 ### Visual Smoothing (misc)
 
@@ -170,11 +179,11 @@ When a player connects to a room that already has a running simulation (`serverT
 
 ### Hash Verification (core)
 
-Reusable infrastructure for detecting simulation divergence between clients:
+Reusable infrastructure for detecting simulation divergence between clients. Uses `verifiedTick` to ensure comparisons are based on finalized (post-rollback) state only.
 
-- **`DivergenceSignal`** — Signal emitted when two players report different hashes for the same tick
-- **`AbstractHashVerificationSystem`** — Abstract ECS system that compares per-player hash reports. Subclass it in your game simulation, providing the concrete `ReportHash` RPC and `PlayerResource` class from codegen
-- **`createHashReporter(runner, config)`** — Utility for client-side hash reporting in `drainInputs`. Returns a function that periodically reports the simulation state hash via the `ReportHash` RPC
+- **`ECSSimulation.enableHashTracking(interval)`** — stores state hashes at the given tick interval during simulation. Call in runner-provider before `start()`.
+- **`createHashReporter(runner, config)`** — reports hashes for verified ticks only (from hash history). Called from `drainInputs`.
+- **`AbstractHashVerificationSystem`** — compares per-player hash reports, skipping reports where `lastReportedHashTick > verifiedTick`. Emits `DivergenceSignal` on mismatch.
 
 Games wanting hash verification must include in `ecs.yaml`:
 ```yaml
@@ -231,6 +240,34 @@ All built libs use a `@lagless/source` custom condition in package.json exports:
 
 Source-only libs (react, pixi-react) point `main` directly to `./src/index.ts` — no build step.
 
+## Creating New Packages (Libraries & Apps)
+
+**Always use Nx generators** to scaffold new libraries and applications. Never create packages manually.
+
+**New library (in `libs/`):**
+```bash
+# Standard lib (tsc):
+pnpm exec nx g @nx/js:library --directory libs/<name> --importPath @lagless/<name> --publishable --bundler tsc --unitTestRunner vitest --linter eslint --minimal
+
+# Lib with decorators (@ECSSystem, @ECSSignal — needs SWC):
+pnpm exec nx g @nx/js:library --directory libs/<name> --importPath @lagless/<name> --publishable --bundler swc --unitTestRunner vitest --linter eslint --minimal
+```
+
+**New simulation package (in `<game>/<game>-simulation/`):**
+```bash
+# Simulations use SWC (decorators: @ECSSystem, @ECSSignal, reflect-metadata)
+pnpm exec nx g @nx/js:library --directory <game>/<game>-simulation --importPath @lagless/<game>-simulation --bundler swc --unitTestRunner vitest --linter eslint --minimal
+```
+
+**New React game client (in `<game>/<game>-game/`):**
+```bash
+pnpm exec nx g @nx/react:application --directory <game>/<game>-game --name <game>-game --bundler vite --linter eslint --unitTestRunner vitest --e2eTestRunner none --style css --minimal
+```
+
+**After generation:** adjust the generated `package.json` to match project conventions — add `@lagless/source` export condition, `workspace:*` deps, `"type": "module"`. Update `tsconfig.json` with project references.
+
+**Game servers (Bun)** have no matching Nx generator — minimal packages (package.json + tsconfig.json + bunfig.toml + src/). Copy from an existing game (e.g., `circle-sumo-server/`) and adjust.
+
 ## Creating a New Game
 
 Create three packages: `my-game/my-game-simulation/`, `my-game/my-game-client/`, `my-game/my-game-server/`.
@@ -247,7 +284,7 @@ Create three packages: `my-game/my-game-simulation/`, `my-game/my-game-client/`,
    });
    server.start();
    ```
-   Implement `RoomHooks` for game-specific logic (player join/leave events, match results, DB persistence). Add `customRoutes` for game-specific HTTP endpoints.
+   Implement `RoomHooks` for game-specific logic (player join/leave events, match results, DB persistence). Add `customRoutes` for game-specific HTTP endpoints. Call `setupDevTools(server)` from `@lagless/dev-tools` for dev-player support.
 
 ## Code Conventions
 
@@ -262,6 +299,31 @@ Create three packages: `my-game/my-game-simulation/`, `my-game/my-game-client/`,
 - When spawning entities with Transform2d, always set `prevPositionX/Y` and `prevRotation` equal to `positionX/Y` and `rotation` — otherwise interpolation produces a one-frame jump from (0,0)
 - Cross-package deps use `workspace:*` protocol
 - ESM everywhere — internal imports in built libs use `.js` extension
+
+## Input Validation (RPC Sanitization)
+
+**All RPC data from players must be treated as potentially malicious.** The binary layer validates message structure but does NOT validate field values — NaN, Infinity, and out-of-range numbers pass through network deserialization. A crafted packet can corrupt simulation state for all clients (NaN propagates through MathOps trig → into Rapier physics → permanent divergence).
+
+**Rules for every system that reads RPC data:**
+- **Check `Number.isFinite()` on every float field** before use. Replace non-finite values with a safe default (usually 0). `MathOps.clamp(NaN, min, max)` returns NaN — always check finiteness BEFORE clamping.
+- **Clamp all float fields to their semantic range.** Direction vectors: clamp each component to [-1, 1]. Angles: any finite value is valid for trig functions. Speed/power: clamp to [0, 1] or the game's expected range.
+- **Treat uint8 boolean fields as non-zero = true.** Uint8 values are auto-masked to 0-255 by `truncateToFieldType`, so they cannot overflow, but treat them as booleans (`!= 0`), never use the raw numeric value in arithmetic.
+- **Validate early, in the "Apply Input" system** — the first system that reads RPCs. Never let unsanitized values reach movement, physics, or state systems.
+
+**Sanitization pattern:**
+```typescript
+// Helper: returns 0 for NaN/Infinity, value otherwise
+const finite = (v: number): number => Number.isFinite(v) ? v : 0;
+
+// In apply-input system:
+let dirX = finite(rpc.data.directionX);
+let dirZ = finite(rpc.data.directionZ);
+dirX = MathOps.clamp(dirX, -1, 1);
+dirZ = MathOps.clamp(dirZ, -1, 1);
+const cameraYaw = finite(rpc.data.cameraYaw);
+```
+
+**Why not validate in the framework?** The framework is game-agnostic — it doesn't know semantic ranges for game-specific RPCs. Validation belongs in game simulation code where the meaning of each field is known.
 
 ## Physics Libraries
 
@@ -278,6 +340,29 @@ Codegen: `simulationType: 'physics3d'` auto-prepends Transform3d (14 fields) + P
 - **[Character Controller Documentation](CHARACTER_CONTROLLER.MD)** — Architecture, best practices, system execution order.
 
 Games: `roblox-like/` (3D character controller test with BabylonJS)
+
+## Dev Tools
+
+### Dev Player (`tools/dev-player/`)
+
+Browser-based multiplayer testing tool. Opens N game instances in iframe grid, auto-matchmakes them via unique scope, displays per-instance stats, hash timeline for divergence detection, and latency controls.
+
+**Architecture:**
+- `@lagless/react` → `dev-bridge/` — postMessage protocol between parent (dev-player) and child (game iframe). `DevBridge` class + `useDevBridge(runner)` hook. Tree-shakeable — no-op without `?devBridge=true` URL param.
+- `@lagless/dev-tools` — Server-side plugin package. `setupDevTools(server)` registers per-player latency API route. **Never import in production.**
+- `tools/dev-player/` — React app (Vite, port 4210). Iframe grid, stats dashboard, hash timeline, latency sliders, localStorage presets.
+
+**Game integration requirements:**
+- Game servers must call `setupDevTools(server)` from `@lagless/dev-tools` before `server.start()`
+- Game clients must call `useDevBridge(runner)` in their runner provider component
+- Game clients must support URL params: `devBridge`, `autoMatch`, `serverUrl`, `scope`, `instanceId`
+- Title screens must auto-match when `?autoMatch=true` and listen for `dev-bridge:start-match` parent message
+
+### Per-Player Latency
+
+`RelayRoom.perPlayerLatency` — `Map<number, LatencySimulator>` — per-slot latency simulation. Takes priority over global `latencySimulator` for both input fanout and pong responses.
+
+API: `POST/GET/DELETE /api/dev/latency/player` (registered by `@lagless/dev-tools`).
 
 ## Key Design Constraints
 

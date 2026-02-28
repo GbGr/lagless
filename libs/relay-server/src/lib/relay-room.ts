@@ -1,7 +1,7 @@
 import { createLogger } from '@lagless/misc';
 import {
   TickInputKind, HeaderSchema,
-  packServerHello, packPong, packStateResponse,
+  packServerHello, packPong, packStateResponse, packTickInputFanout,
 } from '@lagless/net-wire';
 import { InputBinarySchema, LE } from '@lagless/binary';
 import { ServerClock } from './server-clock.js';
@@ -139,6 +139,10 @@ export class RelayRoom {
 
   public get latencySimulator(): LatencySimulator | null { return this._latencySimulator; }
   public set latencySimulator(sim: LatencySimulator | null) { this._latencySimulator = sim; }
+
+  private _perPlayerLatency: Map<number, LatencySimulator> | null = null;
+  public get perPlayerLatency(): Map<number, LatencySimulator> | null { return this._perPlayerLatency; }
+  public set perPlayerLatency(map: Map<number, LatencySimulator> | null) { this._perPlayerLatency = map; }
 
   public getConnectedHumanCount(): number {
     let count = 0;
@@ -436,11 +440,21 @@ export class RelayRoom {
       }
       this.pruneRecentClientInputs();
 
-      const broadcast = () => this._inputHandler.broadcastInputBatch(accepted, this._connections);
-      if (this._latencySimulator) {
-        this._latencySimulator.apply(broadcast);
+      if (this._perPlayerLatency?.size) {
+        const fanout = packTickInputFanout({ serverTick: this._clock.tick, inputs: accepted });
+        for (const c of this._connections.values()) {
+          if (!c.isReady) continue;
+          const sim = this._perPlayerLatency.get(c.slot);
+          if (sim) sim.apply(() => c.send(fanout));
+          else c.send(fanout);
+        }
       } else {
-        broadcast();
+        const broadcast = () => this._inputHandler.broadcastInputBatch(accepted, this._connections);
+        if (this._latencySimulator) {
+          this._latencySimulator.apply(broadcast);
+        } else {
+          broadcast();
+        }
       }
     }
   }
@@ -458,8 +472,9 @@ export class RelayRoom {
     });
 
     const send = () => conn.send(pong);
-    if (this._latencySimulator) {
-      this._latencySimulator.apply(send);
+    const sim = this._perPlayerLatency?.get(conn.slot) ?? this._latencySimulator;
+    if (sim) {
+      sim.apply(send);
     } else {
       send();
     }

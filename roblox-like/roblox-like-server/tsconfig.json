@@ -12,13 +12,16 @@
   "include": ["src/**/*.ts"],
   "references": [
     {
-      "path": "../../libs/relay-server"
-    },
-    {
       "path": "../roblox-like-simulation"
     },
     {
       "path": "../../libs/misc"
+    },
+    {
+      "path": "../../libs/relay-server"
+    },
+    {
+      "path": "../../libs/dev-tools"
     },
     {
       "path": "../../libs/relay-game-server"

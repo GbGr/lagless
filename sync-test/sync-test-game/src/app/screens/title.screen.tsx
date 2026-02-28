@@ -1,15 +1,32 @@
-import { FC, useRef } from 'react';
+import { FC, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStartMatch, ProviderStore } from '../hooks/use-start-match';
 import { useStartMultiplayerMatch } from '../hooks/use-start-multiplayer-match';
 import { ReplayInputProvider } from '@lagless/core';
 import { SyncTestInputRegistry } from '@lagless/sync-test-simulation';
+import { DevBridge } from '@lagless/react';
 
 export const TitleScreen: FC = () => {
   const { isBusy, startMatch } = useStartMatch();
   const multiplayer = useStartMultiplayerMatch();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Dev-bridge: auto-match on URL param or parent command
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('autoMatch') === 'true' && multiplayer.state === 'idle') {
+      multiplayer.startMatch();
+    }
+    const bridge = DevBridge.fromUrlParams();
+    if (!bridge) return;
+    bridge.sendMatchState(multiplayer.state === 'idle' ? 'idle' : multiplayer.state);
+    return bridge.onParentMessage((msg) => {
+      if (msg.type === 'dev-bridge:start-match' && multiplayer.state === 'idle') {
+        multiplayer.startMatch();
+      }
+    });
+  }, [multiplayer.state]);
 
   const isMultiplayerBusy = multiplayer.state !== 'idle';
 

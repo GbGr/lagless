@@ -325,6 +325,9 @@ importers:
       '@lagless/circle-sumo-simulation':
         specifier: workspace:*
         version: link:../circle-sumo-simulation
+      '@lagless/dev-tools':
+        specifier: workspace:*
+        version: link:../../libs/dev-tools
       '@lagless/misc':
         specifier: workspace:*
         version: link:../../libs/misc
@@ -408,6 +411,18 @@ importers:
       unplugin-swc:
         specifier: ^1.5.7
         version: 1.5.7(@swc/core@1.15.11(@swc/helpers@0.5.17))(rollup@4.52.4)
+
+  libs/dev-tools:
+    dependencies:
+      '@lagless/misc':
+        specifier: workspace:*
+        version: link:../misc
+      '@lagless/relay-game-server':
+        specifier: workspace:*
+        version: link:../relay-game-server
+      '@lagless/relay-server':
+        specifier: workspace:*
+        version: link:../relay-server
 
   libs/matchmaking:
     dependencies:
@@ -659,6 +674,9 @@ importers:
 
   roblox-like/roblox-like-server:
     dependencies:
+      '@lagless/dev-tools':
+        specifier: workspace:*
+        version: link:../../libs/dev-tools
       '@lagless/misc':
         specifier: workspace:*
         version: link:../../libs/misc
@@ -767,6 +785,9 @@ importers:
 
   sync-test/sync-test-server:
     dependencies:
+      '@lagless/dev-tools':
+        specifier: workspace:*
+        version: link:../../libs/dev-tools
       '@lagless/misc':
         specifier: workspace:*
         version: link:../../libs/misc
@@ -842,6 +863,31 @@ importers:
       '@types/ejs':
         specifier: ^3.1.5
         version: 3.1.5
+
+  tools/dev-player:
+    dependencies:
+      react:
+        specifier: ^19.0.0
+        version: 19.1.0
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.1.0(react@19.1.0)
+    devDependencies:
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.0.0
+      '@types/react-dom':
+        specifier: ^19.0.0
+        version: 19.0.0
+      '@vitejs/plugin-react-swc':
+        specifier: ^4.0.0
+        version: 4.2.3(@swc/helpers@0.5.17)(vite@7.2.2(@types/node@20.19.9)(jiti@2.4.2)(less@4.4.2)(sass-embedded@1.93.3)(sass@1.94.0)(terser@5.44.0)(yaml@2.8.1))
+      typescript:
+        specifier: ^5.9.0
+        version: 5.9.3
+      vite:
+        specifier: ^7.0.0
+        version: 7.2.2(@types/node@20.19.9)(jiti@2.4.2)(less@4.4.2)(sass-embedded@1.93.3)(sass@1.94.0)(terser@5.44.0)(yaml@2.8.1)
 
 packages:
 

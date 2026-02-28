@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { RelayGameServer } from '@lagless/relay-game-server';
+import { setupDevTools } from '@lagless/dev-tools';
 import { RobloxLikeInputRegistry } from '@lagless/roblox-like-simulation';
 import { robloxLikeHooks } from './roblox-like-hooks.js';
 
@@ -25,4 +26,5 @@ const server = new RelayGameServer({
   },
 });
 
+setupDevTools(server);
 server.start();

@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@lagless/relay-game-server": "workspace:*",
+    "@lagless/dev-tools": "workspace:*",
     "@lagless/relay-server": "workspace:*",
     "@lagless/misc": "workspace:*",
     "@lagless/roblox-like-simulation": "workspace:*"

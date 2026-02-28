@@ -22,6 +22,8 @@ export class ECSSimulation {
 
   private _interpolationFactor = 0;
   protected _snapshotHistory: SnapshotHistory<ArrayBuffer>;
+  private _hashTrackingInterval = 0;
+  private _hashHistory = new Map<number, number>();
 
   public get tick(): number {
     return this.mem.tickManager.tick;
@@ -92,6 +94,18 @@ export class ECSSimulation {
     return this._frameLength;
   }
 
+  public get inputProvider(): AbstractInputProvider {
+    return this._inputProvider;
+  }
+
+  public enableHashTracking(interval: number): void {
+    this._hashTrackingInterval = interval;
+  }
+
+  public getHashAtTick(tick: number): number | undefined {
+    return this._hashHistory.get(tick);
+  }
+
   public start(): void {
     this.clock.start();
   }
@@ -120,6 +134,9 @@ export class ECSSimulation {
 
     // Reset signals — old predictions are invalid
     this._signalsRegistry.dispose();
+
+    // Clear hash history — old hashes are from a different timeline
+    this._hashHistory.clear();
   }
 
   /**
@@ -178,9 +195,24 @@ export class ECSSimulation {
     while (currentTick < toTick) {
       this.mem.tickManager.setTick(++currentTick);
       this.simulate(currentTick);
-      this._signalsRegistry.onTick(currentTick);
+
+      if (this._hashTrackingInterval > 0 && currentTick % this._hashTrackingInterval === 0) {
+        this._hashHistory.set(currentTick, this.mem.getHash());
+      }
+
+      this._signalsRegistry.onTick(this._inputProvider.verifiedTick);
       this.storeSnapshotIfNeeded(currentTick);
       for (const handler of this._onTickHandlers) handler(currentTick);
+    }
+
+    // Prune old hash entries
+    if (this._hashHistory.size > 0) {
+      const pruneBelow = this._inputProvider.verifiedTick - 600;
+      if (pruneBelow > 0) {
+        for (const tick of this._hashHistory.keys()) {
+          if (tick < pruneBelow) this._hashHistory.delete(tick);
+        }
+      }
     }
   }
 

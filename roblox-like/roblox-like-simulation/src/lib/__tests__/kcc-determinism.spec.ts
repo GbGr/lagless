@@ -1,10 +1,8 @@
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
-import RAPIER from '@dimforge/rapier3d-compat';
 import { MathOps } from '@lagless/math';
 import { ECSConfig, LocalInputProvider, RPC } from '@lagless/core';
 import { CharacterControllerManager } from '@lagless/character-controller-3d';
 import type { RapierModule3d } from '@lagless/physics3d';
-import { UUID } from '@lagless/misc';
 import {
   RobloxLikeRunner,
   RobloxLikeSystems,
@@ -16,7 +14,6 @@ import {
   CHARACTER_CONFIG,
   Transform3d,
   CharacterState,
-  PhysicsRefs,
 } from '../../index.js';
 
 let rapier: RapierModule3d;

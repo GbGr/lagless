@@ -18,6 +18,7 @@ import { useNavigate } from 'react-router-dom';
 import { ProviderStore } from '../hooks/use-start-match';
 import { ECSConfig, LocalInputProvider, RPC, createHashReporter, DivergenceSignal, SignalEvent, DivergenceData } from '@lagless/core';
 import { RelayInputProvider, RelayConnection } from '@lagless/relay-client';
+import { useDevBridge } from '@lagless/react';
 import { getMatchInfo } from '../hooks/use-start-multiplayer-match';
 import { UUID } from '@lagless/misc';
 import { PhysicsWorldManager3d, type RapierModule3d } from '@lagless/physics3d';
@@ -158,6 +159,9 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children, cameraYawRef
         kccManager.recreateFromEntities(charFilter);
       });
 
+      // Enable hash tracking for verified-tick-based hash reporting
+      _runner.Simulation.enableHashTracking(ROBLOX_LIKE_CONFIG.hashReportInterval);
+
       // Set up input drainer
       if (!(inputProvider instanceof (await import('@lagless/core')).ReplayInputProvider)) {
         const reportHash = createHashReporter(_runner, {
@@ -239,6 +243,8 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children, cameraYawRef
       _runner?.dispose();
     };
   }, [v, navigate, cameraYawRef]);
+
+  useDevBridge(ctx?.runner ?? null, { hashTrackingInterval: ROBLOX_LIKE_CONFIG.hashReportInterval });
 
   return !ctx ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>Loading...</div>
     : <RunnerContext.Provider value={ctx}>{children}</RunnerContext.Provider>;

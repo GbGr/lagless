@@ -1,11 +1,11 @@
 import './title.screen.scss';
-import { FC } from 'react';
+import { FC, useEffect } from 'react';
 import { Balance } from '../components/balance/balance';
 import { CharacterPreview } from '../components/character-preview/character-preview';
 import { UsernameInput } from '../components/username-input/username-input';
 import { Button } from '../components/button/button';
 import { useNavigate } from 'react-router-dom';
-import { usePlayer } from '@lagless/react';
+import { usePlayer, DevBridge } from '@lagless/react';
 import { SumoPlayerData } from '@lagless/circle-sumo-simulation';
 import LockerSvg from '../../assets/svg/locker.svg?react';
 import { useStartMatch } from '../hooks/use-start-match';
@@ -20,6 +20,22 @@ export const TitleScreen: FC = () => {
   const multiplayer = useStartMultiplayerMatch();
 
   const isMultiplayerBusy = multiplayer.state !== 'idle';
+
+  // Dev-bridge: auto-match on URL param or parent command
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('autoMatch') === 'true' && multiplayer.state === 'idle') {
+      multiplayer.startMatch();
+    }
+    const bridge = DevBridge.fromUrlParams();
+    if (!bridge) return;
+    bridge.sendMatchState(multiplayer.state === 'idle' ? 'idle' : multiplayer.state);
+    return bridge.onParentMessage((msg) => {
+      if (msg.type === 'dev-bridge:start-match' && multiplayer.state === 'idle') {
+        multiplayer.startMatch();
+      }
+    });
+  }, [multiplayer.state]);
 
   return (
     <div className="screen title-screen">

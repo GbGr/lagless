@@ -5,7 +5,9 @@ import { useCallback, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ProviderStore } from './use-start-match';
 
-const SERVER_URL = import.meta.env.VITE_RELAY_URL || 'ws://localhost:3335';
+const _params = new URLSearchParams(window.location.search);
+const SERVER_URL = _params.get('serverUrl') || import.meta.env.VITE_RELAY_URL || 'ws://localhost:3335';
+const SCOPE = _params.get('scope') || 'roblox-like';
 
 export type MatchmakingState = 'idle' | 'queuing' | 'connecting' | 'error';
 
@@ -45,7 +47,7 @@ export const useStartMultiplayerMatch = () => {
     wsRef.current = ws;
 
     ws.onopen = () => {
-      ws.send(JSON.stringify({ type: 'join', scope: 'roblox-like' }));
+      ws.send(JSON.stringify({ type: 'join', scope: SCOPE }));
     };
 
     ws.onmessage = (event) => {

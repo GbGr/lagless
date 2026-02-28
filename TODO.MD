@@ -1,95 +1,42 @@
-1. [DONE] CRITICAL: Payload VIEW вместо COPY в unpack-функциях протокола
-    Файлы: libs/net-wire/src/lib/protocol.ts:468, :494; libs/relay-server/src/lib/input-handler.ts:86, :168
+Задача: Исправить Hash Timeline в Dev Player
 
-    unpackTickInputFanout создаёт VIEW во входной буфер:
-    // protocol.ts:468
-    const payload = new Uint8Array(data, offset, payloadLength); // VIEW
+Контекст
 
-    А unpackTickInput создаёт COPY:
-    // protocol.ts:385
-    const payload = new Uint8Array(pipeline.sliceRemaining()).slice(0, input.payloadLength); // COPY
+Dev Player (tools/dev-player/) — утилита для мультиплеер-тестирования. Открывает N iframe с игрой, показывает stats dashboard и hash timeline для детекции дивергенции между клиентами.
 
-    То же на сервере — validateClientInput (:86) и validateClientInputBatch (:168) создают views.
+Две проблемы:
 
-    Почему это проблема:
-    - GC не может освободить весь входящий ArrayBuffer пока жива маленькая view-ссылка на payload → утечка памяти при высокой частоте сообщений
-      - Bun (который используется для game-server) может переиспользовать буферы WebSocket в определённых конфигурациях → коррупция данных
-      - Клиентский unpackInputPayload (relay-input-provider.ts:330-332) вынужден делать защитную копию — это работает, но хрупко и маскирует корневую проблему
+1. Stale hashes → ложные красные точки при latency. Dev-bridge отправляет sim.mem.getHash() на текущем sim.tick. После rollback хэш для того же тика меняется, но dev-bridge его не переотправляет. Dashboard
+   хранит stale хэш и при сравнении показывает ложную дивергенцию.
+2. Точки становятся серыми со временем. В dashboard.tsx есть HASH_TIMEOUT_MS = 3000 — entries старше 3с считаются "timed out" и рисуются серым. Но timestamp ставится при создании entry, не обновляется при
+   получении новых данных. Через 3с ВСЕ точки неизбежно становятся серыми, даже verified ones. Логика timedOut конфликтует с verified — verified entry с timestamp > 3s рисуется серой, а не зелёной (timedOut
+   проверяется в else if после complete && verified, но incomplete verified entries попадают в timedOut).
 
-    Фикс: Заменить new Uint8Array(data, offset, payloadLength) на new Uint8Array(data.slice(offset, offset + payloadLength)) во всех четырёх местах.
+Решение
 
+Для проблемы 1: Использовать verified hash вместо текущего. В кодовой базе уже есть инфраструктура:
+- ECSSimulation.enableHashTracking(interval) — сохраняет mem.getHash() каждые N тиков в _hashHistory: Map<tick, hash>. При rollback вызывается _hashHistory.clear(), пересимуляция записывает правильные
+  пост-rollback хэши.
+- ECSSimulation.getHashAtTick(tick): number | undefined — возвращает хэш из истории.
+- RelayInputProvider.verifiedTick = maxReceivedServerTick - 1 — тик, до которого rollback невозможен.
+- createHashReporter (libs/core/src/lib/hash-verification/create-hash-reporter.ts) уже делает это: вычисляет latestReportTick = floor(verifiedTick / interval) * interval и берёт
+  getHashAtTick(latestReportTick).
 
+Нужно сделать то же самое в useDevBridge: помимо текущего tick/hash (для таблицы), отправлять verifiedHashTick и verifiedHash — хэш из _hashHistory на последнем verified interval tick. Dashboard timeline
+должен группировать и сравнивать по verifiedHashTick/verifiedHash вместо tick/hash.
 
----
-2. SERIOUS: Гонка при state transfer — новый игрок получает fanout до StateResponse
+Для этого useDevBridge должен знать hashTrackingInterval. Передавать параметром: useDevBridge(runner, { hashTrackingInterval: 10 }). Игры уже вызывают enableHashTracking(interval) — тот же interval.
 
-Файл: libs/relay-server/src/lib/relay-room.ts:262-290
+Для проблемы 2: Убрать HASH_TIMEOUT_MS / timedOut логику полностью. Она не нужна — verified check через minVerifiedTick уже корректно определяет когда можно сравнивать. Точки должны быть:
+- Зелёная: complete && verified && allSame
+- Красная: complete && verified && !allSame
+- Серая (pending): !complete || !verified
 
-conn.connect(ws);                                          // line 262 — игрок в broadcast-пуле
-const helloMessage = this.buildServerHello(conn.slot);
-conn.send(helloMessage);
+Проверка
 
-const needsStateTransfer = this._clock.tick > 0 && this._config.lateJoinEnabled;
-if (needsStateTransfer) {
-const stateResult = await this._stateTransfer.requestState(...); // line 273 — AWAIT!
-
-Между conn.connect() и завершением state transfer, broadcastInputBatch итерирует ВСЕ соединения включая нового игрока. Клиент получает:
-
-1. ServerHello
-2. Нежелательные fanout-ы от других игроков (во время await)
-3. StateResponse (стирает всё)
-4. Post-state events
-
-Fanout-ы из пункта 2 заставляют клиента добавлять RPC, возможно откатываться к tick 0, и впустую пересимулировать — всё это потом стирается при обработке StateResponse.
-
-Фикс: Не добавлять соединение в broadcast-пул до завершения state transfer. Вариант: conn.connect(ws) перенести после блока state transfer, либо ввести флаг isReady и проверять его в broadcastInputBatch.
-
-6. MODERATE: handlePlayerConnect — server events от hooks не попадают в post-state batch
-
-Файл: libs/relay-server/src/lib/relay-room.ts:272-297
-
-// Сначала отправляем state + post-state events (lines 274-286)
-this.sendStateToPlayer(conn, stateResult);
-const postStateEvents = this._serverEventJournal.filter(e => e.tick > stateResult.tick);
-this._inputHandler.sendInputBatchToPlayer(postStateEvents, conn);
-
-// ПОТОМ вызываем hook (line 296)
-await this._hooks.onPlayerJoin?.(this._context, conn.info);
-
-Hook onPlayerJoin часто вызывает emitServerEvent(PlayerJoined, ...). Это событие:
-- Попадает в journal
-- Бродкастится всем (включая нового игрока) через broadcastInput
-
-Новый игрок получает его как обычный fanout. Это работает корректно — но только потому что WebSocket гарантирует порядок. Если порядок вызовов изменится (например, hook перенесут до state transfer),
-возникнет дублирование событий.
-
-Рекомендация: Документировать этот инвариант или перенести hook call в чётко определённое место в потоке.
-
-7. MODERATE: TickInputBuffer — sentinel 0 коллизия
-
-Файл: libs/net-wire/src/lib/tick-input-buffer.ts:7,32
-
-private _oldestStoredTick = 0; // 0 = "пусто" И "tick 0 хранится"
-
-public add(tick: number, data: Uint8Array): void {
-...
-if (this._oldestStoredTick === 0 || tick < this._oldestStoredTick) {
-this._oldestStoredTick = tick; // При tick=1 перезаписывает 0→1, даже если tick 0 есть
-}
-}
-
-Фикс: Инициализировать _oldestStoredTick = Infinity (или -1) вместо 0.
-
-Я вижу это примерно так:
-npx @lagless/create my-game --preset=pixi-react
-
-создаётся проект с:
- CLAIDE.MD + AGENTS.MD - документация по архитектуре и разработке на @lagless
- my-game-frontend/ — React + PixiJS
- my-game-backend/ — Game Server
- my-game-simulation/ — Игровая логика
-
-В проекте максимально создан рабочий миннимум кода, в my-game-simulation/src/lib/schema/ecs.yaml уже есть базовые структуры
-Так же в README.MD написано про codegen и как его запускать + описание структур для ecs.yaml
-
-все импорты проставлены и проект можно запустить сразу и проверить.
+1. Запустить sync-test server + game + dev-player
+2. Start 2+ instances
+3. Без latency: timeline должна быть зелёной
+4. С global latency 200ms: timeline должна быть зелёной (rollback'и не вызывают ложных красных), pending (серые) точки на конце — это нормально (ждём verified)
+5. Со временем (>3с) точки НЕ должны становиться серыми — зелёные остаются зелёными
+6. Только реальная дивергенция (баг в детерминизме) даёт красные точки
