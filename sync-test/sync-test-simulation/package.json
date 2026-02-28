@@ -27,7 +27,6 @@
           "outputPath": "sync-test/sync-test-simulation/dist",
           "main": "sync-test/sync-test-simulation/src/index.ts",
           "tsConfig": "sync-test/sync-test-simulation/tsconfig.lib.json",
-          "skipTypeCheck": true,
           "stripLeadingPaths": true
         }
       }

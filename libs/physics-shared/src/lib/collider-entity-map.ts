@@ -1,4 +1,4 @@
-const SENTINEL = -1;
+export const UNMAPPED_ENTITY = -1;
 const DEFAULT_CAPACITY = 256;
 
 // Reinterpret float64 bit pattern → uint32 index (low 32 bits of IEEE 754)
@@ -14,7 +14,7 @@ export class ColliderEntityMap {
   private _map: Int32Array;
 
   constructor(initialCapacity: number = DEFAULT_CAPACITY) {
-    this._map = new Int32Array(initialCapacity).fill(SENTINEL);
+    this._map = new Int32Array(initialCapacity).fill(UNMAPPED_ENTITY);
   }
 
   public set(colliderHandle: number, entity: number): void {
@@ -27,24 +27,24 @@ export class ColliderEntityMap {
 
   public get(colliderHandle: number): number {
     const idx = handleToIndex(colliderHandle);
-    if (idx >= this._map.length) return SENTINEL;
+    if (idx >= this._map.length) return UNMAPPED_ENTITY;
     return this._map[idx];
   }
 
   public delete(colliderHandle: number): void {
     const idx = handleToIndex(colliderHandle);
     if (idx < this._map.length) {
-      this._map[idx] = SENTINEL;
+      this._map[idx] = UNMAPPED_ENTITY;
     }
   }
 
   public clear(): void {
-    this._map.fill(SENTINEL);
+    this._map.fill(UNMAPPED_ENTITY);
   }
 
   private _grow(minCapacity: number): void {
     const newCapacity = Math.max(minCapacity, this._map.length * 2);
-    const newMap = new Int32Array(newCapacity).fill(SENTINEL);
+    const newMap = new Int32Array(newCapacity).fill(UNMAPPED_ENTITY);
     newMap.set(this._map);
     this._map = newMap;
   }

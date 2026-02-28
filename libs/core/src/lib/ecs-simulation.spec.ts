@@ -127,7 +127,7 @@ describe('ECSSimulation', () => {
       const state = simulation.mem.exportSnapshot();
 
       let handlerTick: number | undefined;
-      simulation.addStateTransferHandler((tick) => { handlerTick = tick; });
+      simulation.addStateTransferHandler((tick: number) => { handlerTick = tick; });
 
       simulation.applyStateFromTransfer(state, 42);
 

@@ -27,7 +27,6 @@
           "outputPath": "roblox-like/roblox-like-simulation/dist",
           "main": "roblox-like/roblox-like-simulation/src/index.ts",
           "tsConfig": "roblox-like/roblox-like-simulation/tsconfig.lib.json",
-          "skipTypeCheck": true,
           "stripLeadingPaths": true
         }
       }

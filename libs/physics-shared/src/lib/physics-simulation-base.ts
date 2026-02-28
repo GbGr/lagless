@@ -102,9 +102,6 @@ export class PhysicsSimulationBase extends ECSSimulation {
 
     log.info(`applyStateFromTransfer: tick=${tick} ecs=${ecsLength} rapier=${rapierBytes.byteLength}`);
 
-    // Reset rapier history before super call (which calls saveSnapshot)
-    this._rapierSnapshotHistory = new SnapshotHistory<Uint8Array>(this._ECSConfig.snapshotHistorySize);
-
     // Apply ECS state (calls applyExternalState → saveSnapshot)
     this.applyExternalState(ecsState, tick);
 

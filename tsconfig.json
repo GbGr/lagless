@@ -89,6 +89,9 @@
     },
     {
       "path": "./libs/dev-tools"
+    },
+    {
+      "path": "./tools/dev-player"
     }
   ]
 }

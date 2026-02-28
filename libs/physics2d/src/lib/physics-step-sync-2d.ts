@@ -4,9 +4,6 @@ import { PhysicsWorldManager2d } from './physics-world-manager-2d.js';
 export type { IPhysicsRefsComponent, IFilter } from '@lagless/physics-shared';
 export { BodyType as BodyType2d } from '@lagless/physics-shared';
 
-/** @deprecated Use IPhysicsRefsComponent instead */
-export type { IPhysicsRefsComponent as IPhysicsBody2dComponent } from '@lagless/physics-shared';
-
 export interface ITransform2dComponent {
   positionX: { get(entity: number): number; set(entity: number, v: number): void };
   positionY: { get(entity: number): number; set(entity: number, v: number): void };
@@ -15,6 +12,8 @@ export interface ITransform2dComponent {
   prevPositionY: { get(entity: number): number; set(entity: number, v: number): void };
   prevRotation: { get(entity: number): number; set(entity: number, v: number): void };
 }
+
+const _vec2 = { x: 0, y: 0 };
 
 export class PhysicsStepSync2d {
   static savePrevTransforms(filter: import('@lagless/physics-shared').IFilter, transform: ITransform2dComponent): void {
@@ -38,10 +37,9 @@ export class PhysicsStepSync2d {
       if (type !== BodyType.KINEMATIC_POSITION && type !== BodyType.KINEMATIC_VELOCITY) continue;
 
       const body = worldManager.getBody(physicsRefs.bodyHandle.get(e));
-      body.setNextKinematicTranslation({
-        x: transform.positionX.get(e),
-        y: transform.positionY.get(e),
-      });
+      _vec2.x = transform.positionX.get(e);
+      _vec2.y = transform.positionY.get(e);
+      body.setNextKinematicTranslation(_vec2);
       body.setNextKinematicRotation(transform.rotation.get(e));
     }
   }

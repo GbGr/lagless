@@ -32,7 +32,6 @@
           "outputPath": "libs/net-wire/dist",
           "main": "libs/net-wire/src/index.ts",
           "tsConfig": "libs/net-wire/tsconfig.lib.json",
-          "skipTypeCheck": true,
           "stripLeadingPaths": true
         }
       }

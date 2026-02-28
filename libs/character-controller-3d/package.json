@@ -19,7 +19,6 @@
           "outputPath": "libs/character-controller-3d/dist",
           "main": "libs/character-controller-3d/src/index.ts",
           "tsConfig": "libs/character-controller-3d/tsconfig.lib.json",
-          "skipTypeCheck": true,
           "stripLeadingPaths": true
         }
       }

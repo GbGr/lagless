@@ -13,20 +13,8 @@ import { CharacterControllerConfig } from './character-controller-config.js';
 export class CharacterControllerManager {
   private readonly _controllers = new Map<number, RapierKinematicCharacterController>();
   private _worldManager: PhysicsWorldManager3d | undefined;
-  private readonly _config: CharacterControllerConfig;
 
-  constructor(config: CharacterControllerConfig);
-  constructor(worldManager: PhysicsWorldManager3d, config: CharacterControllerConfig);
-  constructor(first: PhysicsWorldManager3d | CharacterControllerConfig, second?: CharacterControllerConfig) {
-    if (second !== undefined) {
-      // Legacy: constructor(worldManager, config)
-      this._worldManager = first as PhysicsWorldManager3d;
-      this._config = second;
-    } else {
-      // Deferred: constructor(config)
-      this._config = first as CharacterControllerConfig;
-    }
-  }
+  constructor(private readonly _config: CharacterControllerConfig) {}
 
   /**
    * Deferred initialization — set the world manager after construction.

@@ -32,7 +32,6 @@
           "outputPath": "libs/physics-shared/dist",
           "main": "libs/physics-shared/src/index.ts",
           "tsConfig": "libs/physics-shared/tsconfig.lib.json",
-          "skipTypeCheck": true,
           "stripLeadingPaths": true
         }
       }

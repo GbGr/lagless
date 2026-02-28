@@ -1,6 +1,7 @@
 import { ECSSystem, IECSSystem, InputProvider, PlayerResources } from '@lagless/core';
 import { MathOps } from '@lagless/math';
 import { CharacterMove, CharacterState, CharacterFilter, PlayerResource } from '../schema/code-gen/index.js';
+import { CHARACTER_CONFIG } from '../config.js';
 
 const finite = (v: number): number => Number.isFinite(v) ? v : 0;
 
@@ -10,19 +11,13 @@ export class ApplyCharacterInputSystem implements IECSSystem {
     private readonly _InputProvider: InputProvider,
     private readonly _PlayerResources: PlayerResources,
     private readonly _CharacterState: CharacterState,
-    private readonly _CharacterFilter: CharacterFilter,
+    _CharacterFilter: CharacterFilter,
   ) {}
 
   public update(tick: number): void {
     const rpcs = this._InputProvider.collectTickRPCs(tick, CharacterMove);
+    if (rpcs.length === 0) return; // Keep previous input values on ticks without RPCs
     const cs = this._CharacterState.unsafe;
-
-    // Clear transient input each tick — if no RPC arrives, the character decelerates to stop
-    for (const entity of this._CharacterFilter) {
-      cs.moveInputX[entity] = 0;
-      cs.moveInputZ[entity] = 0;
-      cs.isSprinting[entity] = 0;
-    }
 
     for (const rpc of rpcs) {
       const playerResource = this._PlayerResources.get(PlayerResource, rpc.meta.playerSlot);
@@ -43,7 +38,7 @@ export class ApplyCharacterInputSystem implements IECSSystem {
       cs.moveInputX[entity] = worldX;
       cs.moveInputZ[entity] = worldZ;
       cs.facingYaw[entity] = cameraYaw;
-      cs.isSprinting[entity] = rpc.data.sprint;
+      cs.isSprinting[entity] = rpc.data.sprint ? 1 : 0;
 
       // Jump
       if (rpc.data.jump) {
@@ -58,9 +53,9 @@ export class ApplyCharacterInputSystem implements IECSSystem {
     const jumpCount = cs.jumpCount[entity];
 
     // Allow jump if grounded or haven't exceeded max jumps
-    if (!grounded && jumpCount >= 1) return;
+    if (!grounded && jumpCount >= CHARACTER_CONFIG.maxJumps) return;
 
-    cs.verticalVelocity[entity] = 8; // jumpForce from CHARACTER_CONFIG
+    cs.verticalVelocity[entity] = CHARACTER_CONFIG.jumpForce;
     cs.jumpCount[entity] = jumpCount + 1;
     cs.grounded[entity] = 0;
   }

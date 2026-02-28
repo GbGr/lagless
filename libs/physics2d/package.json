@@ -32,7 +32,6 @@
           "outputPath": "libs/physics2d/dist",
           "main": "libs/physics2d/src/index.ts",
           "tsConfig": "libs/physics2d/tsconfig.lib.json",
-          "skipTypeCheck": true,
           "stripLeadingPaths": true
         }
       }

@@ -5,7 +5,6 @@ import { PlayerConnectionSystem } from './player-connection.system.js';
 import { PlayerLeaveSystem } from './player-leave.system.js';
 import { ApplyCharacterInputSystem } from './apply-character-input.system.js';
 import { CharacterMovementSystem } from './character-movement.system.js';
-import { SimpleMovementSystem } from './simple-movement.system.js';
 import { PhysicsStepSystem } from './physics-step.system.js';
 import { AnimationSystem } from './animation.system.js';
 import { HashVerificationSystem } from './hash-verification.system.js';
@@ -28,6 +27,6 @@ export const RobloxLikeSystems: IECSSystemConstructor[] = [
   ApplyCharacterInputSystem,
   CharacterMovementSystem,
   PhysicsStepSystem,
-  // AnimationSystem,       // TEMPORARILY DISABLED — isolating desync
+  AnimationSystem,
   HashVerificationSystem,
 ];

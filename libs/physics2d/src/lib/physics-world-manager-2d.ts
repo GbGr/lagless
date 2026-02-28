@@ -211,7 +211,7 @@ export class PhysicsWorldManager2d {
   }
 
   public dispose(): void {
-    this._collisionEvents?.dispose();
+    this._collisionEvents.dispose();
     this._world.free();
   }
 }

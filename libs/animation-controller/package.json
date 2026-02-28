@@ -19,7 +19,6 @@
           "outputPath": "libs/animation-controller/dist",
           "main": "libs/animation-controller/src/index.ts",
           "tsConfig": "libs/animation-controller/tsconfig.lib.json",
-          "skipTypeCheck": true,
           "stripLeadingPaths": true
         }
       }

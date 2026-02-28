@@ -43,7 +43,6 @@
           "outputPath": "tools/codegen/dist",
           "main": "tools/codegen/src/index.ts",
           "tsConfig": "tools/codegen/tsconfig.lib.json",
-          "skipTypeCheck": true,
           "stripLeadingPaths": true
         }
       }

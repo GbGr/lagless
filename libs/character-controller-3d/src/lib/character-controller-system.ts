@@ -5,6 +5,10 @@ import { CharacterControllerConfig } from './character-controller-config.js';
 import { CharacterControllerManager } from './character-controller-manager.js';
 import { ICharacterStateComponent } from './character-controller-interfaces.js';
 
+const _desiredVec3 = { x: 0, y: 0, z: 0 };
+const _posVec3 = { x: 0, y: 0, z: 0 };
+const _rotQuat = { x: 0, y: 0, z: 0, w: 1 };
+
 /**
  * Abstract character controller system. Game extends this with codegen types.
  *
@@ -88,7 +92,8 @@ export abstract class AbstractCharacterControllerSystem implements IECSSystem {
     const collider = this._worldManager.getCollider(colliderHandle);
     if (!collider) return;
 
-    kcc.computeColliderMovement(collider, { x: desiredX, y: desiredY, z: desiredZ });
+    _desiredVec3.x = desiredX; _desiredVec3.y = desiredY; _desiredVec3.z = desiredZ;
+    kcc.computeColliderMovement(collider, _desiredVec3);
     const computed = kcc.computedMovement();
     const newGrounded = kcc.computedGrounded();
 
@@ -104,7 +109,8 @@ export abstract class AbstractCharacterControllerSystem implements IECSSystem {
     const bodyHandle = this._physicsRefs.bodyHandle.get(entity);
     const body = this._worldManager.getBody(bodyHandle);
     if (body) {
-      body.setNextKinematicTranslation({ x: posX, y: posY, z: posZ });
+      _posVec3.x = posX; _posVec3.y = posY; _posVec3.z = posZ;
+      body.setNextKinematicTranslation(_posVec3);
     }
 
     // --- Update grounded ---
@@ -125,16 +131,14 @@ export abstract class AbstractCharacterControllerSystem implements IECSSystem {
     this._transform.rotationZ.set(entity, 0);
     this._transform.rotationW.set(entity, cosY);
     if (body) {
-      body.setNextKinematicRotation({ x: 0, y: sinY, z: 0, w: cosY });
+      _rotQuat.x = 0; _rotQuat.y = sinY; _rotQuat.z = 0; _rotQuat.w = cosY;
+      body.setNextKinematicRotation(_rotQuat);
     }
 
     // --- Locomotion angle (movement direction relative to facing, for animation) ---
     if (hasInput && currentSpeed > 0.001) {
       const moveAngle = MathOps.atan2(dirX, dirZ);
-      let locoAngle = moveAngle - facingYaw;
-      // Normalize to -PI..PI
-      while (locoAngle > MathOps.PI) locoAngle -= MathOps.PI_2;
-      while (locoAngle < -MathOps.PI) locoAngle += MathOps.PI_2;
+      const locoAngle = MathOps.normalizeAngle(moveAngle - facingYaw);
       cs.locomotionAngle.set(entity, locoAngle);
     } else {
       cs.locomotionAngle.set(entity, 0);

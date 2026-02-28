@@ -22,26 +22,30 @@ export abstract class PhysicsRunner2d extends ECSRunner {
     rapier: RapierModule2d,
     physicsConfig?: PhysicsConfig2d,
     collisionLayers?: CollisionLayers,
+    extraRegistrations?: Array<[unknown, unknown]>,
   ) {
     const config = physicsConfig ?? new PhysicsConfig2d();
     const worldManager = new PhysicsWorldManager2d(rapier, config, Config.frameLength);
     const simulation = new PhysicsSimulation2d(Config, Deps, InputProviderInstance, worldManager);
 
-    super(Config, InputProviderInstance, Systems, Signals, Deps, simulation);
+    const extraRegs: Array<[unknown, unknown]> = [
+      [PhysicsWorldManager2d, worldManager],
+      [PhysicsConfig2d, config],
+      [CollisionEvents2d, worldManager.collisionEvents],
+    ];
+    if (collisionLayers) {
+      extraRegs.push([CollisionLayers, collisionLayers]);
+    }
+    if (extraRegistrations) {
+      extraRegs.push(...extraRegistrations);
+    }
+
+    super(Config, InputProviderInstance, Systems, Signals, Deps, simulation, extraRegs);
 
     this.PhysicsWorldManager = worldManager;
     this.PhysicsConfig = config;
     this.Simulation = simulation;
     this.CollisionEvents = worldManager.collisionEvents;
-
-    // Register physics types in DI container so game systems can inject them
-    this.DIContainer.register(PhysicsWorldManager2d, worldManager);
-    this.DIContainer.register(PhysicsConfig2d, config);
-    this.DIContainer.register(CollisionEvents2d, worldManager.collisionEvents);
-
-    if (collisionLayers) {
-      this.DIContainer.register(CollisionLayers, collisionLayers);
-    }
   }
 
   public override dispose(): void {

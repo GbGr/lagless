@@ -10,7 +10,9 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "noEmit": true
+    "composite": true,
+    "emitDeclarationOnly": true,
+    "outDir": "out-tsc"
   },
   "include": ["src"]
 }

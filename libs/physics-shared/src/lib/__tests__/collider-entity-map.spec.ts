@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ColliderEntityMap } from '../collider-entity-map.js';
+import { ColliderEntityMap, UNMAPPED_ENTITY } from '../collider-entity-map.js';
 
 // Rapier handles are float64 bit patterns where low 32 bits = arena index.
 // Helper to create a float64 handle from an integer index (mimics Rapier's encoding).
@@ -19,10 +19,11 @@ describe('ColliderEntityMap', () => {
     expect(map.get(h)).toBe(42);
   });
 
-  it('should return -1 for unmapped handle', () => {
+  it('should return UNMAPPED_ENTITY for unmapped handle', () => {
     const map = new ColliderEntityMap();
-    expect(map.get(makeHandle(0))).toBe(-1);
-    expect(map.get(makeHandle(100))).toBe(-1);
+    expect(UNMAPPED_ENTITY).toBe(-1);
+    expect(map.get(makeHandle(0))).toBe(UNMAPPED_ENTITY);
+    expect(map.get(makeHandle(100))).toBe(UNMAPPED_ENTITY);
   });
 
   it('should delete a mapping', () => {

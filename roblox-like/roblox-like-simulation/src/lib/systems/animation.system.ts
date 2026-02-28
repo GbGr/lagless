@@ -7,16 +7,7 @@ const animMachine = new AnimationStateMachine();
 @ECSSystem()
 export class AnimationSystem implements IECSSystem {
   private readonly _dt: number;
-  private readonly _animAdapter = {
-    animationId: { get: (e: number) => 0, set: (e: number, v: number) => {} },
-    animationTime: { get: (e: number) => 0, set: (e: number, v: number) => {} },
-    animationSpeed: { get: (e: number) => 0, set: (e: number, v: number) => {} },
-    prevAnimationId: { get: (e: number) => 0, set: (e: number, v: number) => {} },
-    transitionProgress: { get: (e: number) => 0, set: (e: number, v: number) => {} },
-    transitionDuration: { get: (e: number) => 0, set: (e: number, v: number) => {} },
-    locomotionAngle: { get: (e: number) => 0, set: (e: number, v: number) => {} },
-    locomotionSpeed: { get: (e: number) => 0, set: (e: number, v: number) => {} },
-  };
+  private readonly _animAdapter;
 
   constructor(
     private readonly _ECSConfig: ECSConfig,
@@ -26,17 +17,17 @@ export class AnimationSystem implements IECSSystem {
   ) {
     this._dt = this._ECSConfig.frameLength / 1000;
 
-    // Create adapter from codegen unsafe arrays to IAnimationStateComponent interface
     const a = this._AnimationState.unsafe;
-    const adapter = this._animAdapter;
-    adapter.animationId = { get: (e) => a.animationId[e], set: (e, v) => { a.animationId[e] = v; } };
-    adapter.animationTime = { get: (e) => a.animationTime[e], set: (e, v) => { a.animationTime[e] = v; } };
-    adapter.animationSpeed = { get: (e) => a.animationSpeed[e], set: (e, v) => { a.animationSpeed[e] = v; } };
-    adapter.prevAnimationId = { get: (e) => a.prevAnimationId[e], set: (e, v) => { a.prevAnimationId[e] = v; } };
-    adapter.transitionProgress = { get: (e) => a.transitionProgress[e], set: (e, v) => { a.transitionProgress[e] = v; } };
-    adapter.transitionDuration = { get: (e) => a.transitionDuration[e], set: (e, v) => { a.transitionDuration[e] = v; } };
-    adapter.locomotionAngle = { get: (e) => a.locomotionAngle[e], set: (e, v) => { a.locomotionAngle[e] = v; } };
-    adapter.locomotionSpeed = { get: (e) => a.locomotionSpeed[e], set: (e, v) => { a.locomotionSpeed[e] = v; } };
+    this._animAdapter = {
+      animationId: { get: (e: number) => a.animationId[e], set: (e: number, v: number) => { a.animationId[e] = v; } },
+      animationTime: { get: (e: number) => a.animationTime[e], set: (e: number, v: number) => { a.animationTime[e] = v; } },
+      animationSpeed: { get: (e: number) => a.animationSpeed[e], set: (e: number, v: number) => { a.animationSpeed[e] = v; } },
+      prevAnimationId: { get: (e: number) => a.prevAnimationId[e], set: (e: number, v: number) => { a.prevAnimationId[e] = v; } },
+      transitionProgress: { get: (e: number) => a.transitionProgress[e], set: (e: number, v: number) => { a.transitionProgress[e] = v; } },
+      transitionDuration: { get: (e: number) => a.transitionDuration[e], set: (e: number, v: number) => { a.transitionDuration[e] = v; } },
+      locomotionAngle: { get: (e: number) => a.locomotionAngle[e], set: (e: number, v: number) => { a.locomotionAngle[e] = v; } },
+      locomotionSpeed: { get: (e: number) => a.locomotionSpeed[e], set: (e: number, v: number) => { a.locomotionSpeed[e] = v; } },
+    };
   }
 
   public update(): void {

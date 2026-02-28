@@ -4,9 +4,6 @@ import { PhysicsWorldManager3d } from './physics-world-manager-3d.js';
 export type { IPhysicsRefsComponent, IFilter } from '@lagless/physics-shared';
 export { BodyType as BodyType3d } from '@lagless/physics-shared';
 
-/** @deprecated Use IPhysicsRefsComponent instead */
-export type { IPhysicsRefsComponent as IPhysicsBody3dComponent } from '@lagless/physics-shared';
-
 export interface ITransform3dComponent {
   positionX: { get(entity: number): number; set(entity: number, v: number): void };
   positionY: { get(entity: number): number; set(entity: number, v: number): void };
@@ -23,6 +20,9 @@ export interface ITransform3dComponent {
   prevRotationZ: { get(entity: number): number; set(entity: number, v: number): void };
   prevRotationW: { get(entity: number): number; set(entity: number, v: number): void };
 }
+
+const _vec3 = { x: 0, y: 0, z: 0 };
+const _quat = { x: 0, y: 0, z: 0, w: 1 };
 
 export class PhysicsStepSync3d {
   static savePrevTransforms(filter: import('@lagless/physics-shared').IFilter, transform: ITransform3dComponent): void {
@@ -50,17 +50,15 @@ export class PhysicsStepSync3d {
       if (type !== BodyType.KINEMATIC_POSITION && type !== BodyType.KINEMATIC_VELOCITY) continue;
 
       const body = worldManager.getBody(physicsRefs.bodyHandle.get(e));
-      body.setNextKinematicTranslation({
-        x: transform.positionX.get(e),
-        y: transform.positionY.get(e),
-        z: transform.positionZ.get(e),
-      });
-      body.setNextKinematicRotation({
-        x: transform.rotationX.get(e),
-        y: transform.rotationY.get(e),
-        z: transform.rotationZ.get(e),
-        w: transform.rotationW.get(e),
-      });
+      _vec3.x = transform.positionX.get(e);
+      _vec3.y = transform.positionY.get(e);
+      _vec3.z = transform.positionZ.get(e);
+      body.setNextKinematicTranslation(_vec3);
+      _quat.x = transform.rotationX.get(e);
+      _quat.y = transform.rotationY.get(e);
+      _quat.z = transform.rotationZ.get(e);
+      _quat.w = transform.rotationW.get(e);
+      body.setNextKinematicRotation(_quat);
     }
   }
 

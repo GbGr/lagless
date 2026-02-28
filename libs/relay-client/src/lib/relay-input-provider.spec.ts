@@ -279,7 +279,7 @@ describe('RelayInputProvider', () => {
       };
 
       const mockConnection = {
-        sendStateResponse: () => {},
+        sendStateResponse: () => { /* noop */ },
         isConnected: true,
       };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

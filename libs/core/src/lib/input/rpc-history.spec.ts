@@ -182,7 +182,7 @@ describe('RPCHistory', () => {
       ];
       const filtered = RPCHistory.excludeLocalRPCs(rpcs, 0);
       expect(filtered.length).toBe(2);
-      expect(filtered.every(r => r.meta.playerSlot !== 0)).toBe(true);
+      expect(filtered.every((r: RPC) => r.meta.playerSlot !== 0)).toBe(true);
     });
   });
 

@@ -16,7 +16,7 @@ import { CharacterControllerManager } from '@lagless/character-controller-3d';
 import { createContext, FC, ReactNode, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ProviderStore } from '../hooks/use-start-match';
-import { ECSConfig, LocalInputProvider, RPC, createHashReporter, DivergenceSignal, SignalEvent, DivergenceData } from '@lagless/core';
+import { ECSConfig, LocalInputProvider, ReplayInputProvider, RPC, createHashReporter, DivergenceSignal, SignalEvent, DivergenceData } from '@lagless/core';
 import { RelayInputProvider, RelayConnection } from '@lagless/relay-client';
 import { useDevBridge } from '@lagless/react';
 import { getMatchInfo } from '../hooks/use-start-multiplayer-match';
@@ -163,7 +163,7 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children, cameraYawRef
       _runner.Simulation.enableHashTracking(ROBLOX_LIKE_CONFIG.hashReportInterval);
 
       // Set up input drainer
-      if (!(inputProvider instanceof (await import('@lagless/core')).ReplayInputProvider)) {
+      if (!(inputProvider instanceof ReplayInputProvider)) {
         const reportHash = createHashReporter(_runner, {
           reportInterval: ROBLOX_LIKE_CONFIG.hashReportInterval,
           reportHashRpc: ReportHash,
@@ -187,15 +187,13 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children, cameraYawRef
           const sprint = keys.has('ShiftLeft') || keys.has('ShiftRight') ? 1 : 0;
           const cameraYaw = cameraYawRef.current ?? 0;
 
-          if (dx !== 0 || dz !== 0 || jump || sprint) {
-            addRPC(CharacterMove, {
-              directionX: dx,
-              directionZ: dz,
-              cameraYaw,
-              jump,
-              sprint,
-            });
-          }
+          addRPC(CharacterMove, {
+            directionX: dx,
+            directionZ: dz,
+            cameraYaw,
+            jump,
+            sprint,
+          });
 
           reportHash(addRPC);
         });

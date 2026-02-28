@@ -28,8 +28,10 @@ export const OBSTACLES: readonly ObstacleDef[] = [
 
 export const CHARACTER_CONFIG: CharacterControllerConfig = {
   ...DEFAULT_CHARACTER_CONTROLLER_CONFIG,
-  walkSpeed: 4,
-  runSpeed: 8,
+  walkSpeed: 16,
+  runSpeed: 28,
+  acceleration: 200,
+  deceleration: 300,
   capsuleHalfHeight: 0.5,
   capsuleRadius: 0.3,
 };

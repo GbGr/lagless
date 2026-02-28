@@ -66,7 +66,7 @@ export function useDevBridge(runner: ECSRunner | null, options?: UseDevBridgeOpt
           rollbacks: relayProvider.rollbackCount,
           fps: Math.round(1000 / frameLength),
           verifiedTick: relayProvider.verifiedTick,
-          playerSlot: relayProvider.localSlot,
+          playerSlot: relayProvider.playerSlot,
           connected: true,
           clockReady: cs.isReady,
           verifiedHashTick,

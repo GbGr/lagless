@@ -1,10 +1,10 @@
-import { ColliderEntityMap } from './collider-entity-map.js';
+import { ColliderEntityMap, UNMAPPED_ENTITY } from './collider-entity-map.js';
 
 /** Minimal Rapier EventQueue interface (identical in 2D and 3D). */
 export interface IRapierEventQueue {
   free(): void;
   drainCollisionEvents(f: (h1: number, h2: number, started: boolean) => void): void;
-  drainContactForceEvents(f: (event: { collider1(): number; collider2(): number; totalForceMagnitude(): number; maxForceMagnitude(): number; maxForceDirection(): any }) => void): void;
+  drainContactForceEvents(f: (event: { collider1(): number; collider2(): number; totalForceMagnitude(): number; maxForceMagnitude(): number; maxForceDirection(): unknown }) => void): void;
   clear(): void;
 }
 
@@ -25,7 +25,7 @@ export class CollisionEventsBase {
 
   // Pre-bound drain callbacks (zero allocation per tick)
   private readonly _drainCollisionCb: (h1: number, h2: number, started: boolean) => void;
-  private readonly _drainForceCb: (event: { collider1(): number; collider2(): number; totalForceMagnitude(): number; maxForceMagnitude(): number; maxForceDirection(): any }) => void;
+  private readonly _drainForceCb: (event: { collider1(): number; collider2(): number; totalForceMagnitude(): number; maxForceMagnitude(): number; maxForceDirection(): unknown }) => void;
 
   // Transient references set during drain()
   private _currentEntityMap: ColliderEntityMap | null = null;
@@ -79,7 +79,7 @@ export class CollisionEventsBase {
 
       const e1 = entityMap.get(h1);
       const e2 = entityMap.get(h2);
-      if (e1 === -1 || e2 === -1) return;
+      if (e1 === UNMAPPED_ENTITY || e2 === UNMAPPED_ENTITY) return;
 
       const c1 = world.getCollider(h1);
       const c2 = world.getCollider(h2);
@@ -104,11 +104,11 @@ export class CollisionEventsBase {
       }
     };
 
-    this._drainForceCb = (event: { collider1(): number; collider2(): number; totalForceMagnitude(): number; maxForceMagnitude(): number; maxForceDirection(): any }): void => {
+    this._drainForceCb = (event: { collider1(): number; collider2(): number; totalForceMagnitude(): number; maxForceMagnitude(): number; maxForceDirection(): unknown }): void => {
       const entityMap = this._currentEntityMap!;
       const e1 = entityMap.get(event.collider1());
       const e2 = entityMap.get(event.collider2());
-      if (e1 === -1 || e2 === -1) return;
+      if (e1 === UNMAPPED_ENTITY || e2 === UNMAPPED_ENTITY) return;
       this._pushContactForce(e1, e2, event.totalForceMagnitude());
     };
   }

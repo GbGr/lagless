@@ -23,7 +23,7 @@ export const IframeGrid: FC<IframeGridProps> = ({ state }) => {
 
   const reloadInstance = useCallback((id: string) => {
     const iframe = iframeRefs.current.get(id);
-    if (iframe) iframe.src = iframe.src;
+    if (iframe) { const src = iframe.src; iframe.src = src; }
   }, []);
 
   if (!state.running) {
