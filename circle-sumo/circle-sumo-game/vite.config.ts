@@ -3,7 +3,6 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react-swc';
 import wasm from 'vite-plugin-wasm';
 import svgr from 'vite-plugin-svgr';
-import topLevelAwait from 'vite-plugin-top-level-await';
 
 export default defineConfig(() => ({
   root: __dirname,
@@ -21,7 +20,6 @@ export default defineConfig(() => ({
   },
   plugins: [
     wasm(),
-    topLevelAwait(),
     svgr(),
     react({
       tsDecorators: true,
