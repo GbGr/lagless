@@ -4,5 +4,7 @@ export * from './lib/ring-buffer.js';
 export * from './lib/snapshot-history.js';
 export * from './lib/simulation-clock.js';
 export * from './lib/transform2d-utils.js';
+export * from './lib/transform3d-utils.js';
 export * from './lib/visual-smoother-2d.js';
+export * from './lib/visual-smoother-3d.js';
 export * from './lib/logger.js';

@@ -1,0 +1,28 @@
+{
+  "name": "@lagless/roblox-like-game",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@lagless/binary": "workspace:*",
+    "@lagless/misc": "workspace:*",
+    "@lagless/math": "workspace:*",
+    "@lagless/core": "workspace:*",
+    "@lagless/roblox-like-simulation": "workspace:*",
+    "@lagless/react": "workspace:*",
+    "@lagless/relay-client": "workspace:*",
+    "@lagless/net-wire": "workspace:*",
+    "@lagless/animation-controller": "workspace:*",
+    "@lagless/physics3d": "workspace:*",
+    "@lagless/character-controller-3d": "workspace:*",
+    "@abraham/reflection": "^0.12.0",
+    "@dimforge/rapier3d-compat": "^0.14.0",
+    "@babylonjs/core": "^7.0.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-router-dom": "^7.6.1"
+  },
+  "devDependencies": {
+    "vite-plugin-wasm": "^3.5.0"
+  }
+}

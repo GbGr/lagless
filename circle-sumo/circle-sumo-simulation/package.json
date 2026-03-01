@@ -27,7 +27,6 @@
           "outputPath": "circle-sumo/circle-sumo-simulation/dist",
           "main": "circle-sumo/circle-sumo-simulation/src/index.ts",
           "tsConfig": "circle-sumo/circle-sumo-simulation/tsconfig.lib.json",
-          "skipTypeCheck": true,
           "stripLeadingPaths": true
         }
       }

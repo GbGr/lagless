@@ -3,7 +3,9 @@ import {
   SyncTestSystems,
   SyncTestSignals,
   CollectSignal,
+  CollectData,
   DivergenceSignal,
+  DivergenceData,
   MoveInput,
   PlayerJoined,
   ReportHash,
@@ -13,8 +15,9 @@ import { createContext, FC, ReactNode, useContext, useEffect, useState } from 'r
 import { useTick } from '@pixi/react';
 import { useNavigate } from 'react-router-dom';
 import { ProviderStore } from '../hooks/use-start-match';
-import { ECSConfig, LocalInputProvider, ReplayInputProvider, RPC, createHashReporter } from '@lagless/core';
+import { ECSConfig, LocalInputProvider, ReplayInputProvider, RPC, createHashReporter, SignalEvent } from '@lagless/core';
 import { RelayInputProvider, RelayConnection } from '@lagless/relay-client';
+import { useDevBridge } from '@lagless/react';
 import { getMatchInfo } from '../hooks/use-start-multiplayer-match';
 import { UUID } from '@lagless/misc';
 
@@ -113,6 +116,9 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
         _runner = new SyncTestRunner(inputProvider.ecsConfig, inputProvider, SyncTestSystems, SyncTestSignals);
       }
 
+      // Enable hash tracking for verified-tick-based hash reporting
+      _runner.Simulation.enableHashTracking(SyncTestArena.hashReportInterval);
+
       // Set up keyboard input drainer with hash reporting (skip for replay — all inputs pre-recorded)
       if (!(inputProvider instanceof ReplayInputProvider)) {
         const reportHash = createHashReporter(_runner, {
@@ -170,12 +176,12 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
 
       // Subscribe to signals
       const collectSignal = _runner.DIContainer.resolve(CollectSignal);
-      collectSignal.Predicted.subscribe((e) => {
+      collectSignal.Predicted.subscribe((e: SignalEvent<CollectData>) => {
         console.log(`[Collect] Player ${e.data.playerSlot} collected coin at (${e.data.x.toFixed(0)}, ${e.data.y.toFixed(0)}) +${e.data.value}`);
       });
 
       const divergenceSignal = _runner.DIContainer.resolve(DivergenceSignal);
-      divergenceSignal.Predicted.subscribe((e) => {
+      divergenceSignal.Predicted.subscribe((e: SignalEvent<DivergenceData>) => {
         console.warn(`[DIVERGENCE] Players ${e.data.slotA} vs ${e.data.slotB}: hash ${e.data.hashA} != ${e.data.hashB} at tick ${e.data.atTick}`);
       });
 
@@ -190,6 +196,8 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
       _runner?.dispose();
     };
   }, [v, navigate]);
+
+  useDevBridge(runner, { hashTrackingInterval: SyncTestArena.hashReportInterval });
 
   return !runner ? null : <RunnerContext.Provider value={runner}>{children}</RunnerContext.Provider>;
 };

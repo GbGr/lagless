@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "files": [],
+  "include": [],
+  "references": [
+    { "path": "../../libs/misc" },
+    { "path": "../../libs/binary" },
+    { "path": "../../libs/math" },
+    { "path": "../../libs/core" },
+    { "path": "../../libs/physics3d" },
+    { "path": "../../libs/physics-shared" },
+    { "path": "../../libs/character-controller-3d" },
+    { "path": "../../libs/animation-controller" },
+    { "path": "./tsconfig.lib.json" }
+  ]
+}

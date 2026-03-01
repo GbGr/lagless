@@ -1,0 +1,19 @@
+{
+  "files": [],
+  "include": [],
+  "references": [
+    { "path": "../../libs/net-wire" },
+    { "path": "../../libs/relay-client" },
+    { "path": "../../libs/react" },
+    { "path": "../roblox-like-simulation" },
+    { "path": "../../libs/core" },
+    { "path": "../../libs/math" },
+    { "path": "../../libs/misc" },
+    { "path": "../../libs/binary" },
+    { "path": "../../libs/physics3d" },
+    { "path": "../../libs/character-controller-3d" },
+    { "path": "../../libs/animation-controller" },
+    { "path": "./tsconfig.app.json" }
+  ],
+  "extends": "../../tsconfig.base.json"
+}

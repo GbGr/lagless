@@ -1,7 +1,7 @@
 import { createLogger } from '@lagless/misc';
 import {
   TickInputKind, HeaderSchema,
-  packServerHello, packPong, packStateResponse,
+  packServerHello, packPong, packStateResponse, packTickInputFanout,
 } from '@lagless/net-wire';
 import { InputBinarySchema, LE } from '@lagless/binary';
 import { ServerClock } from './server-clock.js';
@@ -50,6 +50,7 @@ export class RelayRoom {
   private readonly _playersByPlayerId = new Map<PlayerId, PlayerConnection>();
   private readonly _results = new Map<PlayerSlot, unknown>();
   private readonly _serverEventJournal: ValidatedInput[] = [];
+  private readonly _recentClientInputs: ValidatedInput[] = [];
   private readonly _context: RoomContextImpl;
   private readonly _createdAt: number;
   private readonly _seed: Uint8Array;
@@ -139,6 +140,10 @@ export class RelayRoom {
   public get latencySimulator(): LatencySimulator | null { return this._latencySimulator; }
   public set latencySimulator(sim: LatencySimulator | null) { this._latencySimulator = sim; }
 
+  private _perPlayerLatency: Map<number, LatencySimulator> | null = null;
+  public get perPlayerLatency(): Map<number, LatencySimulator> | null { return this._perPlayerLatency; }
+  public set perPlayerLatency(map: Map<number, LatencySimulator> | null) { this._perPlayerLatency = map; }
+
   public getConnectedHumanCount(): number {
     let count = 0;
     for (const c of this._connections.values()) {
@@ -213,6 +218,7 @@ export class RelayRoom {
   /** @internal */
   public broadcastToAll(message: Uint8Array): void {
     for (const conn of this._connections.values()) {
+      if (!conn.isReady) continue;
       conn.send(message);
     }
   }
@@ -270,12 +276,16 @@ export class RelayRoom {
       const stateResult = await this._stateTransfer.requestState(this._connections, conn.slot);
       if (stateResult) {
         this.sendStateToPlayer(conn, stateResult);
-        // Send journal events that happened AFTER the state snapshot tick —
-        // these are not yet reflected in the transferred state
-        const postStateEvents = this._serverEventJournal.filter(e => e.tick > stateResult.tick);
-        if (postStateEvents.length > 0) {
-          log.info(`Post-state journal: ${postStateEvents.length} events (tick > ${stateResult.tick}) to slot=${conn.slot}`);
-          this._inputHandler.sendInputBatchToPlayer(postStateEvents, conn);
+        // Send ALL post-state inputs (server events + client inputs) that happened
+        // AFTER the state snapshot tick — these are not reflected in the transferred state.
+        // Without client inputs, the joining player would simulate those ticks incorrectly.
+        const postStateServerEvents = this._serverEventJournal.filter(e => e.tick > stateResult.tick);
+        const postStateClientInputs = this._recentClientInputs.filter(i => i.tick > stateResult.tick);
+        const allPostStateInputs = [...postStateServerEvents, ...postStateClientInputs]
+          .sort((a, b) => a.tick - b.tick || a.playerSlot - b.playerSlot || a.seq - b.seq);
+        if (allPostStateInputs.length > 0) {
+          log.info(`Post-state replay: ${postStateServerEvents.length} server + ${postStateClientInputs.length} client inputs (tick > ${stateResult.tick}) to slot=${conn.slot}`);
+          this._inputHandler.sendInputBatchToPlayer(allPostStateInputs, conn);
         }
       } else {
         log.warn(`State transfer failed for player ${playerId} — falling back to journal replay`);
@@ -285,6 +295,9 @@ export class RelayRoom {
       log.info(`Journal replay: ${this._serverEventJournal.length} events to slot=${conn.slot}`);
       this._inputHandler.sendInputBatchToPlayer(this._serverEventJournal, conn);
     }
+
+    // Mark ready AFTER state transfer + journal replay — this allows broadcasts to reach the player
+    conn.markReady();
 
     log.info(`Player ${playerId} ${isReconnect ? 'reconnected to' : 'joined'} room ${this.matchId} (slot=${conn.slot})`);
     if (isReconnect) {
@@ -421,11 +434,27 @@ export class RelayRoom {
     }
 
     if (accepted.length > 0) {
-      const broadcast = () => this._inputHandler.broadcastInputBatch(accepted, this._connections);
-      if (this._latencySimulator) {
-        this._latencySimulator.apply(broadcast);
+      // Store for state transfer replay — joining players need inputs they missed
+      for (const input of accepted) {
+        this._recentClientInputs.push(input);
+      }
+      this.pruneRecentClientInputs();
+
+      if (this._perPlayerLatency?.size) {
+        const fanout = packTickInputFanout({ serverTick: this._clock.tick, inputs: accepted });
+        for (const c of this._connections.values()) {
+          if (!c.isReady) continue;
+          const sim = this._perPlayerLatency.get(c.slot);
+          if (sim) sim.apply(() => c.send(fanout));
+          else c.send(fanout);
+        }
       } else {
-        broadcast();
+        const broadcast = () => this._inputHandler.broadcastInputBatch(accepted, this._connections);
+        if (this._latencySimulator) {
+          this._latencySimulator.apply(broadcast);
+        } else {
+          broadcast();
+        }
       }
     }
   }
@@ -443,8 +472,9 @@ export class RelayRoom {
     });
 
     const send = () => conn.send(pong);
-    if (this._latencySimulator) {
-      this._latencySimulator.apply(send);
+    const sim = this._perPlayerLatency?.get(conn.slot) ?? this._latencySimulator;
+    if (sim) {
+      sim.apply(send);
     } else {
       send();
     }
@@ -515,6 +545,16 @@ export class RelayRoom {
         this._hooks.onPlayerLeave?.(this._context, conn.info, LeaveReason.Timeout);
         this.checkMatchEnd();
       }
+    }
+  }
+
+  /**
+   * Keep only the last ~10 seconds of client inputs for state transfer replay.
+   */
+  private pruneRecentClientInputs(): void {
+    const pruneThreshold = this._clock.tick - (this._config.tickRateHz * 10);
+    while (this._recentClientInputs.length > 0 && this._recentClientInputs[0].tick < pruneThreshold) {
+      this._recentClientInputs.shift();
     }
   }
 

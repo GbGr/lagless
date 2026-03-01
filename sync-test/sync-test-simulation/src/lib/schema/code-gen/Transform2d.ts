@@ -2,7 +2,7 @@
 import { MemoryTracker } from '@lagless/binary';
 
 export class Transform2d {
-  public static readonly ID = 1;
+  public static readonly ID = 0;
   public static readonly schema = {
     positionX: Float32Array,
 
@@ -42,12 +42,17 @@ export class Transform2d {
   }
 
   constructor(maxEntities: number, buffer: ArrayBuffer, memTracker: MemoryTracker) {
-    for (const [fieldName, TypedArrayConstructor] of Object.entries(Transform2d.schema)) {
-      const typedArray = new TypedArrayConstructor(buffer, memTracker.ptr, maxEntities);
-      this.unsafe[fieldName as keyof typeof Transform2d.schema] =
-        typedArray as Transform2d['unsafe'][keyof Transform2d['unsafe']];
-      memTracker.add(typedArray.byteLength);
-    }
+    this.unsafe.positionX = new Float32Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.positionX.byteLength);
+
+    this.unsafe.positionY = new Float32Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.positionY.byteLength);
+
+    this.unsafe.prevPositionX = new Float32Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.prevPositionX.byteLength);
+
+    this.unsafe.prevPositionY = new Float32Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.prevPositionY.byteLength);
 
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;

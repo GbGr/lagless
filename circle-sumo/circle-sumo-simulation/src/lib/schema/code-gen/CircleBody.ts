@@ -2,7 +2,7 @@
 import { MemoryTracker } from '@lagless/binary';
 
 export class CircleBody {
-  public static readonly ID = 8;
+  public static readonly ID = 3;
   public static readonly schema = {
     playerSlot: Uint8Array,
 
@@ -54,12 +54,23 @@ export class CircleBody {
   }
 
   constructor(maxEntities: number, buffer: ArrayBuffer, memTracker: MemoryTracker) {
-    for (const [fieldName, TypedArrayConstructor] of Object.entries(CircleBody.schema)) {
-      const typedArray = new TypedArrayConstructor(buffer, memTracker.ptr, maxEntities);
-      this.unsafe[fieldName as keyof typeof CircleBody.schema] =
-        typedArray as CircleBody['unsafe'][keyof CircleBody['unsafe']];
-      memTracker.add(typedArray.byteLength);
-    }
+    this.unsafe.playerSlot = new Uint8Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.playerSlot.byteLength);
+
+    this.unsafe.radius = new Float32Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.radius.byteLength);
+
+    this.unsafe.mass = new Float32Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.mass.byteLength);
+
+    this.unsafe.restitution = new Float32Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.restitution.byteLength);
+
+    this.unsafe.linearDamping = new Float32Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.linearDamping.byteLength);
+
+    this.unsafe.angularDamping = new Float32Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.angularDamping.byteLength);
 
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;

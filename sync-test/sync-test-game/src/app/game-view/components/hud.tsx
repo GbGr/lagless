@@ -1,7 +1,7 @@
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRunner } from '../runner-provider';
-import { PlayerResources, ECSConfig, ReplayInputProvider } from '@lagless/core';
-import { GameState, PlayerResource, DivergenceSignal, SyncTestArena } from '@lagless/sync-test-simulation';
+import { PlayerResources, ECSConfig, ReplayInputProvider, SignalEvent } from '@lagless/core';
+import { GameState, PlayerResource, DivergenceSignal, DivergenceData, SyncTestArena } from '@lagless/sync-test-simulation';
 
 interface PlayerHudData {
   slot: number;
@@ -30,7 +30,7 @@ export const HUD: FC = () => {
 
   useEffect(() => {
     const signal = runner.DIContainer.resolve(DivergenceSignal);
-    const unsub = signal.Predicted.subscribe((e) => {
+    const unsub = signal.Predicted.subscribe((e: SignalEvent<DivergenceData>) => {
       setHasDivergence(true);
       setDivergenceInfo(
         `P${e.data.slotA} vs P${e.data.slotB}: ${e.data.hashA.toString(16)} != ${e.data.hashB.toString(16)} @ tick ${e.data.atTick}`,

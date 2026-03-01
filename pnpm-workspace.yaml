@@ -6,6 +6,7 @@ packages:
   - 'libs/api/*'
   - 'circle-sumo/*'
   - 'sync-test/*'
+  - 'roblox-like/*'
   - '!tools/create/templates/**'
 autoInstallPeers: true
 strictPeerDependencies: false

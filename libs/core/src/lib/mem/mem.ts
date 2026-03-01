@@ -24,12 +24,15 @@ export class Mem {
   private readonly _memoryManagers: Array<IAbstractMemory>;
 
   constructor(private readonly _ECSConfig: ECSConfig, private readonly _ECSDeps: ECSDeps) {
+    // Derive mask word count from component count (1 word for ≤32, 2 for 33-64)
+    const maskWords = (Math.max(1, Math.ceil(this._ECSDeps.components.length / 32))) as 1 | 2;
+
     this.tickManager = new TickManager();
     this.prngManager = new PRNGManager(this._ECSConfig);
     this.componentsManager = new ComponentsManager(this._ECSConfig, this._ECSDeps);
     this.singletonsManager = new SingletonsManager(this._ECSDeps);
-    this.filtersManager = new FiltersManager(this._ECSConfig, this._ECSDeps);
-    this.entitiesManager = new EntitiesManager(this._ECSConfig, this.componentsManager, this.filtersManager);
+    this.filtersManager = new FiltersManager(this._ECSConfig, this._ECSDeps, maskWords);
+    this.entitiesManager = new EntitiesManager(this._ECSConfig, this.componentsManager, this.filtersManager, maskWords);
     this.playerResourcesManager = new PlayerResourcesManager(this._ECSConfig, this._ECSDeps);
 
     this._memoryManagers = [

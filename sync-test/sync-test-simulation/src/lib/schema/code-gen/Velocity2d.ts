@@ -2,7 +2,7 @@
 import { MemoryTracker } from '@lagless/binary';
 
 export class Velocity2d {
-  public static readonly ID = 2;
+  public static readonly ID = 1;
   public static readonly schema = {
     velocityX: Float32Array,
 
@@ -30,12 +30,11 @@ export class Velocity2d {
   }
 
   constructor(maxEntities: number, buffer: ArrayBuffer, memTracker: MemoryTracker) {
-    for (const [fieldName, TypedArrayConstructor] of Object.entries(Velocity2d.schema)) {
-      const typedArray = new TypedArrayConstructor(buffer, memTracker.ptr, maxEntities);
-      this.unsafe[fieldName as keyof typeof Velocity2d.schema] =
-        typedArray as Velocity2d['unsafe'][keyof Velocity2d['unsafe']];
-      memTracker.add(typedArray.byteLength);
-    }
+    this.unsafe.velocityX = new Float32Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.velocityX.byteLength);
+
+    this.unsafe.velocityY = new Float32Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.velocityY.byteLength);
 
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;

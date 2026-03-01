@@ -1,0 +1,50 @@
+{
+  "name": "@lagless/roblox-like-simulation",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@lagless/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "nx": {
+    "sourceRoot": "roblox-like/roblox-like-simulation/src",
+    "targets": {
+      "build": {
+        "executor": "@nx/js:swc",
+        "outputs": [
+          "{options.outputPath}"
+        ],
+        "options": {
+          "outputPath": "roblox-like/roblox-like-simulation/dist",
+          "main": "roblox-like/roblox-like-simulation/src/index.ts",
+          "tsConfig": "roblox-like/roblox-like-simulation/tsconfig.lib.json",
+          "stripLeadingPaths": true
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "@swc/helpers": "~0.5.11",
+    "@lagless/core": "workspace:*",
+    "@lagless/math": "workspace:*",
+    "@lagless/binary": "workspace:*",
+    "@lagless/misc": "workspace:*",
+    "@lagless/physics3d": "workspace:*",
+    "@lagless/physics-shared": "workspace:*",
+    "@lagless/character-controller-3d": "workspace:*",
+    "@lagless/animation-controller": "workspace:*"
+  },
+  "devDependencies": {
+    "@dimforge/rapier3d-compat": "^0.14.0",
+    "unplugin-swc": "^1.5.7"
+  }
+}

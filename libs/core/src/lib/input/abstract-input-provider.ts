@@ -1,3 +1,4 @@
+import { sanitizeInputData } from '@lagless/binary';
 import { ECSSimulation } from '../ecs-simulation.js';
 import { IAbstractInputConstructor, InputData, InputMeta } from '../types/index.js';
 import { ECSConfig } from '../ecs-config.js';
@@ -21,6 +22,8 @@ export abstract class AbstractInputProvider {
   protected readonly _rpcHistory = new RPCHistory();
 
   public abstract playerSlot: number;
+
+  public abstract get verifiedTick(): number;
 
   public abstract getInvalidateRollbackTick(): void | number;
 
@@ -55,7 +58,9 @@ export abstract class AbstractInputProvider {
 
   public update(): void {
     this._frameRPCBuffer.length = 0;
-    this._inputDrainers.forEach((drainFn) => drainFn(this.addLocalRpc));
+    for (const drainFn of this._inputDrainers) {
+      drainFn(this.addLocalRpc);
+    }
 
     if (this._frameRPCBuffer.length > 0) this._nextSeq++;
   }
@@ -80,6 +85,11 @@ export abstract class AbstractInputProvider {
     InputCtor: TInputCtor,
     data: InputData<InstanceType<TInputCtor>>,
   ): void => {
+    // Truncate numeric fields to their declared binary precision to prevent
+    // desync between local (float64) and remote (float32-via-network) values.
+    const inputInstance = this._inputRegistry.get(InputCtor.id);
+    sanitizeInputData(inputInstance.fields, data as Record<string, number | ArrayLike<number>>);
+
     const newRPCMeta: InputMeta = {
       tick: this._simulation.tick + this._currentInputDelay,
       seq: this._nextSeq,

@@ -526,6 +526,53 @@ export const toFloat32 = (value: number): number => {
   return FLOAT32_BUFFER[0];
 };
 
+/**
+ * Truncates a single numeric value to the precision of the given FieldType.
+ * Zero-alloc for all integer types; uses Math.fround for float32.
+ */
+export const truncateToFieldType = (fieldType: FieldType, value: number): number => {
+  switch (fieldType) {
+    case FieldType.Float32:
+      return Math.fround(value);
+    case FieldType.Float64:
+      return value;
+    case FieldType.Uint8:
+      return value & 0xFF;
+    case FieldType.Uint16:
+      return value & 0xFFFF;
+    case FieldType.Uint32:
+      return value >>> 0;
+    case FieldType.Int8:
+      return (value << 24) >> 24;
+    case FieldType.Int16:
+      return (value << 16) >> 16;
+    case FieldType.Int32:
+      return value | 0;
+    default:
+      return value;
+  }
+};
+
+/**
+ * Truncates ALL numeric fields of an input data object to their declared binary precision.
+ * Prevents desync between local (float64) and remote (float32-via-network) values.
+ * Array fields (TypedArray) are skipped — they already have correct precision.
+ * Mutates `data` in place.
+ */
+export const sanitizeInputData = (
+  fields: ReadonlyArray<InputFieldDefinition>,
+  data: Record<string, number | ArrayLike<number>>,
+): void => {
+  for (let i = 0; i < fields.length; i++) {
+    const field = fields[i];
+    if (field.isArray) continue; // TypedArrays already truncate on write
+    const value = data[field.name];
+    if (typeof value === 'number') {
+      data[field.name] = truncateToFieldType(field.type, value);
+    }
+  }
+};
+
 export const getFastHash = (arrayBuffer: ArrayBuffer): number => {
   const dataView = new DataView(arrayBuffer);
   let hash = 0;

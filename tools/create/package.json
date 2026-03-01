@@ -39,7 +39,6 @@
           "outputPath": "tools/create/dist",
           "main": "tools/create/src/index.ts",
           "tsConfig": "tools/create/tsconfig.lib.json",
-          "skipTypeCheck": true,
           "stripLeadingPaths": true
         }
       }

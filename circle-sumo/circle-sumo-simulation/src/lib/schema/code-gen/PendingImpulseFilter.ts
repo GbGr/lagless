@@ -8,8 +8,8 @@ export class PendingImpulseFilter extends AbstractFilter {
   public static readonly include: Array<IComponentConstructor> = [PendingImpulse, Velocity2d, CircleBody];
   public static readonly exclude: Array<IComponentConstructor> = [];
 
-  public readonly includeMask: number = 28;
-  public readonly excludeMask: number = 0;
+  public readonly includeMask: number[] = [28];
+  public readonly excludeMask: number[] = [0];
 }
 
 Object.defineProperty(PendingImpulseFilter, 'name', { value: 'PendingImpulseFilter' });

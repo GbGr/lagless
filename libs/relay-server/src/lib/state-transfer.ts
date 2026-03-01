@@ -188,7 +188,7 @@ export class StateTransfer {
   ): PlayerConnection[] {
     const result: PlayerConnection[] = [];
     for (const conn of connections.values()) {
-      if (conn.isConnected && !conn.isBot && conn.slot !== excludeSlot) {
+      if (conn.isConnected && conn.isReady && !conn.isBot && conn.slot !== excludeSlot) {
         result.push(conn);
       }
     }

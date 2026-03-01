@@ -2,15 +2,17 @@ import {
   CircleSumoRunner,
   CircleSumoSignals,
   CircleSumoSystems,
+  GameOverData,
   GameOverSignal,
   PlayerFinishedGameSignal,
 } from '@lagless/circle-sumo-simulation';
-import { ECSConfig } from '@lagless/core';
+import { ECSConfig, SignalEvent } from '@lagless/core';
 import { createContext, FC, ReactNode, useContext, useEffect, useState } from 'react';
 import { useTick } from '@pixi/react';
 import { useNavigate } from 'react-router-dom';
 import { ProviderStore } from '../hooks/use-start-match';
 import { RelayInputProvider, RelayConnection } from '@lagless/relay-client';
+import { useDevBridge } from '@lagless/react';
 import { getMatchInfo } from '../hooks/use-start-multiplayer-match';
 
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -114,9 +116,9 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
       });
 
       const gameOverSignal = _runner.DIContainer.resolve(GameOverSignal);
-      gameOverSignal.Cancelled.subscribe((e) => console.log(`Cancelled Game Over at tick ${e.tick}`));
-      gameOverSignal.Verified.subscribe((e) => console.log(`Verified Game Over at tick ${e.tick}`));
-      gameOverSignal.Predicted.subscribe((e) => console.log(`Predicted Game Over at tick ${e.tick}`));
+      gameOverSignal.Cancelled.subscribe((e: SignalEvent<GameOverData>) => console.log(`Cancelled Game Over at tick ${e.tick}`));
+      gameOverSignal.Verified.subscribe((e: SignalEvent<GameOverData>) => console.log(`Verified Game Over at tick ${e.tick}`));
+      gameOverSignal.Predicted.subscribe((e: SignalEvent<GameOverData>) => console.log(`Predicted Game Over at tick ${e.tick}`));
       gameOverSignal.Verified.subscribe(() => {
         inputProvider.dispose();
         _connection?.disconnect();
@@ -131,6 +133,8 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
       _runner?.dispose();
     };
   }, [v, navigate]);
+
+  useDevBridge(runner);
 
   return !runner ? null : <RunnerContext.Provider value={runner}>{children}</RunnerContext.Provider>;
 };

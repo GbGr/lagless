@@ -3,9 +3,11 @@ import { useSkinCard } from '../../components/skin-card/skin-card';
 import CARD_COMMON from '../../../assets/textures/card_common.png';
 import CARD_RARE from '../../../assets/textures/card_rare.png';
 import CARD_LEGENDARY from '../../../assets/textures/card_legendary.png';
-import STAR from '../../../assets/textures/star.png';
+import STAR from '../../../assets/textures/Star.png';
 import { Assets, Sprite, Texture } from 'pixi.js';
 import { PlayerView } from '../../game-view/components/player-view';
+
+console.log({ STAR });
 
 const STARS_GAP = 8;
 const CARD_SCALE = 0.5;

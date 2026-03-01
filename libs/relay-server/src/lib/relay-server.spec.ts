@@ -187,6 +187,39 @@ describe('PlayerConnection', () => {
     conn.markDisconnected();
     expect(conn.hasConnectedBefore).toBe(true);
   });
+
+  it('should not be ready after connect (before markReady)', () => {
+    const ws = createMockWs();
+    const conn = new PlayerConnection(playerInfo, null);
+    conn.connect(ws);
+    expect(conn.isReady).toBe(false);
+  });
+
+  it('should be ready after markReady', () => {
+    const ws = createMockWs();
+    const conn = new PlayerConnection(playerInfo, null);
+    conn.connect(ws);
+    conn.markReady();
+    expect(conn.isReady).toBe(true);
+  });
+
+  it('should reset isReady on markDisconnected', () => {
+    const ws = createMockWs();
+    const conn = new PlayerConnection(playerInfo, null);
+    conn.connect(ws);
+    conn.markReady();
+    conn.markDisconnected();
+    expect(conn.isReady).toBe(false);
+  });
+
+  it('should reset isReady on markGone', () => {
+    const ws = createMockWs();
+    const conn = new PlayerConnection(playerInfo, null);
+    conn.connect(ws);
+    conn.markReady();
+    conn.markGone();
+    expect(conn.isReady).toBe(false);
+  });
 });
 
 // ─── RelayRoom ──────────────────────────────────────────────
@@ -347,8 +380,7 @@ describe('RelayRoom', () => {
 
     // player-1 should have received a StateRequest message (in addition to ServerHello)
     // StateRequest is sent as binary to connected clients
-    const player1Messages = ws1.sent;
-    const hasStateRequest = player1Messages.length > 1; // ServerHello + StateRequest
+    // ws1.sent.length > 1 means ServerHello + StateRequest were sent
 
     // Wait for state transfer timeout
     const success = await connectPromise;
@@ -472,7 +504,7 @@ describe('RoomRegistry', () => {
 
   beforeEach(() => {
     registry = new RoomRegistry();
-    registry.registerRoomType('test-game', DEFAULT_CONFIG, {});
+    registry.registerRoomType('test-game', DEFAULT_CONFIG, {}, MOCK_INPUT_REGISTRY);
   });
 
   it('should register room types', () => {
@@ -481,7 +513,7 @@ describe('RoomRegistry', () => {
   });
 
   it('should throw on duplicate room type', () => {
-    expect(() => registry.registerRoomType('test-game', DEFAULT_CONFIG, {}))
+    expect(() => registry.registerRoomType('test-game', DEFAULT_CONFIG, {}, MOCK_INPUT_REGISTRY))
       .toThrow(/already registered/);
   });
 
@@ -548,7 +580,7 @@ describe('RoomRegistry', () => {
         await new Promise(r => setTimeout(r, 10));
         hookDone = true;
       },
-    });
+    }, MOCK_INPUT_REGISTRY);
 
     await asyncRegistry.createRoom({
       matchId: 'async-match',
@@ -578,6 +610,7 @@ describe('StateTransfer', () => {
     const info: PlayerInfo = { playerId: 'p1', slot: 0, isBot: false, metadata: {} };
     const conn = new PlayerConnection(info, null);
     conn.connect(ws);
+    conn.markReady();
 
     const connections = new Map<number, PlayerConnection>([[0, conn]]);
     const promise = st.requestState(connections);
@@ -608,6 +641,7 @@ describe('StateTransfer', () => {
       const info: PlayerInfo = { playerId: `p${i}`, slot: i, isBot: false, metadata: {} };
       const conn = new PlayerConnection(info, null);
       conn.connect(ws);
+      conn.markReady();
       connections.set(i, conn);
     }
 
@@ -635,6 +669,7 @@ describe('StateTransfer', () => {
       const info: PlayerInfo = { playerId: `p${i}`, slot: i, isBot: false, metadata: {} };
       const conn = new PlayerConnection(info, null);
       conn.connect(ws);
+      conn.markReady();
       connections.set(i, conn);
     }
 
@@ -657,6 +692,7 @@ describe('StateTransfer', () => {
     const info: PlayerInfo = { playerId: 'p1', slot: 0, isBot: false, metadata: {} };
     const conn = new PlayerConnection(info, null);
     conn.connect(ws);
+    conn.markReady();
 
     const connections = new Map<number, PlayerConnection>([[0, conn]]);
     const result = await st.requestState(connections);
@@ -670,6 +706,7 @@ describe('StateTransfer', () => {
     const info: PlayerInfo = { playerId: 'p1', slot: 0, isBot: false, metadata: {} };
     const conn = new PlayerConnection(info, null);
     conn.connect(ws);
+    conn.markReady();
 
     const connections = new Map<number, PlayerConnection>([[0, conn]]);
     const promise = st.requestState(connections);
@@ -1057,7 +1094,7 @@ describe('Late-join handlePlayerConnect', () => {
 describe('RoomRegistry.findRoomForLateJoin', () => {
   it('should find room with open slots', async () => {
     const registry = new RoomRegistry();
-    registry.registerRoomType('test-game', { ...DEFAULT_CONFIG, lateJoinEnabled: true, maxPlayers: 4 }, {});
+    registry.registerRoomType('test-game', { ...DEFAULT_CONFIG, lateJoinEnabled: true, maxPlayers: 4 }, {}, MOCK_INPUT_REGISTRY);
 
     await registry.createRoom({
       matchId: 'match-1',
@@ -1077,7 +1114,7 @@ describe('RoomRegistry.findRoomForLateJoin', () => {
 
   it('should return undefined when no rooms exist', () => {
     const registry = new RoomRegistry();
-    registry.registerRoomType('test-game', DEFAULT_CONFIG, {});
+    registry.registerRoomType('test-game', DEFAULT_CONFIG, {}, MOCK_INPUT_REGISTRY);
 
     expect(registry.findRoomForLateJoin('test-game')).toBeUndefined();
 
@@ -1086,7 +1123,7 @@ describe('RoomRegistry.findRoomForLateJoin', () => {
 
   it('should return undefined when rooms are full', async () => {
     const registry = new RoomRegistry();
-    registry.registerRoomType('test-game', { ...DEFAULT_CONFIG, lateJoinEnabled: true, maxPlayers: 2 }, {});
+    registry.registerRoomType('test-game', { ...DEFAULT_CONFIG, lateJoinEnabled: true, maxPlayers: 2 }, {}, MOCK_INPUT_REGISTRY);
 
     await registry.createRoom({
       matchId: 'match-1',
@@ -1104,7 +1141,7 @@ describe('RoomRegistry.findRoomForLateJoin', () => {
 
   it('should return undefined when lateJoinEnabled=false', async () => {
     const registry = new RoomRegistry();
-    registry.registerRoomType('test-game', { ...DEFAULT_CONFIG, lateJoinEnabled: false, maxPlayers: 4 }, {});
+    registry.registerRoomType('test-game', { ...DEFAULT_CONFIG, lateJoinEnabled: false, maxPlayers: 4 }, {}, MOCK_INPUT_REGISTRY);
 
     await registry.createRoom({
       matchId: 'match-1',
@@ -1119,7 +1156,7 @@ describe('RoomRegistry.findRoomForLateJoin', () => {
 
   it('should return undefined for wrong roomType', async () => {
     const registry = new RoomRegistry();
-    registry.registerRoomType('game-a', { ...DEFAULT_CONFIG, lateJoinEnabled: true, maxPlayers: 4 }, {});
+    registry.registerRoomType('game-a', { ...DEFAULT_CONFIG, lateJoinEnabled: true, maxPlayers: 4 }, {}, MOCK_INPUT_REGISTRY);
 
     await registry.createRoom({
       matchId: 'match-1',

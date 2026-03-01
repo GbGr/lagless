@@ -2,7 +2,7 @@
 import { MemoryTracker } from '@lagless/binary';
 
 export class PlayerBody {
-  public static readonly ID = 4;
+  public static readonly ID = 2;
   public static readonly schema = {
     playerSlot: Uint8Array,
 
@@ -30,12 +30,11 @@ export class PlayerBody {
   }
 
   constructor(maxEntities: number, buffer: ArrayBuffer, memTracker: MemoryTracker) {
-    for (const [fieldName, TypedArrayConstructor] of Object.entries(PlayerBody.schema)) {
-      const typedArray = new TypedArrayConstructor(buffer, memTracker.ptr, maxEntities);
-      this.unsafe[fieldName as keyof typeof PlayerBody.schema] =
-        typedArray as PlayerBody['unsafe'][keyof PlayerBody['unsafe']];
-      memTracker.add(typedArray.byteLength);
-    }
+    this.unsafe.playerSlot = new Uint8Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.playerSlot.byteLength);
+
+    this.unsafe.radius = new Float32Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.radius.byteLength);
 
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;

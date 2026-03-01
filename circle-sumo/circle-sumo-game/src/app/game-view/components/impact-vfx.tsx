@@ -9,7 +9,7 @@ export const ImpactVfx: FC = () => {
   const _HighImpactSignal = useMemo(() => runner.DIContainer.resolve(HighImpactSignal), [runner]);
 
   useEffect(() => {
-    return _HighImpactSignal.Predicted.subscribe(({ data }) => {
+    return _HighImpactSignal.Predicted.subscribe(({ data }: { data: { power: number; x: number; y: number } }) => {
       if (data.power < 0.5) return;
 
       spawn('TrianglesImpact', [data.x, -data.y, 0], {

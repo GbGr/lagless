@@ -21,15 +21,14 @@ export function createHashReporter(runner: ECSRunner, config: HashReporterConfig
   let lastReportedTick = -1;
 
   return (addRPC: AddRPCFn) => {
-    const currentTick = runner.Simulation.tick;
-    if (
-      currentTick > 0 &&
-      currentTick % config.reportInterval === 0 &&
-      currentTick !== lastReportedTick
-    ) {
-      lastReportedTick = currentTick;
-      const hash = runner.Simulation.mem.getHash();
-      addRPC(config.reportHashRpc, { hash, atTick: currentTick });
+    const verifiedTick = runner.Simulation.inputProvider.verifiedTick;
+    const latestReportTick = Math.floor(verifiedTick / config.reportInterval) * config.reportInterval;
+    if (latestReportTick > lastReportedTick && latestReportTick > 0) {
+      const hash = runner.Simulation.getHashAtTick(latestReportTick);
+      if (hash !== undefined) {
+        lastReportedTick = latestReportTick;
+        addRPC(config.reportHashRpc, { hash, atTick: latestReportTick });
+      }
     }
   };
 }

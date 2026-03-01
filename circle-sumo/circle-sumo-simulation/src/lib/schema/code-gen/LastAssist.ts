@@ -2,7 +2,7 @@
 import { MemoryTracker } from '@lagless/binary';
 
 export class LastAssist {
-  public static readonly ID = 64;
+  public static readonly ID = 6;
   public static readonly schema = {
     hasAssister: Uint8Array,
 
@@ -36,12 +36,14 @@ export class LastAssist {
   }
 
   constructor(maxEntities: number, buffer: ArrayBuffer, memTracker: MemoryTracker) {
-    for (const [fieldName, TypedArrayConstructor] of Object.entries(LastAssist.schema)) {
-      const typedArray = new TypedArrayConstructor(buffer, memTracker.ptr, maxEntities);
-      this.unsafe[fieldName as keyof typeof LastAssist.schema] =
-        typedArray as LastAssist['unsafe'][keyof LastAssist['unsafe']];
-      memTracker.add(typedArray.byteLength);
-    }
+    this.unsafe.hasAssister = new Uint8Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.hasAssister.byteLength);
+
+    this.unsafe.assisterEntity = new Uint32Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.assisterEntity.byteLength);
+
+    this.unsafe.atTick = new Uint32Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.atTick.byteLength);
 
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;

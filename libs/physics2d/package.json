@@ -1,0 +1,60 @@
+{
+  "name": "@lagless/physics2d",
+  "version": "0.0.1",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GbGr/lagless",
+    "directory": "libs/physics2d"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@lagless/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "nx": {
+    "sourceRoot": "libs/physics2d/src",
+    "targets": {
+      "build": {
+        "executor": "@nx/js:swc",
+        "outputs": [
+          "{options.outputPath}"
+        ],
+        "options": {
+          "outputPath": "libs/physics2d/dist",
+          "main": "libs/physics2d/src/index.ts",
+          "tsConfig": "libs/physics2d/tsconfig.lib.json",
+          "stripLeadingPaths": true
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "@lagless/core": "workspace:*",
+    "@lagless/misc": "workspace:*",
+    "@lagless/physics-shared": "workspace:*",
+    "@swc/helpers": "~0.5.11"
+  },
+  "peerDependencies": {
+    "@dimforge/rapier2d-compat": ">=0.14.0"
+  },
+  "devDependencies": {
+    "@dimforge/rapier2d-compat": "^0.14.0",
+    "unplugin-swc": "^1.5.7"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -20,11 +20,9 @@ export abstract class Signal<TData = unknown> {
 
   private readonly _pending = new Map<number, TData[]>();
   private readonly _awaitingVerification = new Map<number, TData[]>();
-  private readonly _maxInputDelayTick: number;
+  private _lastVerifiedTick = -1;
 
-  constructor(protected readonly _ECSConfig: ECSConfig) {
-    this._maxInputDelayTick = _ECSConfig.maxInputDelayTick;
-  }
+  constructor(protected readonly _ECSConfig: ECSConfig) {}
 
   public emit(tick: number, data: TData): void {
     // 1. Добавляем в pending (текущее состояние симуляции)
@@ -55,42 +53,40 @@ export abstract class Signal<TData = unknown> {
   }
 
   /**
-   * Проверка Verified/Cancelled (вызывается каждый тик из SignalsRegistry)
+   * Verify/cancel signals for ticks up to verifiedTick.
+   * Called each simulation tick from SignalsRegistry.
    * @internal
    */
-  public _onTick(currentTick: number): void {
-    const verifyTick = currentTick - this._maxInputDelayTick;
-    if (verifyTick < 0) return;
+  public _onTick(verifiedTick: number): void {
+    while (this._lastVerifiedTick < verifiedTick) {
+      const nextTick = this._lastVerifiedTick + 1;
 
-    const awaiting = this._awaitingVerification.get(verifyTick);
-    if (!awaiting || awaiting.length === 0) {
-      this._cleanupTick(verifyTick);
-      return;
-    }
+      const awaiting = this._awaitingVerification.get(nextTick);
+      if (awaiting && awaiting.length > 0) {
+        const pending = this._pending.get(nextTick) ?? [];
+        const pendingMatched = new Array(pending.length).fill(false);
 
-    const pending = this._pending.get(verifyTick) ?? [];
-    const pendingMatched = new Array(pending.length).fill(false);
+        for (const awaitingData of awaiting) {
+          let matchIdx = -1;
+          for (let i = 0; i < pending.length; i++) {
+            if (!pendingMatched[i] && this._dataEquals(pending[i], awaitingData)) {
+              matchIdx = i;
+              break;
+            }
+          }
 
-    for (const awaitingData of awaiting) {
-      // Ищем matching событие в pending
-      let matchIdx = -1;
-      for (let i = 0; i < pending.length; i++) {
-        if (!pendingMatched[i] && this._dataEquals(pending[i], awaitingData)) {
-          matchIdx = i;
-          break;
+          if (matchIdx >= 0) {
+            pendingMatched[matchIdx] = true;
+            this.Verified.emit({ tick: nextTick, data: awaitingData });
+          } else {
+            this.Cancelled.emit({ tick: nextTick, data: awaitingData });
+          }
         }
       }
 
-      if (matchIdx >= 0) {
-        pendingMatched[matchIdx] = true;
-        this.Verified.emit({ tick: verifyTick, data: awaitingData });
-      } else {
-        // Событие было Predicted, но нет в pending после rollback
-        this.Cancelled.emit({ tick: verifyTick, data: awaitingData });
-      }
+      this._cleanupTick(nextTick);
+      this._lastVerifiedTick = nextTick;
     }
-
-    this._cleanupTick(verifyTick);
   }
 
   /**
@@ -140,6 +136,7 @@ export abstract class Signal<TData = unknown> {
   public dispose(): void {
     this._pending.clear();
     this._awaitingVerification.clear();
+    this._lastVerifiedTick = -1;
     this.Predicted.clear();
     this.Verified.clear();
     this.Cancelled.clear();

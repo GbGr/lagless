@@ -1,0 +1,71 @@
+# nx g @lagless/codegen:ecs --configPath roblox-like/roblox-like-simulation/src/lib/schema/ecs.yaml
+projectName: RobloxLike
+simulationType: physics3d
+
+components:
+  CharacterState:
+    verticalVelocity: float32
+    grounded: uint8
+    currentSpeed: float32
+    jumpCount: uint8
+    moveInputX: float32
+    moveInputZ: float32
+    isSprinting: uint8
+    facingYaw: float32
+    locomotionAngle: float32
+  AnimationState:
+    animationId: uint8
+    animationTime: float32
+    animationSpeed: float32
+    prevAnimationId: uint8
+    transitionProgress: float32
+    transitionDuration: float32
+    locomotionAngle: float32
+    locomotionSpeed: float32
+  PlayerTag:
+  StaticObstacle:
+
+singletons:
+  GameState:
+    gamePhase: uint8
+    sceneInitialized: uint8
+
+playerResources:
+  PlayerResource:
+    id: uint8[16]
+    entity: uint32
+    connected: uint8
+    lastReportedHash: uint32
+    lastReportedHashTick: uint32
+    hashMismatchCount: uint16
+
+inputs:
+  PlayerJoined:
+    slot: uint8
+    playerId: uint8[16]
+  PlayerLeft:
+    slot: uint8
+    reason: uint8
+  CharacterMove:
+    directionX: float32
+    directionZ: float32
+    cameraYaw: float32
+    jump: uint8
+    sprint: uint8
+  ReportHash:
+    hash: uint32
+    atTick: uint32
+
+filters:
+  CharacterFilter:
+    include:
+      - Transform3d
+      - PhysicsRefs
+      - CharacterState
+      - AnimationState
+      - PlayerTag
+  StaticObstacleFilter:
+    include:
+      - Transform3d
+      - PhysicsRefs
+      - StaticObstacle

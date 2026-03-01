@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@lagless/relay-game-server": "workspace:*",
+    "@lagless/dev-tools": "workspace:*",
     "@lagless/misc": "workspace:*",
     "@lagless/circle-sumo-simulation": "workspace:*"
   },

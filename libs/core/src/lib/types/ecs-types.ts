@@ -11,11 +11,13 @@ export interface ComponentDefinition {
   name: string;
   id: number;
   fields: Record<string, FieldDefinition>;
+  isTag?: boolean;
 }
 
 export interface IComponentConstructor {
   name: string;
   ID: number;
+  IS_TAG?: boolean;
   schema: Record<string, TypedArrayConstructor>;
 
   calculateSize(maxEntities: number, memTracker: MemoryTracker): void;
@@ -42,7 +44,7 @@ export interface ISingletonConstructor {
 }
 
 export interface ISingletonInstance {
-  safe?: Record<string, number>;
+  safe?: Record<string, number | TypedArray>;
   unsafe: Record<string, TypedArray>;
 }
 
@@ -81,8 +83,8 @@ export interface IFilterConstructor {
 }
 
 export interface IFilterInstance extends AbstractFilter {
-  includeMask: number;
-  excludeMask: number;
+  includeMask: number[];
+  excludeMask: number[];
 
   [Symbol.iterator](): IterableIterator<number>;
 }

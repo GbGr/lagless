@@ -10,6 +10,7 @@ export class PlayerConnection {
   private _disconnectedAt: number | null = null;
   private _ws: IWebSocket | null;
   private _hasConnectedBefore = false;
+  private _isReady = false;
 
   constructor(
     private readonly _info: PlayerInfo,
@@ -37,6 +38,14 @@ export class PlayerConnection {
     return this._state === ConnectionState.Gone;
   }
 
+  public get isReady(): boolean {
+    return this._isReady;
+  }
+
+  public markReady(): void {
+    this._isReady = true;
+  }
+
   public send(data: Uint8Array): void {
     if (this._state !== ConnectionState.Connected || !this._ws) return;
     this._ws.sendBinary(data);
@@ -57,12 +66,14 @@ export class PlayerConnection {
     this._state = ConnectionState.Disconnected;
     this._disconnectedAt = performance.now();
     this._ws = null;
+    this._isReady = false;
   }
 
   public markGone(): void {
     this._state = ConnectionState.Gone;
     this._disconnectedAt = null;
     this._ws = null;
+    this._isReady = false;
   }
 
   public isReconnectExpired(timeoutMs: number): boolean {

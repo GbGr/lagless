@@ -12,9 +12,9 @@ export class SignalsRegistry {
     }
   }
 
-  public onTick(currentTick: number): void {
+  public onTick(verifiedTick: number): void {
     for (const signal of this._signals) {
-      signal._onTick(currentTick);
+      signal._onTick(verifiedTick);
     }
   }
 

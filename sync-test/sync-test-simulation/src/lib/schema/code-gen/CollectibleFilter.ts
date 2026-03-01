@@ -7,8 +7,8 @@ export class CollectibleFilter extends AbstractFilter {
   public static readonly include: Array<IComponentConstructor> = [Transform2d, Collectible];
   public static readonly exclude: Array<IComponentConstructor> = [];
 
-  public readonly includeMask: number = 9;
-  public readonly excludeMask: number = 0;
+  public readonly includeMask: number[] = [9];
+  public readonly excludeMask: number[] = [0];
 }
 
 Object.defineProperty(CollectibleFilter, 'name', { value: 'CollectibleFilter' });

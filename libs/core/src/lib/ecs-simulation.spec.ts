@@ -110,6 +110,53 @@ describe('ECSSimulation', () => {
     });
   });
 
+  describe('addRollbackHandler', () => {
+    it('should unsubscribe when dispose function is called', () => {
+      const { simulation } = createTestSimulation();
+      let called = false;
+      const unsub = simulation.addRollbackHandler(() => { called = true; });
+      unsub();
+      // Handler removed — will not fire
+      expect(called).toBe(false);
+    });
+  });
+
+  describe('addStateTransferHandler', () => {
+    it('should call handler when applyStateFromTransfer is called', () => {
+      const { simulation } = createTestSimulation();
+      const state = simulation.mem.exportSnapshot();
+
+      let handlerTick: number | undefined;
+      simulation.addStateTransferHandler((tick: number) => { handlerTick = tick; });
+
+      simulation.applyStateFromTransfer(state, 42);
+
+      expect(handlerTick).toBe(42);
+      expect(simulation.tick).toBe(42);
+    });
+
+    it('should unsubscribe when dispose function is called', () => {
+      const { simulation } = createTestSimulation();
+      const state = simulation.mem.exportSnapshot();
+
+      let called = false;
+      const unsub = simulation.addStateTransferHandler(() => { called = true; });
+      unsub();
+
+      simulation.applyStateFromTransfer(state, 10);
+      expect(called).toBe(false);
+    });
+  });
+
+  describe('exportStateForTransfer', () => {
+    it('should return ECS snapshot by default', () => {
+      const { simulation } = createTestSimulation();
+      const blob = simulation.exportStateForTransfer();
+      const snapshot = simulation.mem.exportSnapshot();
+      expect(blob.byteLength).toBe(snapshot.byteLength);
+    });
+  });
+
   describe('basic simulation lifecycle', () => {
     it('should start and advance tick', () => {
       const { simulation, config } = createTestSimulation();

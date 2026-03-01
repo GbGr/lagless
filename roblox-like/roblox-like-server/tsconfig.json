@@ -1,0 +1,30 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "rootDir": "src",
+    "outDir": "dist",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "types": ["bun-types"],
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts"],
+  "references": [
+    {
+      "path": "../roblox-like-simulation"
+    },
+    {
+      "path": "../../libs/misc"
+    },
+    {
+      "path": "../../libs/relay-server"
+    },
+    {
+      "path": "../../libs/dev-tools"
+    },
+    {
+      "path": "../../libs/relay-game-server"
+    }
+  ]
+}

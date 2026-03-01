@@ -7,8 +7,8 @@ export class DampingFilter extends AbstractFilter {
   public static readonly include: Array<IComponentConstructor> = [Velocity2d, CircleBody];
   public static readonly exclude: Array<IComponentConstructor> = [];
 
-  public readonly includeMask: number = 12;
-  public readonly excludeMask: number = 0;
+  public readonly includeMask: number[] = [12];
+  public readonly excludeMask: number[] = [0];
 }
 
 Object.defineProperty(DampingFilter, 'name', { value: 'DampingFilter' });

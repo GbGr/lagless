@@ -7,8 +7,8 @@ export class MovingFilter extends AbstractFilter {
   public static readonly include: Array<IComponentConstructor> = [Transform2d, Velocity2d];
   public static readonly exclude: Array<IComponentConstructor> = [];
 
-  public readonly includeMask: number = 3;
-  public readonly excludeMask: number = 0;
+  public readonly includeMask: number[] = [3];
+  public readonly excludeMask: number[] = [0];
 }
 
 Object.defineProperty(MovingFilter, 'name', { value: 'MovingFilter' });

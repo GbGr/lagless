@@ -6,8 +6,8 @@ export class Transform2dFilter extends AbstractFilter {
   public static readonly include: Array<IComponentConstructor> = [Transform2d];
   public static readonly exclude: Array<IComponentConstructor> = [];
 
-  public readonly includeMask: number = 2;
-  public readonly excludeMask: number = 0;
+  public readonly includeMask: number[] = [2];
+  public readonly excludeMask: number[] = [0];
 }
 
 Object.defineProperty(Transform2dFilter, 'name', { value: 'Transform2dFilter' });

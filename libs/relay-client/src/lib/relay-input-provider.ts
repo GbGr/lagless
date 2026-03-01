@@ -33,6 +33,7 @@ export class RelayInputProvider extends AbstractInputProvider {
   private _firstHelloReceived = false;
   private _connection: RelayConnection | null = null;
   private _rollbackCount = 0;
+  private _maxReceivedServerTick = 0;
 
   /**
    * Minimum tick that needs rollback. Consumed (reset) each frame by
@@ -70,6 +71,10 @@ export class RelayInputProvider extends AbstractInputProvider {
 
   public get rollbackCount(): number {
     return this._rollbackCount;
+  }
+
+  public override get verifiedTick(): number {
+    return this._maxReceivedServerTick > 0 ? this._maxReceivedServerTick - 1 : -1;
   }
 
   /**
@@ -132,6 +137,7 @@ export class RelayInputProvider extends AbstractInputProvider {
    * Adds remote inputs to history, triggers rollback if needed.
    */
   public handleTickInputFanout(data: FanoutData): void {
+    this._maxReceivedServerTick = Math.max(this._maxReceivedServerTick, data.serverTick);
     const currentTick = this._simulation?.tick ?? 0;
 
     for (const input of data.inputs) {
@@ -180,6 +186,7 @@ export class RelayInputProvider extends AbstractInputProvider {
    * Updates clock sync, corrects clock drift, and adjusts input delay.
    */
   public handlePong(data: PongData): void {
+    this._maxReceivedServerTick = Math.max(this._maxReceivedServerTick, data.sTick);
     const clientReceiveMs = performance.now();
     const becameReady = this._clockSync.updateFromPong(clientReceiveMs, data);
 
@@ -233,11 +240,11 @@ export class RelayInputProvider extends AbstractInputProvider {
       return;
     }
 
-    const state = this._simulation.mem.exportSnapshot();
+    const state = this._simulation.exportStateForTransfer();
     const tick = this._simulation.tick;
     const hash = this._simulation.mem.getHash();
 
-    log.info(`Responding to StateRequest #${requestId}: tick=${tick}, hash=0x${hash.toString(16)}`);
+    log.info(`Responding to StateRequest #${requestId}: tick=${tick}, hash=0x${hash.toString(16)}, size=${state.byteLength}`);
 
     this._connection?.sendStateResponse({
       requestId,
@@ -259,9 +266,10 @@ export class RelayInputProvider extends AbstractInputProvider {
 
     log.info(`State transfer: tick=${data.tick}, hash=0x${data.hash.toString(16)}, size=${data.state.byteLength}`);
 
-    this._simulation.applyExternalState(data.state, data.tick);
+    this._simulation.applyStateFromTransfer(data.state, data.tick);
     this._rpcHistory.clear();
     this._invalidateRollbackTick = undefined;
+    this._maxReceivedServerTick = 0;
     this._clockSync.reset();
     this._currentInputDelay = this.ecsConfig.initialInputDelayTick;
     this.resetSequences();

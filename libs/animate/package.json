@@ -32,7 +32,6 @@
           "outputPath": "libs/animate/dist",
           "main": "libs/animate/src/index.ts",
           "tsConfig": "libs/animate/tsconfig.lib.json",
-          "skipTypeCheck": true,
           "stripLeadingPaths": true
         }
       }

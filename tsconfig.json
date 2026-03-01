@@ -62,6 +62,36 @@
     },
     {
       "path": "./tools/create"
+    },
+    {
+      "path": "./libs/physics3d"
+    },
+    {
+      "path": "./libs/physics-shared"
+    },
+    {
+      "path": "./libs/physics2d"
+    },
+    {
+      "path": "./roblox-like/roblox-like-simulation"
+    },
+    {
+      "path": "./roblox-like/roblox-like-server"
+    },
+    {
+      "path": "./libs/character-controller-3d"
+    },
+    {
+      "path": "./roblox-like/roblox-like-game"
+    },
+    {
+      "path": "./libs/animation-controller"
+    },
+    {
+      "path": "./libs/dev-tools"
+    },
+    {
+      "path": "./tools/dev-player"
     }
   ]
 }

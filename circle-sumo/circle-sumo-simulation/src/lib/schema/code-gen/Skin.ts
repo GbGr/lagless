@@ -2,7 +2,7 @@
 import { MemoryTracker } from '@lagless/binary';
 
 export class Skin {
-  public static readonly ID = 1;
+  public static readonly ID = 0;
   public static readonly schema = {
     skinId: Uint16Array,
   };
@@ -24,11 +24,8 @@ export class Skin {
   }
 
   constructor(maxEntities: number, buffer: ArrayBuffer, memTracker: MemoryTracker) {
-    for (const [fieldName, TypedArrayConstructor] of Object.entries(Skin.schema)) {
-      const typedArray = new TypedArrayConstructor(buffer, memTracker.ptr, maxEntities);
-      this.unsafe[fieldName as keyof typeof Skin.schema] = typedArray as Skin['unsafe'][keyof Skin['unsafe']];
-      memTracker.add(typedArray.byteLength);
-    }
+    this.unsafe.skinId = new Uint16Array(buffer, memTracker.ptr, maxEntities);
+    memTracker.add(this.unsafe.skinId.byteLength);
 
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;

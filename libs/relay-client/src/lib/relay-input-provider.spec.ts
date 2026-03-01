@@ -267,6 +267,27 @@ describe('RelayInputProvider', () => {
       // No simulation init
       expect(() => provider.handleStateRequest(1)).not.toThrow();
     });
+
+    it('should call exportStateForTransfer on simulation', () => {
+      const { provider, simulation } = createTestSetup(0);
+
+      let called = false;
+      const origExport = simulation.exportStateForTransfer.bind(simulation);
+      simulation.exportStateForTransfer = () => {
+        called = true;
+        return origExport();
+      };
+
+      const mockConnection = {
+        sendStateResponse: () => { /* noop */ },
+        isConnected: true,
+      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      provider.setConnection(mockConnection as any);
+
+      provider.handleStateRequest(1);
+      expect(called).toBe(true);
+    });
   });
 
   describe('getInvalidateRollbackTick', () => {
@@ -277,14 +298,12 @@ describe('RelayInputProvider', () => {
   });
 
   describe('handleStateResponse', () => {
-    it('should apply external state to simulation', () => {
+    it('should call applyStateFromTransfer on simulation', () => {
       const { provider, simulation } = createTestSetup(0);
 
-      // Advance simulation a bit
-      simulation.update(simulation.clock.frameLength * 5);
-      const tickBefore = simulation.tick;
+      let transferTick: number | undefined;
+      simulation.addStateTransferHandler((tick) => { transferTick = tick; });
 
-      // Create a fake state buffer
       const stateBuffer = simulation.mem.exportSnapshot();
       const data: StateResponseData = {
         requestId: 0,
@@ -295,6 +314,8 @@ describe('RelayInputProvider', () => {
 
       provider.handleStateResponse(data);
       expect(simulation.tick).toBe(42);
+      // Verify applyStateFromTransfer was called (not applyExternalState directly)
+      expect(transferTick).toBe(42);
     });
 
     it('should clear RPC history', () => {

@@ -6,8 +6,8 @@ export class <%= filter.name %> extends AbstractFilter {
   public static readonly include: Array<IComponentConstructor> = [<%= filter.include.map(({ name }) => name).join(',') %>];
   public static readonly exclude: Array<IComponentConstructor> = [<%= filter.exclude.map(({ name }) => name).join(',') %>];
 
-  public readonly includeMask: number = <%= includeMask %>;
-  public readonly excludeMask: number = <%= excludeMask %>;
+  public readonly includeMask: number[] = [<%= includeMaskWords.join(', ') %>];
+  public readonly excludeMask: number[] = [<%= excludeMaskWords.join(', ') %>];
 }
 
 Object.defineProperty(<%= filter.name %>, 'name', { value: '<%= filter.name %>' });

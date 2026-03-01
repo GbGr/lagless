@@ -7,8 +7,8 @@ export class PlayerFilter extends AbstractFilter {
   public static readonly include: Array<IComponentConstructor> = [Transform2d, PlayerBody];
   public static readonly exclude: Array<IComponentConstructor> = [];
 
-  public readonly includeMask: number = 5;
-  public readonly excludeMask: number = 0;
+  public readonly includeMask: number[] = [5];
+  public readonly excludeMask: number[] = [0];
 }
 
 Object.defineProperty(PlayerFilter, 'name', { value: 'PlayerFilter' });

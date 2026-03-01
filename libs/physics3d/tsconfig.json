@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "files": [],
+  "include": [],
+  "references": [
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../misc"
+    },
+    {
+      "path": "../physics-shared"
+    },
+    {
+      "path": "./tsconfig.lib.json"
+    }
+  ]
+}

@@ -1,22 +1,31 @@
 import { MemoryTracker } from '@lagless/binary';
 
+const NOT_IN_FILTER = 0xFFFFFFFF;
+
 export abstract class AbstractFilter {
-  public readonly abstract includeMask: number;
-  public readonly abstract excludeMask: number;
+  public readonly abstract includeMask: number[];
+  public readonly abstract excludeMask: number[];
 
   protected readonly _length: Uint32Array;
   protected readonly _entities: Uint32Array;
+  protected readonly _entityToIndex: Uint32Array;
 
   constructor(private readonly _maxEntities: number, buffer: ArrayBuffer, memoryTracker: MemoryTracker) {
     this._length = new Uint32Array(buffer, memoryTracker.ptr, 1);
     memoryTracker.add(this._length.byteLength);
+
     this._entities = new Uint32Array(buffer, memoryTracker.ptr, this._maxEntities);
     memoryTracker.add(this._entities.byteLength);
+
+    this._entityToIndex = new Uint32Array(buffer, memoryTracker.ptr, this._maxEntities);
+    this._entityToIndex.fill(NOT_IN_FILTER);
+    memoryTracker.add(this._entityToIndex.byteLength);
   }
 
   public static calculateSize(maxEntities: number, memoryTracker: MemoryTracker) {
-    memoryTracker.add(Uint32Array.BYTES_PER_ELEMENT); // for length
-    memoryTracker.add(maxEntities * Uint32Array.BYTES_PER_ELEMENT);
+    memoryTracker.add(Uint32Array.BYTES_PER_ELEMENT); // length
+    memoryTracker.add(maxEntities * Uint32Array.BYTES_PER_ELEMENT); // dense entities
+    memoryTracker.add(maxEntities * Uint32Array.BYTES_PER_ELEMENT); // reverse index
   }
 
   public get length() {
@@ -31,33 +40,29 @@ export abstract class AbstractFilter {
   }
 
   public addEntityToFilter(entity: number) {
-    // Scan only the active portion [0..length)
-    for (let i = 0; i < this.length; i++) {
-      if (this._entities[i] === entity) return; // Already in filter
-    }
+    if (entity >= this._maxEntities || this._entityToIndex[entity] !== NOT_IN_FILTER) return;
 
-    this._entities[this.length] = entity;
-    this.length++;
+    const idx = this._length[0];
+    this._entities[idx] = entity;
+    this._entityToIndex[entity] = idx;
+    this._length[0] = idx + 1;
   }
 
   public removeEntityFromFilter(entity: number) {
-    // Scan only the active portion [0..length)
-    let entityIdx = -1;
-    for (let i = 0; i < this.length; i++) {
-      if (this._entities[i] === entity) {
-        entityIdx = i;
-        break;
-      }
-    }
-    if (entityIdx === -1) return; // Not in filter
+    if (entity >= this._maxEntities) return;
+    const idx = this._entityToIndex[entity];
+    if (idx === NOT_IN_FILTER) return;
 
-    const lastIndex = this.length - 1;
+    const lastIdx = this._length[0] - 1;
 
-    if (entityIdx !== lastIndex) {
-      this._entities[entityIdx] = this._entities[lastIndex];
+    if (idx !== lastIdx) {
+      const lastEntity = this._entities[lastIdx];
+      this._entities[idx] = lastEntity;
+      this._entityToIndex[lastEntity] = idx;
     }
 
-    this.length--;
+    this._entityToIndex[entity] = NOT_IN_FILTER;
+    this._length[0] = lastIdx;
   }
 
   public *[Symbol.iterator](): IterableIterator<number> {

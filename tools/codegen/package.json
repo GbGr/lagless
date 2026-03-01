@@ -43,14 +43,13 @@
           "outputPath": "tools/codegen/dist",
           "main": "tools/codegen/src/index.ts",
           "tsConfig": "tools/codegen/tsconfig.lib.json",
-          "skipTypeCheck": true,
           "stripLeadingPaths": true
         }
       }
     }
   },
   "dependencies": {
-    "tslib": "^2.3.0",
+    "@nx/devkit": "^21.6.4",
     "commander": "^14.0.1",
     "yaml": "^2.8.1",
     "ejs": "^3.1.10",

@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "files": [],
+  "include": [],
+  "references": [
+    { "path": "../core" },
+    { "path": "../math" },
+    { "path": "../physics3d" },
+    { "path": "./tsconfig.lib.json" }
+  ]
+}

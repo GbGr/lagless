@@ -14,12 +14,16 @@ export class ECSSimulation {
   private readonly _signalsRegistry: SignalsRegistry;
   private readonly _frameLength: number;
   private readonly _snapshotRate: number;
-  private readonly _initialSnapshot!: ArrayBuffer;
+  protected readonly _initialSnapshot!: ArrayBuffer;
   private readonly _systems = new Array<IECSSystem>();
   private readonly _onTickHandlers = new Set<(tick: number) => void>();
+  private readonly _onRollbackHandlers = new Set<(tick: number) => void>();
+  private readonly _onStateTransferHandlers = new Set<(tick: number) => void>();
 
   private _interpolationFactor = 0;
-  private _snapshotHistory: SnapshotHistory<ArrayBuffer>;
+  protected _snapshotHistory: SnapshotHistory<ArrayBuffer>;
+  private _hashTrackingInterval = 0;
+  private _hashHistory = new Map<number, number>();
 
   public get tick(): number {
     return this.mem.tickManager.tick;
@@ -30,7 +34,7 @@ export class ECSSimulation {
   }
 
   constructor(
-    private readonly _ECSConfig: ECSConfig,
+    protected readonly _ECSConfig: ECSConfig,
     private readonly _ECSDeps: ECSDeps,
     private readonly _inputProvider: AbstractInputProvider,
   ) {
@@ -52,6 +56,16 @@ export class ECSSimulation {
 
   public removeTickHandler(handler: (tick: number) => void): void {
     this._onTickHandlers.delete(handler);
+  }
+
+  public addRollbackHandler(handler: (tick: number) => void): () => void {
+    this._onRollbackHandlers.add(handler);
+    return () => { this._onRollbackHandlers.delete(handler); };
+  }
+
+  public addStateTransferHandler(handler: (tick: number) => void): () => void {
+    this._onStateTransferHandlers.add(handler);
+    return () => { this._onStateTransferHandlers.delete(handler); };
   }
 
   public registerSystems(systems: IECSSystem[]): void {
@@ -78,6 +92,18 @@ export class ECSSimulation {
 
   public get frameLength(): number {
     return this._frameLength;
+  }
+
+  public get inputProvider(): AbstractInputProvider {
+    return this._inputProvider;
+  }
+
+  public enableHashTracking(interval: number): void {
+    this._hashTrackingInterval = interval;
+  }
+
+  public getHashAtTick(tick: number): number | undefined {
+    return this._hashHistory.get(tick);
   }
 
   public start(): void {
@@ -108,6 +134,30 @@ export class ECSSimulation {
 
     // Reset signals — old predictions are invalid
     this._signalsRegistry.dispose();
+
+    // Clear hash history — old hashes are from a different timeline
+    this._hashHistory.clear();
+  }
+
+  /**
+   * Export simulation state for network state transfer (late-join / reconnect).
+   * Override in subclasses to include additional state (e.g. physics world).
+   */
+  public exportStateForTransfer(): ArrayBuffer {
+    return this.mem.exportSnapshot();
+  }
+
+  /**
+   * Apply state received from network state transfer (late-join / reconnect).
+   * Override in subclasses to restore additional state (e.g. physics world).
+   */
+  public applyStateFromTransfer(blob: ArrayBuffer, tick: number): void {
+    this.applyExternalState(blob, tick);
+    this.notifyStateTransferHandlers(tick);
+  }
+
+  protected notifyStateTransferHandlers(tick: number): void {
+    for (const handler of this._onStateTransferHandlers) handler(tick);
   }
 
   public update(dt: number) {
@@ -133,6 +183,8 @@ export class ECSSimulation {
     if (rollbackTick === undefined || rollbackTick > currentTick) return;
 
     this.rollback(rollbackTick);
+
+    for (const handler of this._onRollbackHandlers) handler(this.tick);
   }
 
   private simulationTicks(currentTick: number, toTick: number): void {
@@ -143,9 +195,24 @@ export class ECSSimulation {
     while (currentTick < toTick) {
       this.mem.tickManager.setTick(++currentTick);
       this.simulate(currentTick);
-      this._signalsRegistry.onTick(currentTick);
+
+      if (this._hashTrackingInterval > 0 && currentTick % this._hashTrackingInterval === 0) {
+        this._hashHistory.set(currentTick, this.mem.getHash());
+      }
+
+      this._signalsRegistry.onTick(this._inputProvider.verifiedTick);
       this.storeSnapshotIfNeeded(currentTick);
       for (const handler of this._onTickHandlers) handler(currentTick);
+    }
+
+    // Prune old hash entries
+    if (this._hashHistory.size > 0) {
+      const pruneBelow = this._inputProvider.verifiedTick - 600;
+      if (pruneBelow > 0) {
+        for (const tick of this._hashHistory.keys()) {
+          if (tick < pruneBelow) this._hashHistory.delete(tick);
+        }
+      }
     }
   }
 

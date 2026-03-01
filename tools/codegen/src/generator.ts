@@ -1,6 +1,7 @@
 import { ECSSchema, FieldDefinition } from '@lagless/core';
 import { generateFromTemplate as processTemplate, FileOperations } from './template-engine.js';
 import { FieldTypeReverse, getTypeSizeBytes, typedArrayConstructors, typeToArrayConstructor } from '@lagless/binary';
+import { SimulationType } from './parser.js';
 
 export interface GenerateCodeOptions {
   schema: ECSSchema;
@@ -8,6 +9,7 @@ export interface GenerateCodeOptions {
   outputDir: string;
   templateDir: string;
   fileOperations: FileOperations;
+  simulationType?: SimulationType;
 }
 
 export function generateBarrelFileContent(schema: ECSSchema, projectName: string): string {
@@ -108,19 +110,32 @@ export async function generateCode(options: GenerateCodeOptions): Promise<void> 
     });
   }
 
-  // Generate Filter classes
+  // Determine mask word count from component count
+  const maskWords = Math.max(1, Math.ceil(schema.components.length / 32));
+
+  // Generate Filter classes (masks are number[] with one element per Uint32 word)
   for (const filter of schema.filters) {
     const componentsImports = [...filter.include, ...filter.exclude].map((c) => c.name);
-    const includeMask = filter.include.reduce((acc, component) => acc | component.id, 0);
-    const excludeMask = filter.exclude.reduce((acc, component) => acc | component.id, 0);
+
+    const includeMaskWords = new Array<number>(maskWords).fill(0);
+    for (const component of filter.include) {
+      const w = component.id >>> 5;
+      includeMaskWords[w] |= 1 << (component.id & 31);
+    }
+
+    const excludeMaskWords = new Array<number>(maskWords).fill(0);
+    for (const component of filter.exclude) {
+      const w = component.id >>> 5;
+      excludeMaskWords[w] |= 1 << (component.id & 31);
+    }
 
     await processTemplate({
       templateDir: joinPath(templateDir, 'filter'),
       outputDir,
       data: {
         filter,
-        includeMask,
-        excludeMask,
+        includeMaskWords,
+        excludeMaskWords,
         componentsImports,
         name: filter.name,
         projectName,
@@ -168,9 +183,13 @@ export async function generateCode(options: GenerateCodeOptions): Promise<void> 
     fileOperations,
   });
 
-  // Generate Runner class
+  // Generate Runner class (template varies by simulationType)
+  const simulationType = options.simulationType ?? 'raw';
+  const runnerTemplateDir =
+    simulationType === 'physics3d' ? 'runner-physics3d' : simulationType === 'physics2d' ? 'runner-physics2d' : 'runner';
+
   await processTemplate({
-    templateDir: joinPath(templateDir, 'runner'),
+    templateDir: joinPath(templateDir, runnerTemplateDir),
     outputDir,
     data: {
       projectName,

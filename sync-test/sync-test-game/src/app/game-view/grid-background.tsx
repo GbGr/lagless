@@ -31,5 +31,5 @@ export const GridBackground: FC = () => {
     g.stroke({ color: 0x6666aa, width: 3, alpha: 0.8 });
   }, []);
 
-  return <pixiGraphics ref={graphicsRef} />;
+  return <pixiGraphics ref={graphicsRef} draw={() => {/* drawing handled in useEffect */}} />;
 };

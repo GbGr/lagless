@@ -1,0 +1,208 @@
+import { createLogger } from '@lagless/misc';
+import { ColliderEntityMap } from '@lagless/physics-shared';
+import { CollisionEvents3d } from './collision-events-3d.js';
+import { PhysicsConfig3d } from './physics-config-3d.js';
+import {
+  RapierCollider3d,
+  RapierColliderDesc,
+  RapierEventQueue,
+  RapierModule3d,
+  RapierRigidBody3d,
+  RapierRigidBodyDesc,
+  RapierWorld3d,
+} from './rapier-types.js';
+
+const log = createLogger('PhysicsWorldManager3d');
+
+export class PhysicsWorldManager3d {
+  private _world: RapierWorld3d;
+  private readonly _substeps: number;
+  private readonly _substepDt: number;
+  private readonly _collisionEvents: CollisionEvents3d;
+  private readonly _colliderEntityMap = new ColliderEntityMap();
+
+  public get world(): RapierWorld3d {
+    return this._world;
+  }
+
+  public get substeps(): number {
+    return this._substeps;
+  }
+
+  public get colliderEntityMap(): ColliderEntityMap {
+    return this._colliderEntityMap;
+  }
+
+  public get collisionEvents(): CollisionEvents3d {
+    return this._collisionEvents;
+  }
+
+  constructor(
+    private readonly _rapier: RapierModule3d,
+    private readonly _config: PhysicsConfig3d,
+    frameLengthMs: number,
+  ) {
+    this._world = new _rapier.World({
+      x: _config.gravityX,
+      y: _config.gravityY,
+      z: _config.gravityZ,
+    });
+
+    this._substeps = _config.substeps;
+    this._substepDt = (frameLengthMs / 1000) / this._substeps;
+    this._world.timestep = this._substepDt;
+    this._collisionEvents = new CollisionEvents3d(_rapier);
+  }
+
+  /**
+   * Step the physics world for one ECS frame.
+   * Executes `substeps` Rapier steps, each with a fixed dt derived from frameLength / substeps.
+   * When collision events are enabled, drains the event queue after all substeps.
+   */
+  public step(): void {
+    const eq = this._collisionEvents.eventQueue as RapierEventQueue;
+    for (let i = 0; i < this._substeps; i++) {
+      this._world.step(eq);
+    }
+    this._collisionEvents.drain(this._colliderEntityMap, this._world);
+  }
+
+  public takeSnapshot(): Uint8Array {
+    return this._world.takeSnapshot();
+  }
+
+  public restoreSnapshot(data: Uint8Array): void {
+    this._world.free();
+    const restored = this._rapier.World.restoreSnapshot(data);
+    if (!restored) {
+      log.warn('Failed to restore Rapier snapshot, recreating world');
+      this._world = new this._rapier.World({
+        x: this._config.gravityX,
+        y: this._config.gravityY,
+        z: this._config.gravityZ,
+      });
+      return;
+    }
+    this._world = restored;
+    // CRITICAL: QueryPipeline is NOT included in the Rapier snapshot format.
+    // After restoreSnapshot(), the world has a fresh empty QueryPipeline.
+    // computeColliderMovement() queries the QueryPipeline, so if we don't rebuild it
+    // here, KCC will detect no collisions on the first tick after rollback,
+    // causing non-deterministic movement and client divergence.
+    this._world.updateSceneQueries();
+  }
+
+  // Entity-collider mapping
+  public registerCollider(colliderHandle: number, entity: number): void {
+    this._colliderEntityMap.set(colliderHandle, entity);
+  }
+
+  public unregisterCollider(colliderHandle: number): void {
+    this._colliderEntityMap.delete(colliderHandle);
+  }
+
+  // Body factories
+  public createDynamicBody(): RapierRigidBody3d {
+    const desc = this._rapier.RigidBodyDesc.dynamic();
+    return this._world.createRigidBody(desc);
+  }
+
+  public createFixedBody(): RapierRigidBody3d {
+    const desc = this._rapier.RigidBodyDesc.fixed();
+    return this._world.createRigidBody(desc);
+  }
+
+  public createKinematicPositionBody(): RapierRigidBody3d {
+    const desc = this._rapier.RigidBodyDesc.kinematicPositionBased();
+    return this._world.createRigidBody(desc);
+  }
+
+  public createKinematicVelocityBody(): RapierRigidBody3d {
+    const desc = this._rapier.RigidBodyDesc.kinematicVelocityBased();
+    return this._world.createRigidBody(desc);
+  }
+
+  public createBodyFromDesc(desc: RapierRigidBodyDesc): RapierRigidBody3d {
+    return this._world.createRigidBody(desc);
+  }
+
+  // Collider factories (with optional collision groups and active events)
+  public createBallCollider(
+    radius: number,
+    parent?: RapierRigidBody3d,
+    groups?: number,
+    activeEvents?: number,
+  ): RapierCollider3d {
+    const desc = this._rapier.ColliderDesc.ball(radius);
+    if (groups !== undefined) desc.setCollisionGroups(groups);
+    if (activeEvents !== undefined) desc.setActiveEvents(activeEvents);
+    return this._world.createCollider(desc, parent);
+  }
+
+  public createCuboidCollider(
+    hx: number, hy: number, hz: number,
+    parent?: RapierRigidBody3d,
+    groups?: number,
+    activeEvents?: number,
+  ): RapierCollider3d {
+    const desc = this._rapier.ColliderDesc.cuboid(hx, hy, hz);
+    if (groups !== undefined) desc.setCollisionGroups(groups);
+    if (activeEvents !== undefined) desc.setActiveEvents(activeEvents);
+    return this._world.createCollider(desc, parent);
+  }
+
+  public createCapsuleCollider(
+    halfHeight: number, radius: number,
+    parent?: RapierRigidBody3d,
+    groups?: number,
+    activeEvents?: number,
+  ): RapierCollider3d {
+    const desc = this._rapier.ColliderDesc.capsule(halfHeight, radius);
+    if (groups !== undefined) desc.setCollisionGroups(groups);
+    if (activeEvents !== undefined) desc.setActiveEvents(activeEvents);
+    return this._world.createCollider(desc, parent);
+  }
+
+  public createTrimeshCollider(
+    vertices: Float32Array,
+    indices: Uint32Array,
+    parent?: RapierRigidBody3d,
+  ): RapierCollider3d {
+    const desc = this._rapier.ColliderDesc.trimesh(vertices, indices);
+    return this._world.createCollider(desc, parent);
+  }
+
+  public createColliderFromDesc(desc: RapierColliderDesc, parent?: RapierRigidBody3d): RapierCollider3d {
+    return this._world.createCollider(desc, parent);
+  }
+
+  // Accessors
+  public getBody(handle: number): RapierRigidBody3d {
+    return this._world.getRigidBody(handle);
+  }
+
+  public getCollider(handle: number): RapierCollider3d {
+    return this._world.getCollider(handle);
+  }
+
+  // Removal
+  public removeBody(handle: number): void {
+    const body = this._world.getRigidBody(handle);
+    this._world.removeRigidBody(body);
+  }
+
+  public removeCollider(handle: number, wakeUp = true): void {
+    const collider = this._world.getCollider(handle);
+    this._world.removeCollider(collider, wakeUp);
+  }
+
+  // Rapier module access (for creating descs in game code)
+  public get rapier(): RapierModule3d {
+    return this._rapier;
+  }
+
+  public dispose(): void {
+    this._collisionEvents.dispose();
+    this._world.free();
+  }
+}
