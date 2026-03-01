@@ -13,33 +13,5 @@
   },
   "include": ["src/**/*.ts"],
   "exclude": ["src/**/*.test.ts", "src/**/*.spec.ts"],
-  "references": [
-    {
-      "path": "../../libs/physics-shared/tsconfig.lib.json"
-    },
-    {
-      "path": "../../libs/react/tsconfig.lib.json"
-    },
-    {
-      "path": "../../libs/relay-client/tsconfig.lib.json"
-    },
-    {
-      "path": "../../libs/core/tsconfig.lib.json"
-    },
-    {
-      "path": "../../libs/physics3d/tsconfig.lib.json"
-    },
-    {
-      "path": "../../libs/physics2d/tsconfig.lib.json"
-    },
-    {
-      "path": "../../libs/pixi-react/tsconfig.lib.json"
-    },
-    {
-      "path": "../../libs/dev-tools"
-    },
-    {
-      "path": "../../libs/relay-game-server/tsconfig.lib.json"
-    }
-  ]
+  "references": []
 }
