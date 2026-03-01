@@ -1,3 +1,4 @@
+<% if (simulationType === 'raw') { -%>
 import { ECSSystem, IECSSystem } from '@lagless/core';
 import { Transform2d, PlayerBody, PlayerFilter } from '../schema/code-gen/index.js';
 import { <%= projectName %>Arena } from '../arena.js';
@@ -32,3 +33,4 @@ export class BoundarySystem implements IECSSystem {
     }
   }
 }
+<% } -%>

@@ -1,7 +1,7 @@
 {
   "name": "@lagless/create",
   "version": "0.0.38",
-  "license": "MIT",
+  "license": "CC-BY-NC-4.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/GbGr/lagless",
@@ -45,9 +45,10 @@
     }
   },
   "dependencies": {
+    "@inquirer/prompts": "^8.3.0",
+    "@swc/helpers": "~0.5.11",
     "commander": "^14.0.1",
-    "ejs": "^3.1.10",
-    "@swc/helpers": "~0.5.11"
+    "ejs": "^3.1.10"
   },
   "devDependencies": {
     "@types/ejs": "^3.1.5"

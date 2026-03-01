@@ -1,8 +1,14 @@
 {
   "private": true,
   "scripts": {
+    "dev": "concurrently -k -n backend,frontend,player -c blue,green,yellow \"pnpm dev:backend\" \"pnpm dev:frontend\" \"pnpm dev:player\"",
     "dev:frontend": "pnpm --filter <%= packageName %>-frontend dev",
     "dev:backend": "pnpm --filter <%= packageName %>-backend dev",
+    "dev:player": "lagless-dev-player --game-url http://localhost:<%= frontendPort %> --server-url ws://localhost:<%= serverPort %> --scope <%= packageName %>",
     "codegen": "npx @lagless/codegen -c <%= packageName %>-simulation/src/lib/schema/ecs.yaml"
+  },
+  "devDependencies": {
+    "@lagless/dev-player": "^<%= laglessVersion %>",
+    "concurrently": "^9.1.0"
   }
 }

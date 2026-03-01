@@ -7,6 +7,11 @@ import {
   PlayerJoined,
   ReportHash,
   <%= projectName %>Arena,
+<% if (simulationType !== 'raw') { -%>
+  PhysicsRefs,
+  PhysicsRefsFilter,
+  PlayerFilter,
+<% } -%>
 } from '<%= packageName %>-simulation';
 import { createContext, FC, ReactNode, useContext, useEffect, useState } from 'react';
 import { useTick } from '@pixi/react';
@@ -16,6 +21,12 @@ import { ECSConfig, LocalInputProvider, RPC, createHashReporter } from '@lagless
 import { RelayInputProvider, RelayConnection } from '@lagless/relay-client';
 import { getMatchInfo } from '../hooks/use-start-multiplayer-match';
 import { UUID } from '@lagless/misc';
+import { useDevBridge } from '@lagless/react';
+<% if (simulationType === 'physics2d') { -%>
+import { PhysicsWorldManager2d, type RapierModule2d } from '@lagless/physics2d';
+<% } else if (simulationType === 'physics3d') { -%>
+import { PhysicsWorldManager3d, type RapierModule3d } from '@lagless/physics3d';
+<% } -%>
 
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 const RunnerContext = createContext<<%= projectName %>Runner>(null!);
@@ -66,6 +77,23 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
         return;
       }
 
+<% if (simulationType === 'physics2d') { -%>
+      // Load Rapier 2D WASM
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const RAPIER = (await import('@dimforge/rapier2d-compat')).default as any;
+      await RAPIER.init();
+      const rapier = RAPIER as unknown as RapierModule2d;
+      if (disposed) { inputProvider.dispose(); return; }
+
+<% } else if (simulationType === 'physics3d') { -%>
+      // Load Rapier 3D WASM
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const RAPIER = (await import('@dimforge/rapier3d-compat')).default as any;
+      await RAPIER.init();
+      const rapier = RAPIER as unknown as RapierModule3d;
+      if (disposed) { inputProvider.dispose(); return; }
+
+<% } -%>
       if (inputProvider instanceof RelayInputProvider) {
         const matchInfo = getMatchInfo(inputProvider);
         if (matchInfo) {
@@ -94,14 +122,40 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
           if (disposed) { inputProvider.dispose(); return; }
 
           const seededConfig = new ECSConfig({ ...inputProvider.ecsConfig, seed: serverHello.seed });
+<% if (simulationType === 'raw') { -%>
           _runner = new <%= projectName %>Runner(seededConfig, inputProvider, <%= projectName %>Systems, <%= projectName %>Signals);
+<% } else { -%>
+          _runner = new <%= projectName %>Runner(seededConfig, inputProvider, <%= projectName %>Systems, <%= projectName %>Signals, rapier);
+<% } -%>
         } else {
+<% if (simulationType === 'raw') { -%>
           _runner = new <%= projectName %>Runner(inputProvider.ecsConfig, inputProvider, <%= projectName %>Systems, <%= projectName %>Signals);
+<% } else { -%>
+          _runner = new <%= projectName %>Runner(inputProvider.ecsConfig, inputProvider, <%= projectName %>Systems, <%= projectName %>Signals, rapier);
+<% } -%>
         }
       } else {
+<% if (simulationType === 'raw') { -%>
         _runner = new <%= projectName %>Runner(inputProvider.ecsConfig, inputProvider, <%= projectName %>Systems, <%= projectName %>Signals);
+<% } else { -%>
+        _runner = new <%= projectName %>Runner(inputProvider.ecsConfig, inputProvider, <%= projectName %>Systems, <%= projectName %>Signals, rapier);
+<% } -%>
       }
 
+<% if (simulationType !== 'raw') { -%>
+      // Hook state transfer to rebuild ColliderEntityMap after receiving external state
+      const worldManager = _runner.PhysicsWorldManager;
+      _runner.Simulation.addStateTransferHandler(() => {
+        worldManager.colliderEntityMap.clear();
+        const physicsFilter = _runner.DIContainer.resolve(PhysicsRefsFilter);
+        const refs = _runner.DIContainer.resolve(PhysicsRefs);
+        const refsUnsafe = refs.unsafe;
+        for (const e of physicsFilter) {
+          worldManager.registerCollider(refsUnsafe.colliderHandle[e], e);
+        }
+      });
+
+<% } -%>
       // Set up keyboard input drainer with hash reporting
       const reportHash = createHashReporter(_runner, {
         reportInterval: <%= projectName %>Arena.hashReportInterval,
@@ -127,6 +181,7 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
         reportHash(addRPC);
       });
 
+      _runner.Simulation.enableHashTracking(<%= projectName %>Arena.hashReportInterval);
       _runner.start();
 
       if (inputProvider instanceof RelayInputProvider) {
@@ -166,6 +221,8 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
       _runner?.dispose();
     };
   }, [v, navigate]);
+
+  useDevBridge(runner, { hashTrackingInterval: <%= projectName %>Arena.hashReportInterval });
 
   return !runner ? null : <RunnerContext.Provider value={runner}>{children}</RunnerContext.Provider>;
 };

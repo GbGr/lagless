@@ -1,3 +1,4 @@
+<% if (simulationType === 'raw') { -%>
 # Run codegen: npx @lagless/codegen -c <%= packageName %>-simulation/src/lib/schema/ecs.yaml
 projectName: <%= projectName %>
 
@@ -43,10 +44,93 @@ inputs:
 
 filters:
   PlayerFilter:
-    include:
-      - Transform2d
-      - PlayerBody
+    include: [Transform2d, PlayerBody]
   MovingFilter:
-    include:
-      - Transform2d
-      - Velocity2d
+    include: [Transform2d, Velocity2d]
+<% } else if (simulationType === 'physics2d') { -%>
+# Run codegen: npx @lagless/codegen -c <%= packageName %>-simulation/src/lib/schema/ecs.yaml
+projectName: <%= projectName %>
+simulationType: physics2d
+
+# Transform2d (positionX/Y, rotation, prevPositionX/Y, prevRotation) and PhysicsRefs
+# are auto-prepended by codegen when simulationType is physics2d.
+
+components:
+  PlayerBody:
+    playerSlot: uint8
+    radius: float32
+
+singletons:
+  GameState:
+    gamePhase: uint8
+
+playerResources:
+  PlayerResource:
+    id: uint8[16]
+    entity: uint32
+    connected: uint8
+    lastReportedHash: uint32
+    lastReportedHashTick: uint32
+    hashMismatchCount: uint16
+
+inputs:
+  PlayerJoined:
+    slot: uint8
+    playerId: uint8[16]
+  PlayerLeft:
+    slot: uint8
+    reason: uint8
+  MoveInput:
+    directionX: float32
+    directionY: float32
+  ReportHash:
+    hash: uint32
+    atTick: uint32
+
+filters:
+  PlayerFilter:
+    include: [Transform2d, PhysicsRefs, PlayerBody]
+<% } else { -%>
+# Run codegen: npx @lagless/codegen -c <%= packageName %>-simulation/src/lib/schema/ecs.yaml
+projectName: <%= projectName %>
+simulationType: physics3d
+
+# Transform3d (positionX/Y/Z, rotationX/Y/Z/W, prev*) and PhysicsRefs
+# are auto-prepended by codegen when simulationType is physics3d.
+
+components:
+  PlayerBody:
+    playerSlot: uint8
+    radius: float32
+
+singletons:
+  GameState:
+    gamePhase: uint8
+
+playerResources:
+  PlayerResource:
+    id: uint8[16]
+    entity: uint32
+    connected: uint8
+    lastReportedHash: uint32
+    lastReportedHashTick: uint32
+    hashMismatchCount: uint16
+
+inputs:
+  PlayerJoined:
+    slot: uint8
+    playerId: uint8[16]
+  PlayerLeft:
+    slot: uint8
+    reason: uint8
+  MoveInput:
+    directionX: float32
+    directionY: float32
+  ReportHash:
+    hash: uint32
+    atTick: uint32
+
+filters:
+  PlayerFilter:
+    include: [Transform3d, PhysicsRefs, PlayerBody]
+<% } -%>

@@ -18,6 +18,13 @@
     "@lagless/math": "^<%= laglessVersion %>",
     "@lagless/binary": "^<%= laglessVersion %>",
     "@lagless/misc": "^<%= laglessVersion %>",
+<% if (simulationType === 'physics2d') { -%>
+    "@lagless/physics2d": "^<%= laglessVersion %>",
+    "@lagless/physics-shared": "^<%= laglessVersion %>",
+<% } else if (simulationType === 'physics3d') { -%>
+    "@lagless/physics3d": "^<%= laglessVersion %>",
+    "@lagless/physics-shared": "^<%= laglessVersion %>",
+<% } -%>
     "@swc/helpers": "~0.5.11"
   }
 }

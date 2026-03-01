@@ -43,7 +43,7 @@ async function generateFromConfig(options: CliOptions): Promise<void> {
     throw new Error(`Config file is empty: ${configPath}`);
   }
 
-  const { schema, projectName } = parseYamlConfig(configContent, configPath);
+  const { schema, projectName, simulationType } = parseYamlConfig(configContent, configPath);
 
   // Determine output directory
   const outputDir = outputPath || path.join(path.dirname(configPath), 'code-gen');
@@ -98,6 +98,7 @@ async function generateFromConfig(options: CliOptions): Promise<void> {
     outputDir,
     templateDir,
     fileOperations,
+    simulationType,
   });
 
   console.log('ECS code generation complete!');

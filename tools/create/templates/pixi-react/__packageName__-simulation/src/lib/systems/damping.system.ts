@@ -1,3 +1,4 @@
+<% if (simulationType === 'raw') { -%>
 import { ECSSystem, IECSSystem } from '@lagless/core';
 import { Velocity2d, MovingFilter } from '../schema/code-gen/index.js';
 import { <%= projectName %>Arena } from '../arena.js';
@@ -16,3 +17,4 @@ export class DampingSystem implements IECSSystem {
     }
   }
 }
+<% } -%>

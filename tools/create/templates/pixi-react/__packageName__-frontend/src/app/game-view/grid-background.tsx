@@ -10,7 +10,11 @@ export const GridBackground: FC = () => {
     if (!g) return;
 
     const w = <%= projectName %>Arena.width;
+<% if (simulationType === 'physics3d') { -%>
+    const h = <%= projectName %>Arena.depth;
+<% } else { -%>
     const h = <%= projectName %>Arena.height;
+<% } -%>
     const step = 100;
 
     g.clear();

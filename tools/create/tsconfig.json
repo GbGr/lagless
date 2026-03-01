@@ -4,6 +4,33 @@
   "include": [],
   "references": [
     {
+      "path": "../../libs/physics-shared"
+    },
+    {
+      "path": "../../libs/react"
+    },
+    {
+      "path": "../../libs/relay-client"
+    },
+    {
+      "path": "../../libs/core"
+    },
+    {
+      "path": "../../libs/physics3d"
+    },
+    {
+      "path": "../../libs/physics2d"
+    },
+    {
+      "path": "../../libs/pixi-react"
+    },
+    {
+      "path": "../../libs/dev-tools"
+    },
+    {
+      "path": "../../libs/relay-game-server"
+    },
+    {
       "path": "./tsconfig.lib.json"
     }
   ]

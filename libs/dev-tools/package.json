@@ -1,8 +1,16 @@
 {
   "name": "@lagless/dev-tools",
-  "version": "0.0.1",
-  "license": "MIT",
+  "version": "0.0.38",
+  "license": "CC-BY-NC-4.0",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GbGr/lagless.git",
+    "directory": "libs/dev-tools"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {

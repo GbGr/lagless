@@ -5,7 +5,9 @@ import { useCallback, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ProviderStore } from './use-start-match';
 
-const SERVER_URL = import.meta.env.VITE_RELAY_URL || 'ws://localhost:<%= serverPort %>';
+const _params = new URLSearchParams(window.location.search);
+const SERVER_URL = _params.get('serverUrl') || import.meta.env.VITE_RELAY_URL || 'ws://localhost:<%= serverPort %>';
+const SCOPE = _params.get('scope') || '<%= packageName %>';
 
 export type MatchmakingState = 'idle' | 'queuing' | 'connecting' | 'error';
 
@@ -48,7 +50,7 @@ export const useStartMultiplayerMatch = () => {
       ws.send(
         JSON.stringify({
           type: 'join',
-          scope: '<%= packageName %>',
+          scope: SCOPE,
         }),
       );
     };
@@ -85,9 +87,7 @@ export const useStartMultiplayerMatch = () => {
     };
 
     ws.onclose = () => {
-      if (state === 'queuing') {
-        setState('idle');
-      }
+      setState((prev) => (prev === 'queuing' ? 'idle' : prev));
     };
   }, [state]);
 

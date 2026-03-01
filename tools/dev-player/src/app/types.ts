@@ -49,8 +49,16 @@ export interface DevPlayerState {
   instances: Map<string, InstanceState>;
 }
 
-export const PRESETS: GamePreset[] = [
+// CLI injects presets via window.__LAGLESS_DEV_PLAYER_CONFIG__
+const _injected: GamePreset[] | undefined =
+  typeof window !== 'undefined'
+    ? (window as unknown as Record<string, unknown>).__LAGLESS_DEV_PLAYER_CONFIG__ as GamePreset[] | undefined
+    : undefined;
+
+const MONOREPO_PRESETS: GamePreset[] = [
   { label: 'Sync Test',   gameUrl: 'http://localhost:4201', serverUrl: 'ws://localhost:3334', scope: 'sync-test' },
   { label: 'Circle Sumo', gameUrl: 'http://localhost:4200', serverUrl: 'ws://localhost:3333', scope: 'circle-sumo' },
   { label: 'Roblox-Like', gameUrl: 'http://localhost:4202', serverUrl: 'ws://localhost:3335', scope: 'roblox-like' },
 ];
+
+export const PRESETS: GamePreset[] = _injected ?? MONOREPO_PRESETS;

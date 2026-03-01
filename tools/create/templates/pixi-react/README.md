@@ -12,17 +12,27 @@ A multiplayer game built with [Lagless](https://github.com/GbGr/lagless) — a d
 
 ```bash
 pnpm install
-
-# Terminal 1 — Start the game server
-pnpm dev:backend
-
-# Terminal 2 — Start the frontend dev server
-pnpm dev:frontend
+pnpm codegen    # Generate ECS code from schema
+pnpm dev        # Start backend + frontend + dev-player
 ```
 
 Open http://localhost:<%= frontendPort %> in your browser. Click "Play Local" for single-player or "Play Online" for multiplayer.
 
 Press **F3** to toggle the debug panel (shows network stats, tick info, hash verification).
+
+You can also run services individually:
+
+```bash
+pnpm dev:backend    # Game server (Bun, watches for changes)
+pnpm dev:frontend   # Frontend (Vite HMR)
+pnpm dev:player     # Dev-player (multiplayer testing tool, port 4210)
+```
+
+## Dev Player
+
+The **dev-player** (http://localhost:4210) is a multiplayer testing tool that opens multiple game instances in a grid. It auto-matchmakes them, displays per-instance network stats, and provides a hash timeline for detecting simulation divergence between clients.
+
+Use it to test multiplayer without opening multiple browser tabs manually.
 
 ## Project Structure
 

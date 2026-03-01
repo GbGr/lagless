@@ -1,3 +1,4 @@
+<% if (simulationType === 'raw') { -%>
 import { ECSSystem, IECSSystem } from '@lagless/core';
 import { Transform2d, Velocity2d, MovingFilter } from '../schema/code-gen/index.js';
 
@@ -16,3 +17,4 @@ export class IntegrateSystem implements IECSSystem {
     }
   }
 }
+<% } -%>

@@ -3,15 +3,20 @@ import { program } from 'commander';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as ejs from 'ejs';
+import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { select } from '@inquirer/prompts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+type SimulationType = 'raw' | 'physics2d' | 'physics3d';
 
 interface CreateOptions {
   preset: string;
   port: string;
   serverPort: string;
+  simulationType?: SimulationType;
 }
 
 function toPascalCase(kebab: string): string {
@@ -19,11 +24,8 @@ function toPascalCase(kebab: string): string {
 }
 
 function getTemplatesDir(): string {
-  // In development (source), templates are sibling to src/
-  // In dist, templates are at package root (copied by files field)
   const devPath = path.resolve(__dirname, '..', 'templates');
   if (fs.existsSync(devPath)) return devPath;
-  // Fallback for npm install
   const distPath = path.resolve(__dirname, '..', '..', 'templates');
   if (fs.existsSync(distPath)) return distPath;
   throw new Error('Templates directory not found');
@@ -49,14 +51,26 @@ function processPath(filePath: string, vars: Record<string, string>): string {
   return result;
 }
 
+async function promptSimulationType(): Promise<SimulationType> {
+  return select<SimulationType>({
+    message: 'Select simulation type:',
+    choices: [
+      { value: 'raw', name: 'Raw ECS', description: 'Manual velocity/position management, no physics engine' },
+      { value: 'physics2d', name: 'Physics 2D (Rapier)', description: 'Rapier 2D rigid body physics with auto-managed transforms' },
+      { value: 'physics3d', name: 'Physics 3D (Rapier)', description: 'Rapier 3D rigid body physics with top-down 2D rendering' },
+    ],
+  });
+}
+
 program
   .name('create-lagless')
   .description('Scaffold a new Lagless multiplayer game project')
-  .version('0.0.30')
+  .version('0.0.38')
   .argument('<project-name>', 'Project name in kebab-case (e.g., my-game)')
   .option('--preset <preset>', 'Project preset', 'pixi-react')
   .option('--port <port>', 'Frontend dev server port', '4200')
   .option('--server-port <port>', 'Backend server port', '3333')
+  .option('--simulation-type <type>', 'Simulation type: raw, physics2d, or physics3d')
   .action(async (projectArg: string, options: CreateOptions) => {
     const targetDir = path.resolve(process.cwd(), projectArg);
     const packageName = path.basename(targetDir).toLowerCase();
@@ -75,9 +89,22 @@ program
       process.exit(1);
     }
 
+    // Determine simulation type — from CLI flag or interactive prompt
+    let simulationType: SimulationType;
+    if (options.simulationType) {
+      const valid: SimulationType[] = ['raw', 'physics2d', 'physics3d'];
+      if (!valid.includes(options.simulationType as SimulationType)) {
+        console.error(`Error: Invalid simulation type "${options.simulationType}". Valid: ${valid.join(', ')}`);
+        process.exit(1);
+      }
+      simulationType = options.simulationType as SimulationType;
+    } else {
+      simulationType = await promptSimulationType();
+    }
+
     // Read package.json from this package to get current lagless version
     const pkgJsonPath = path.resolve(__dirname, '..', 'package.json');
-    let laglessVersion = '0.0.30';
+    let laglessVersion = '0.0.38';
     try {
       const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf-8'));
       laglessVersion = pkg.version || laglessVersion;
@@ -85,16 +112,18 @@ program
       // fallback
     }
 
-    const vars = {
+    const vars: Record<string, string> = {
       projectName: pascalName,
       packageName,
       frontendPort: options.port,
       serverPort: options.serverPort,
       laglessVersion,
+      simulationType,
     };
 
     console.log(`\nCreating Lagless project "${packageName}"...`);
     console.log(`  Preset: ${options.preset}`);
+    console.log(`  Simulation: ${simulationType}`);
     console.log(`  Frontend port: ${options.port}`);
     console.log(`  Server port: ${options.serverPort}`);
     console.log(`  Target: ${targetDir}\n`);
@@ -107,33 +136,70 @@ program
       const outputPath = path.join(targetDir, outputRelative);
       const outputDir = path.dirname(outputPath);
 
-      if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true });
-      }
-
       const content = fs.readFileSync(templateFile, 'utf-8');
 
-      // Only process .ejs files or text files that might contain EJS tags
+      // Only process text files that might contain EJS tags
       const ext = path.extname(templateFile);
       const textExts = ['.ts', '.tsx', '.json', '.yaml', '.yml', '.html', '.css', '.md', '.toml', '.gitignore'];
 
       if (textExts.includes(ext) || ext === '.ejs') {
         const rendered = ejs.render(content, vars, { filename: templateFile });
         const finalPath = ext === '.ejs' ? outputPath.replace(/\.ejs$/, '') : outputPath;
+
+        // Skip writing empty/whitespace-only files (conditional template exclusion)
+        if (rendered.trim().length === 0) {
+          continue;
+        }
+
+        if (!fs.existsSync(outputDir)) {
+          fs.mkdirSync(outputDir, { recursive: true });
+        }
         fs.writeFileSync(finalPath, rendered, 'utf-8');
       } else {
         // Binary or unknown — copy as-is
+        if (!fs.existsSync(outputDir)) {
+          fs.mkdirSync(outputDir, { recursive: true });
+        }
         fs.copyFileSync(templateFile, outputPath);
       }
     }
 
-    console.log('Project created successfully!\n');
+    // Remove physics docs that don't match the selected simulationType
+    const docsDir = path.join(targetDir, 'docs');
+    if (simulationType !== 'physics2d') {
+      const f = path.join(docsDir, '08-physics2d.md');
+      if (fs.existsSync(f)) fs.rmSync(f);
+    }
+    if (simulationType !== 'physics3d') {
+      const f = path.join(docsDir, '08-physics3d.md');
+      if (fs.existsSync(f)) fs.rmSync(f);
+    }
+
+    // Clone lagless framework source for AI reference
+    const sourcesDir = path.join(docsDir, 'sources');
+    fs.mkdirSync(sourcesDir, { recursive: true });
+    console.log('Cloning lagless framework source for AI reference...');
+    try {
+      execSync(`git clone --depth 1 https://github.com/GbGr/lagless.git "${path.join(sourcesDir, 'lagless')}"`, {
+        stdio: 'inherit',
+      });
+      // Remove .git to save space
+      fs.rmSync(path.join(sourcesDir, 'lagless', '.git'), { recursive: true, force: true });
+    } catch {
+      console.warn('Warning: Could not clone lagless source. AI reference will be unavailable.');
+      console.warn('You can manually clone later: git clone --depth 1 https://github.com/GbGr/lagless.git docs/sources/lagless');
+    }
+
+    console.log('\nProject created successfully!\n');
     console.log('Next steps:');
     console.log(`  cd ${packageName}`);
     console.log('  pnpm install');
-    console.log('  pnpm codegen        # Generate ECS code from schema');
-    console.log('  pnpm dev:backend    # Start game server');
-    console.log('  pnpm dev:frontend   # Start frontend dev server\n');
+    console.log('  pnpm codegen           # Generate ECS code from schema');
+    console.log('  pnpm dev               # Start backend + frontend + dev-player\n');
+    console.log('Or run individually:');
+    console.log('  pnpm dev:backend       # Game server (Bun, watches for changes)');
+    console.log('  pnpm dev:frontend      # Frontend (Vite HMR)');
+    console.log('  pnpm dev:player        # Dev-player (multiplayer testing, port 4210)\n');
   });
 
 program.parse();
