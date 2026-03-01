@@ -4,6 +4,12 @@
   "include": [],
   "references": [
     {
+      "path": "../../libs/pixi-react"
+    },
+    {
+      "path": "../../libs/math"
+    },
+    {
       "path": "./tsconfig.lib.json"
     }
   ]

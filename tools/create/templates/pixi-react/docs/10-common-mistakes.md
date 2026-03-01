@@ -140,8 +140,8 @@ container.position.set(
 ```
 **Better:**
 ```typescript
-const smoothed = smoother.update(prevX, prevY, currX, currY, factor, dt);
-container.position.set(smoothed.x, smoothed.y);
+smoother.update(prevX, prevY, currX, currY, 0, 0, factor);
+container.position.set(smoother.x, smoother.y);
 ```
 **Why:** Without smoothing, entities teleport on rollback. VisualSmoother2d absorbs position jumps and decays smoothly.
 

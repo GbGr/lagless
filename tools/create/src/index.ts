@@ -68,8 +68,8 @@ program
   .version('0.0.38')
   .argument('<project-name>', 'Project name in kebab-case (e.g., my-game)')
   .option('--preset <preset>', 'Project preset', 'pixi-react')
-  .option('--port <port>', 'Frontend dev server port', '4200')
-  .option('--server-port <port>', 'Backend server port', '3333')
+  .option('--port <port>', 'Frontend dev server port', '4203')
+  .option('--server-port <port>', 'Backend server port', '3400')
   .option('--simulation-type <type>', 'Simulation type: raw, physics2d, or physics3d')
   .action(async (projectArg: string, options: CreateOptions) => {
     const targetDir = path.resolve(process.cwd(), projectArg);
@@ -190,16 +190,32 @@ program
       console.warn('You can manually clone later: git clone --depth 1 https://github.com/GbGr/lagless.git docs/sources/lagless');
     }
 
+    // Install dependencies
+    console.log('\nInstalling dependencies...');
+    try {
+      execSync('pnpm install', { cwd: targetDir, stdio: 'inherit' });
+    } catch {
+      console.error('Warning: pnpm install failed. Run it manually after creation.');
+    }
+
+    // Run ECS codegen to generate code from schema
+    console.log('\nGenerating ECS code from schema...');
+    try {
+      execSync('pnpm codegen', { cwd: targetDir, stdio: 'inherit' });
+    } catch {
+      console.error('Warning: codegen failed. Run "pnpm codegen" manually after creation.');
+    }
+
     console.log('\nProject created successfully!\n');
-    console.log('Next steps:');
+    console.log('To start developing:');
     console.log(`  cd ${packageName}`);
-    console.log('  pnpm install');
-    console.log('  pnpm codegen           # Generate ECS code from schema');
     console.log('  pnpm dev               # Start backend + frontend + dev-player\n');
     console.log('Or run individually:');
     console.log('  pnpm dev:backend       # Game server (Bun, watches for changes)');
     console.log('  pnpm dev:frontend      # Frontend (Vite HMR)');
     console.log('  pnpm dev:player        # Dev-player (multiplayer testing, port 4210)\n');
+    console.log('To regenerate ECS code after schema changes:');
+    console.log('  pnpm codegen\n');
   });
 
 program.parse();

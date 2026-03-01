@@ -7,6 +7,7 @@ interface DashboardProps {
 
 // Ring buffer for hash timeline
 const TIMELINE_SIZE = 300;
+const HASH_TABLE_ROWS = 3;
 
 interface TickHashEntry {
   tick: number;
@@ -16,6 +17,20 @@ interface TickHashEntry {
 export const Dashboard: FC<DashboardProps> = ({ state }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hashBufferRef = useRef<TickHashEntry[]>([]);
+  const hashScrollRef = useRef<HTMLDivElement>(null);
+
+  // Refs to bridge current state into the rAF draw loop (avoids stale closure)
+  const totalInstancesRef = useRef(0);
+  const minVerifiedTickRef = useRef(0);
+
+  const instances = Array.from(state.instances.values());
+
+  // Update refs on every render
+  const playingInstances = instances.filter((inst) => inst.stats);
+  totalInstancesRef.current = state.instances.size;
+  minVerifiedTickRef.current = playingInstances.length > 0
+    ? Math.min(...playingInstances.map((inst) => inst.stats!.verifiedTick))
+    : 0;
 
   // Update hash buffer from instance stats (using verified hashes for rollback-safe comparison)
   useEffect(() => {
@@ -33,6 +48,11 @@ export const Dashboard: FC<DashboardProps> = ({ state }) => {
         while (buffer.length > TIMELINE_SIZE) buffer.shift();
       }
       entry.hashes.set(inst.id, inst.stats.verifiedHash);
+    }
+
+    // Auto-scroll hash table to bottom
+    if (hashScrollRef.current) {
+      hashScrollRef.current.scrollTop = hashScrollRef.current.scrollHeight;
     }
   });
 
@@ -63,15 +83,9 @@ export const Dashboard: FC<DashboardProps> = ({ state }) => {
         return;
       }
 
-      const totalInstances = state.instances.size;
+      const totalInstances = totalInstancesRef.current;
+      const minVerifiedTick = minVerifiedTickRef.current;
       const dotR = Math.max(1.5, Math.min(3, w / buffer.length / 2));
-
-      // Compute minimum verifiedTick across all instances
-      const minVerifiedTick = Math.min(
-        ...Array.from(state.instances.values())
-          .filter((inst) => inst.stats)
-          .map((inst) => inst.stats!.verifiedTick),
-      );
 
       for (let i = 0; i < buffer.length; i++) {
         const entry = buffer[i];
@@ -101,9 +115,12 @@ export const Dashboard: FC<DashboardProps> = ({ state }) => {
 
     raf = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf);
-  }, [state.instances.size]);
+  }, []);
 
-  const instances = Array.from(state.instances.values());
+  // Hash comparison table data
+  const tableEntries = hashBufferRef.current.slice(-HASH_TABLE_ROWS);
+  const instanceIds = instances.map((inst) => inst.id).sort();
+  const minVerifiedTick = minVerifiedTickRef.current;
 
   return (
     <div style={styles.container}>
@@ -149,6 +166,75 @@ export const Dashboard: FC<DashboardProps> = ({ state }) => {
         </table>
       </div>
 
+      {tableEntries.length > 0 && (
+        <div style={styles.hashTableWrap}>
+          <div style={styles.hashTableTitle}>Hash Comparison</div>
+          <div ref={hashScrollRef} style={styles.hashTableScroll}>
+            <table style={styles.hashTable}>
+              <thead>
+                <tr>
+                  <th style={styles.hashTh}>Tick</th>
+                  {instanceIds.map((id) => {
+                    const inst = state.instances.get(id);
+                    return <th key={id} style={styles.hashTh}>#{inst?.index ?? '?'}</th>;
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {tableEntries.map((entry) => {
+                  const allHashes = Array.from(entry.hashes.values());
+                  const complete = allHashes.length >= state.instances.size;
+                  const verified = entry.tick <= minVerifiedTick;
+                  const allMatch = complete && allHashes.every((h) => h === allHashes[0]);
+
+                  // Find majority hash for highlighting divergent cells
+                  const hashCounts = new Map<number, number>();
+                  for (const h of allHashes) {
+                    hashCounts.set(h, (hashCounts.get(h) || 0) + 1);
+                  }
+                  let majorityHash = allHashes[0];
+                  let majorityCount = 0;
+                  for (const [h, c] of hashCounts) {
+                    if (c > majorityCount) { majorityHash = h; majorityCount = c; }
+                  }
+
+                  return (
+                    <tr key={entry.tick}>
+                      <td style={styles.hashTdTick}>{entry.tick}</td>
+                      {instanceIds.map((id) => {
+                        const hash = entry.hashes.get(id);
+                        if (hash === undefined) {
+                          return <td key={id} style={styles.hashTdMissing}>--</td>;
+                        }
+                        const fullHex = (hash >>> 0).toString(16).padStart(8, '0');
+                        const shortHex = fullHex.slice(-4);
+
+                        let cellStyle: React.CSSProperties;
+                        if (!verified || !complete) {
+                          cellStyle = styles.hashTdPending;
+                        } else if (allMatch) {
+                          cellStyle = styles.hashTdMatch;
+                        } else if (hash === majorityHash) {
+                          cellStyle = styles.hashTdMatch;
+                        } else {
+                          cellStyle = styles.hashTdDiverge;
+                        }
+
+                        return (
+                          <td key={id} style={cellStyle} title={fullHex}>
+                            {shortHex}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       <div style={styles.timelineWrap}>
         <div style={styles.timelineTitle}>Hash Timeline</div>
         <canvas ref={canvasRef} style={styles.canvas} />
@@ -168,7 +254,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderTop: '1px solid #30363d',
     padding: 8,
     flexShrink: 0,
-    maxHeight: 240,
+    maxHeight: '40vh',
     overflowY: 'auto',
   },
   tableWrap: { marginBottom: 8 },
@@ -189,6 +275,70 @@ const styles: Record<string, React.CSSProperties> = {
   },
   td: { padding: '2px 8px', color: '#c9d1d9' },
   tdMono: { padding: '2px 8px', color: '#79c0ff', fontFamily: 'monospace' },
+  hashTableWrap: { marginBottom: 8 },
+  hashTableTitle: {
+    fontSize: 10,
+    color: '#8b949e',
+    textTransform: 'uppercase' as const,
+    fontWeight: 600,
+    marginBottom: 4,
+  },
+  hashTableScroll: {
+    maxHeight: 160,
+    overflowY: 'auto' as const,
+    border: '1px solid #30363d',
+    borderRadius: 3,
+    background: '#0d1117',
+  },
+  hashTable: {
+    width: '100%',
+    borderCollapse: 'collapse' as const,
+    fontSize: 10,
+    fontFamily: 'monospace',
+  },
+  hashTh: {
+    position: 'sticky' as const,
+    top: 0,
+    textAlign: 'center' as const,
+    padding: '3px 6px',
+    borderBottom: '1px solid #30363d',
+    background: '#161b22',
+    color: '#8b949e',
+    fontWeight: 600,
+    fontSize: 9,
+    zIndex: 1,
+  },
+  hashTdTick: {
+    padding: '1px 6px',
+    color: '#8b949e',
+    textAlign: 'right' as const,
+    borderRight: '1px solid #21262d',
+  },
+  hashTdMissing: {
+    padding: '1px 6px',
+    color: '#484f58',
+    textAlign: 'center' as const,
+    background: '#0d1117',
+  },
+  hashTdPending: {
+    padding: '1px 6px',
+    color: '#8b949e',
+    textAlign: 'center' as const,
+    background: '#0d1117',
+  },
+  hashTdMatch: {
+    padding: '1px 6px',
+    color: '#3fb950',
+    textAlign: 'center' as const,
+    background: '#0d2818',
+  },
+  hashTdDiverge: {
+    padding: '1px 6px',
+    color: '#f85149',
+    textAlign: 'center' as const,
+    background: '#3d1117',
+    fontWeight: 'bold',
+  },
   timelineWrap: {},
   timelineTitle: {
     fontSize: 10,

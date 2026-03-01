@@ -1,6 +1,7 @@
 import { LatencySimulator } from '@lagless/relay-server';
 import type { RoomRegistry } from '@lagless/relay-server';
 import type { Logger } from '@lagless/misc';
+import { corsHeaders } from './cors.js';
 
 export interface LatencyState {
   simulator: LatencySimulator | null;
@@ -30,8 +31,10 @@ export function handleLatencyEndpoint(
   state: LatencyState,
   log: Logger,
 ): Response | Promise<Response> | null {
+  const cors = corsHeaders();
+
   if (req.method === 'GET') {
-    return Response.json(state.simulator?.config ?? { delayMs: 0, jitterMs: 0, packetLossPercent: 0 });
+    return Response.json(state.simulator?.config ?? { delayMs: 0, jitterMs: 0, packetLossPercent: 0 }, { headers: cors });
   }
 
   if (req.method === 'POST') {
@@ -57,7 +60,7 @@ export function handleLatencyEndpoint(
         log.info(`Latency simulator: delay=${delayMs}ms jitter=${jitterMs}ms loss=${packetLossPercent}%`);
       }
 
-      return Response.json(state.simulator?.config ?? { delayMs: 0, jitterMs: 0, packetLossPercent: 0 });
+      return Response.json(state.simulator?.config ?? { delayMs: 0, jitterMs: 0, packetLossPercent: 0 }, { headers: cors });
     })();
   }
 

@@ -90,16 +90,17 @@ onUpdate: ({ entity, runner }, container) => {
   const transform = runner.Core.Transform2d;
   const sim = runner.Simulation;
 
-  const smoothed = smoother.update(
+  smoother.update(
     transform.unsafe.prevPositionX[entity],
     transform.unsafe.prevPositionY[entity],
     transform.unsafe.positionX[entity],
     transform.unsafe.positionY[entity],
+    0, // prevRotation (use transform field if available)
+    0, // rotation (use transform field if available)
     sim.interpolationFactor,
-    sim.clock.deltaTime,
   );
 
-  container.position.set(smoothed.x, smoothed.y);
+  container.position.set(smoother.x, smoother.y);
 }
 ```
 
@@ -187,12 +188,12 @@ const ProjectileView = filterView(
       const t = runner.Core.Transform2d;
       const sim = runner.Simulation;
 
-      const pos = smoother.update(
+      smoother.update(
         t.unsafe.prevPositionX[entity], t.unsafe.prevPositionY[entity],
         t.unsafe.positionX[entity], t.unsafe.positionY[entity],
-        sim.interpolationFactor, sim.clock.deltaTime,
+        0, 0, sim.interpolationFactor,
       );
-      container.position.set(pos.x, pos.y);
+      container.position.set(smoother.x, smoother.y);
     },
   },
 );

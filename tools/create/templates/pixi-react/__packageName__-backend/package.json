@@ -10,6 +10,7 @@
   "dependencies": {
     "<%= packageName %>-simulation": "workspace:*",
     "@lagless/relay-game-server": "^<%= laglessVersion %>",
+    "@lagless/relay-server": "^<%= laglessVersion %>",
     "@lagless/dev-tools": "^<%= laglessVersion %>",
     "@lagless/misc": "^<%= laglessVersion %>",
     "reflect-metadata": "^0.2.0"

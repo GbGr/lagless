@@ -30,6 +30,11 @@ export default defineConfig(() => ({
     },
   },
   optimizeDeps: {
-    exclude: ['@lagless/deterministic-math'],
+    exclude: ['@lagless/deterministic-math', '@lagless/math'],
+    esbuildOptions: {
+      loader: {
+        '.png': 'dataurl',
+      },
+    },
   },
 }));

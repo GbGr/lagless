@@ -17,8 +17,10 @@ export const App: FC = () => {
   useEffect(() => {
     const last = loadLastConfig();
     if (last) {
-      const preset = PRESETS.find((p) => p.label === last.preset.label) || last.preset;
-      dispatch({ type: 'SET_PRESET', preset });
+      const preset = PRESETS.find((p) => p.label === last.preset.label);
+      if (preset) {
+        dispatch({ type: 'SET_PRESET', preset });
+      }
       dispatch({ type: 'SET_COUNT', count: last.instanceCount });
     }
   }, [loadLastConfig]);

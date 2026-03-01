@@ -47,6 +47,8 @@ export const PlayerView = filterView(({ entity }, ref) => {
         transform3d.unsafe.prevPositionZ[entity] * SCALE + OFFSET_Y,
         transform3d.unsafe.positionX[entity] * SCALE + OFFSET_X,
         transform3d.unsafe.positionZ[entity] * SCALE + OFFSET_Y,
+        0,
+        0,
         factor,
       );
 
@@ -102,13 +104,27 @@ export const PlayerView = filterView(({ entity }, ref) => {
       const smoother = smootherRef.current;
       const factor = runner.Simulation.interpolationFactor;
 
+<% if (simulationType === 'physics2d') { -%>
       smoother.update(
         transform2d.unsafe.prevPositionX[entity],
         transform2d.unsafe.prevPositionY[entity],
         transform2d.unsafe.positionX[entity],
         transform2d.unsafe.positionY[entity],
+        transform2d.unsafe.prevRotation[entity],
+        transform2d.unsafe.rotation[entity],
         factor,
       );
+<% } else { -%>
+      smoother.update(
+        transform2d.unsafe.prevPositionX[entity],
+        transform2d.unsafe.prevPositionY[entity],
+        transform2d.unsafe.positionX[entity],
+        transform2d.unsafe.positionY[entity],
+        0,
+        0,
+        factor,
+      );
+<% } -%>
 
       container.x = smoother.x;
       container.y = smoother.y;

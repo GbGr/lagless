@@ -13,5 +13,12 @@
   },
   "include": ["src/**/*.ts"],
   "exclude": ["src/**/*.test.ts", "src/**/*.spec.ts"],
-  "references": []
+  "references": [
+    {
+      "path": "../../libs/pixi-react/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/math/tsconfig.lib.json"
+    }
+  ]
 }

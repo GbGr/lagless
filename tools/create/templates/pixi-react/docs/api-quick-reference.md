@@ -194,13 +194,14 @@ import { VisualSmoother2d } from '@lagless/misc';
 
 const smoother = new VisualSmoother2d();
 
-const pos = smoother.update(
-  prevX, prevY,     // previous tick position
-  currX, currY,     // current tick position
-  interpFactor,     // 0-1 interpolation factor
-  deltaTime,        // render frame dt
+smoother.update(
+  prevX, prevY,       // previous tick position
+  currX, currY,       // current tick position
+  prevRotation,       // previous tick rotation
+  rotation,           // current tick rotation
+  interpFactor,       // 0-1 interpolation factor
 );
-// pos.x, pos.y — smoothed position
+// smoother.x, smoother.y, smoother.rotation — smoothed values
 ```
 
 ## FilterViews (Pixi.js)
