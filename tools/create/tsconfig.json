@@ -4,10 +4,13 @@
   "include": [],
   "references": [
     {
-      "path": "../../libs/pixi-react"
+      "path": "../../libs/core"
     },
     {
-      "path": "../../libs/math"
+      "path": "../../libs/physics3d"
+    },
+    {
+      "path": "../../libs/physics2d"
     },
     {
       "path": "./tsconfig.lib.json"

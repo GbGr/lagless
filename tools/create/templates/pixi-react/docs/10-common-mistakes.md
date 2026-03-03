@@ -178,17 +178,12 @@ this._transform.unsafe.positionX[entity] = newX; // Physics will overwrite!
 ```
 **Correct:**
 ```typescript
-this._physics.setLinearVelocity(entity, { x: vx, y: vy });
+const body = this._physics.getBody(this._physicsRefs.unsafe.bodyHandle[entity]);
+body.setLinvel({ x: vx, y: vy }, true);
 // or
-this._physics.applyImpulse(entity, { x: fx, y: fy });
+body.applyImpulse({ x: fx, y: fy }, true);
 ```
-**Why:** PhysicsStep syncs Rapier→ECS, overwriting manual position changes. Move dynamic bodies via forces/velocity.
-
-### Forgetting updateSceneQueries After Restore
-
-The framework handles this automatically, but if you're doing custom Rapier operations:
-**Always** call `world.updateSceneQueries()` after `World.restoreSnapshot()`.
-**Why:** Restored worlds have empty QueryPipeline — ray casts and shape casts will miss all colliders.
+**Why:** PhysicsStep syncs Rapier→ECS, overwriting manual position changes. Move dynamic bodies via forces/velocity on the Rapier body.
 
 ## Multiplayer
 

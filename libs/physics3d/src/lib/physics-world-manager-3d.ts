@@ -4,13 +4,13 @@ import { CollisionEvents3d } from './collision-events-3d.js';
 import { PhysicsConfig3d } from './physics-config-3d.js';
 import {
   RapierCollider3d,
-  RapierColliderDesc,
-  RapierEventQueue,
+  RapierColliderDesc3d,
+  RapierEventQueue3d,
   RapierModule3d,
   RapierRigidBody3d,
-  RapierRigidBodyDesc,
+  RapierRigidBodyDesc3d,
   RapierWorld3d,
-} from './rapier-types.js';
+} from './rapier-types-3d.js';
 
 const log = createLogger('PhysicsWorldManager3d');
 
@@ -27,6 +27,10 @@ export class PhysicsWorldManager3d {
 
   public get substeps(): number {
     return this._substeps;
+  }
+
+  public get substepDt(): number {
+    return this._substepDt;
   }
 
   public get colliderEntityMap(): ColliderEntityMap {
@@ -60,7 +64,7 @@ export class PhysicsWorldManager3d {
    * When collision events are enabled, drains the event queue after all substeps.
    */
   public step(): void {
-    const eq = this._collisionEvents.eventQueue as RapierEventQueue;
+    const eq = this._collisionEvents.eventQueue as RapierEventQueue3d;
     for (let i = 0; i < this._substeps; i++) {
       this._world.step(eq);
     }
@@ -84,12 +88,6 @@ export class PhysicsWorldManager3d {
       return;
     }
     this._world = restored;
-    // CRITICAL: QueryPipeline is NOT included in the Rapier snapshot format.
-    // After restoreSnapshot(), the world has a fresh empty QueryPipeline.
-    // computeColliderMovement() queries the QueryPipeline, so if we don't rebuild it
-    // here, KCC will detect no collisions on the first tick after rollback,
-    // causing non-deterministic movement and client divergence.
-    this._world.updateSceneQueries();
   }
 
   // Entity-collider mapping
@@ -122,7 +120,7 @@ export class PhysicsWorldManager3d {
     return this._world.createRigidBody(desc);
   }
 
-  public createBodyFromDesc(desc: RapierRigidBodyDesc): RapierRigidBody3d {
+  public createBodyFromDesc(desc: RapierRigidBodyDesc3d): RapierRigidBody3d {
     return this._world.createRigidBody(desc);
   }
 
@@ -163,16 +161,57 @@ export class PhysicsWorldManager3d {
     return this._world.createCollider(desc, parent);
   }
 
+  public createCylinderCollider(
+    halfHeight: number, radius: number,
+    parent?: RapierRigidBody3d,
+    groups?: number,
+    activeEvents?: number,
+  ): RapierCollider3d {
+    const desc = this._rapier.ColliderDesc.cylinder(halfHeight, radius);
+    if (groups !== undefined) desc.setCollisionGroups(groups);
+    if (activeEvents !== undefined) desc.setActiveEvents(activeEvents);
+    return this._world.createCollider(desc, parent);
+  }
+
+  public createConeCollider(
+    halfHeight: number, radius: number,
+    parent?: RapierRigidBody3d,
+    groups?: number,
+    activeEvents?: number,
+  ): RapierCollider3d {
+    const desc = this._rapier.ColliderDesc.cone(halfHeight, radius);
+    if (groups !== undefined) desc.setCollisionGroups(groups);
+    if (activeEvents !== undefined) desc.setActiveEvents(activeEvents);
+    return this._world.createCollider(desc, parent);
+  }
+
+  public createConvexHullCollider(
+    points: Float32Array,
+    parent?: RapierRigidBody3d,
+    groups?: number,
+    activeEvents?: number,
+  ): RapierCollider3d | null {
+    const desc = this._rapier.ColliderDesc.convexHull(points);
+    if (!desc) return null;
+    if (groups !== undefined) desc.setCollisionGroups(groups);
+    if (activeEvents !== undefined) desc.setActiveEvents(activeEvents);
+    return this._world.createCollider(desc, parent);
+  }
+
   public createTrimeshCollider(
     vertices: Float32Array,
     indices: Uint32Array,
     parent?: RapierRigidBody3d,
+    groups?: number,
+    activeEvents?: number,
   ): RapierCollider3d {
     const desc = this._rapier.ColliderDesc.trimesh(vertices, indices);
+    if (groups !== undefined) desc.setCollisionGroups(groups);
+    if (activeEvents !== undefined) desc.setActiveEvents(activeEvents);
     return this._world.createCollider(desc, parent);
   }
 
-  public createColliderFromDesc(desc: RapierColliderDesc, parent?: RapierRigidBody3d): RapierCollider3d {
+  public createColliderFromDesc(desc: RapierColliderDesc3d, parent?: RapierRigidBody3d): RapierCollider3d {
     return this._world.createCollider(desc, parent);
   }
 

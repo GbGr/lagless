@@ -12,6 +12,7 @@ export interface IPhysicsWorldManagerBase {
 export class PhysicsSimulationBase extends ECSSimulation {
   private _rapierSnapshotHistory: SnapshotHistory<Uint8Array>;
   private readonly _initialRapierSnapshot: Uint8Array;
+  private _colliderEntityMapRebuildFn: (() => void) | null = null;
 
   constructor(
     config: ECSConfig,
@@ -22,6 +23,14 @@ export class PhysicsSimulationBase extends ECSSimulation {
     super(config, deps, inputProvider);
     this._rapierSnapshotHistory = new SnapshotHistory<Uint8Array>(config.snapshotHistorySize);
     this._initialRapierSnapshot = this._physicsWorldManager.takeSnapshot();
+  }
+
+  /**
+   * Register a callback that rebuilds the ColliderEntityMap from ECS state.
+   * Called automatically after rollback and state transfer to keep the map in sync.
+   */
+  public setColliderEntityMapRebuild(fn: () => void): void {
+    this._colliderEntityMapRebuildFn = fn;
   }
 
   protected override saveSnapshot(tick: number): void {
@@ -45,6 +54,7 @@ export class PhysicsSimulationBase extends ECSSimulation {
 
     this._physicsWorldManager.restoreSnapshot(rapierSnapshot);
     this._rapierSnapshotHistory.rollback(this.mem.tickManager.tick);
+    this._colliderEntityMapRebuildFn?.();
   }
 
   public override applyExternalState(state: ArrayBuffer, tick: number): void {
@@ -63,6 +73,7 @@ export class PhysicsSimulationBase extends ECSSimulation {
     this._physicsWorldManager.restoreSnapshot(rapierSnapshot);
     this._rapierSnapshotHistory = new SnapshotHistory<Uint8Array>(this._ECSConfig.snapshotHistorySize);
     this._rapierSnapshotHistory.set(tick, this._physicsWorldManager.takeSnapshot());
+    this._colliderEntityMapRebuildFn?.();
   }
 
   /**
@@ -112,6 +123,7 @@ export class PhysicsSimulationBase extends ECSSimulation {
     this._rapierSnapshotHistory = new SnapshotHistory<Uint8Array>(this._ECSConfig.snapshotHistorySize);
     this._rapierSnapshotHistory.set(tick, this._physicsWorldManager.takeSnapshot());
 
+    this._colliderEntityMapRebuildFn?.();
     this.notifyStateTransferHandlers(tick);
   }
 }

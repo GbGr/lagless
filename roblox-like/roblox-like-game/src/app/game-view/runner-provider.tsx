@@ -8,8 +8,6 @@ import {
   ROBLOX_LIKE_CONFIG,
   CHARACTER_CONFIG,
   createRobloxLikeCollisionLayers,
-  PhysicsRefs,
-  PhysicsRefsFilter,
   CharacterFilter,
 } from '@lagless/roblox-like-simulation';
 import { CharacterControllerManager } from '@lagless/character-controller-3d';
@@ -79,7 +77,7 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children, cameraYawRef
 
       // Load Rapier WASM
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const RAPIER = (await import('@dimforge/rapier3d-compat')).default as any;
+      const RAPIER = (await import('@dimforge/rapier3d-deterministic-compat')).default as any;
       await RAPIER.init();
       const rapier = RAPIER as unknown as RapierModule3d;
       if (disposed) { inputProvider.dispose(); return; }
@@ -134,27 +132,14 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children, cameraYawRef
       // Now that runner exists, init KCCManager with the actual world manager
       kccManager.init(_runner.PhysicsWorldManager);
 
-      // Hook into rollback and state transfer for KCC + physics reconstruction
+      // Hook into rollback and state transfer for KCC reconstruction
       const sim = _runner.Simulation;
-      const worldManager = _runner.PhysicsWorldManager;
 
       sim.addRollbackHandler(() => {
         kccManager.recreateAll();
       });
 
       sim.addStateTransferHandler(() => {
-        // Rebuild ColliderEntityMap from ECS PhysicsRefs after state transfer
-        worldManager.colliderEntityMap.clear();
-        const physicsFilter = _runner.DIContainer.resolve(PhysicsRefsFilter);
-        const refs = _runner.DIContainer.resolve(PhysicsRefs);
-        const refsUnsafe = refs.unsafe;
-        for (const e of physicsFilter) {
-          worldManager.registerCollider(refsUnsafe.colliderHandle[e], e);
-        }
-
-        // Recreate KCCs for ALL character entities from the transferred state.
-        // Cannot use recreateAll() because _controllers may be empty
-        // (pre-transfer simulation might not have received PlayerJoined events).
         const charFilter = _runner.DIContainer.resolve(CharacterFilter);
         kccManager.recreateFromEntities(charFilter);
       });

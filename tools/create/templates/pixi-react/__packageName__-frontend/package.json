@@ -19,11 +19,12 @@
     "@lagless/pixi-react": "^<%= laglessVersion %>",
 <% if (simulationType === 'physics2d') { -%>
     "@lagless/physics2d": "^<%= laglessVersion %>",
-    "@dimforge/rapier2d-compat": "^0.14.0",
+    "@lagless/physics-shared": "^<%= laglessVersion %>",
+    "@dimforge/rapier2d-deterministic-compat": "^0.19.0",
 <% } else if (simulationType === 'physics3d') { -%>
     "@lagless/physics3d": "^<%= laglessVersion %>",
     "@lagless/physics-shared": "^<%= laglessVersion %>",
-    "@dimforge/rapier3d-compat": "^0.14.0",
+    "@dimforge/rapier3d-deterministic-compat": "^0.19.0",
 <% } -%>
     "@abraham/reflection": "^0.12.0",
     "pixi.js": "^8.12.0",

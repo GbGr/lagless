@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
-import RAPIER from '@dimforge/rapier3d-compat';
+import RAPIER from '@dimforge/rapier3d-deterministic-compat';
 import { PhysicsWorldManager3d } from '../physics-world-manager-3d.js';
 import { PhysicsConfig3d } from '../physics-config-3d.js';
-import type { RapierModule3d } from '../rapier-types.js';
+import type { RapierModule3d } from '../rapier-types-3d.js';
 
 let rapier: RapierModule3d;
 
@@ -71,6 +71,38 @@ describe('PhysicsWorldManager3d', () => {
     const body = manager.createDynamicBody();
     const collider = manager.createCapsuleCollider(0.5, 0.25, body);
     expect(collider.handle).toBeTypeOf('number');
+  });
+
+  it('should create cylinder collider', () => {
+    manager = createManager();
+    const body = manager.createDynamicBody();
+    const collider = manager.createCylinderCollider(1.0, 0.5, body);
+    expect(collider.handle).toBeTypeOf('number');
+    expect(collider.parent()?.handle).toBe(body.handle);
+  });
+
+  it('should create cone collider', () => {
+    manager = createManager();
+    const body = manager.createDynamicBody();
+    const collider = manager.createConeCollider(1.0, 0.5, body);
+    expect(collider.handle).toBeTypeOf('number');
+    expect(collider.parent()?.handle).toBe(body.handle);
+  });
+
+  it('should create convex hull collider', () => {
+    manager = createManager();
+    const body = manager.createDynamicBody();
+    // A simple tetrahedron
+    const points = new Float32Array([
+      0, 0, 0,
+      1, 0, 0,
+      0, 1, 0,
+      0, 0, 1,
+    ]);
+    const collider = manager.createConvexHullCollider(points, body);
+    expect(collider).not.toBeNull();
+    expect(collider!.handle).toBeTypeOf('number');
+    expect(collider!.parent()?.handle).toBe(body.handle);
   });
 
   it('should take non-empty snapshot', () => {

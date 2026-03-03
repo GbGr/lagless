@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
-import RAPIER from '@dimforge/rapier3d-compat';
+import RAPIER from '@dimforge/rapier3d-deterministic-compat';
 import { CollisionEvents3d } from '../collision-events-3d.js';
 import { ColliderEntityMap3d } from '../collider-entity-map-3d.js';
 import { CollisionLayers3d } from '../collision-layers-3d.js';
-import type { RapierModule3d, RapierWorld3d } from '../rapier-types.js';
+import type { RapierModule3d, RapierWorld3d } from '../rapier-types-3d.js';
 
 let rapier: RapierModule3d;
 

@@ -10,6 +10,16 @@ import { select } from '@inquirer/prompts';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Read version from package.json once (single source of truth)
+const _pkgJsonPath = path.resolve(__dirname, '..', 'package.json');
+let _packageVersion = '0.0.0';
+try {
+  const _pkg = JSON.parse(fs.readFileSync(_pkgJsonPath, 'utf-8'));
+  _packageVersion = _pkg.version || _packageVersion;
+} catch {
+  // fallback
+}
+
 type SimulationType = 'raw' | 'physics2d' | 'physics3d';
 
 interface CreateOptions {
@@ -65,7 +75,7 @@ async function promptSimulationType(): Promise<SimulationType> {
 program
   .name('create-lagless')
   .description('Scaffold a new Lagless multiplayer game project')
-  .version('0.0.38')
+  .version(_packageVersion)
   .argument('<project-name>', 'Project name in kebab-case (e.g., my-game)')
   .option('--preset <preset>', 'Project preset', 'pixi-react')
   .option('--port <port>', 'Frontend dev server port', '4203')
@@ -102,15 +112,7 @@ program
       simulationType = await promptSimulationType();
     }
 
-    // Read package.json from this package to get current lagless version
-    const pkgJsonPath = path.resolve(__dirname, '..', 'package.json');
-    let laglessVersion = '0.0.38';
-    try {
-      const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf-8'));
-      laglessVersion = pkg.version || laglessVersion;
-    } catch {
-      // fallback
-    }
+    const laglessVersion = _packageVersion;
 
     const vars: Record<string, string> = {
       projectName: pascalName,

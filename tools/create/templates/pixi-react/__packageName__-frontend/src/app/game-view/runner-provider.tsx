@@ -7,11 +7,6 @@ import {
   PlayerJoined,
   ReportHash,
   <%= projectName %>Arena,
-<% if (simulationType !== 'raw') { -%>
-  PhysicsRefs,
-  PhysicsRefsFilter,
-  PlayerFilter,
-<% } -%>
 } from '<%= packageName %>-simulation';
 import { createContext, FC, ReactNode, useContext, useEffect, useState } from 'react';
 import { useTick } from '@pixi/react';
@@ -80,7 +75,7 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
 <% if (simulationType === 'physics2d') { -%>
       // Load Rapier 2D WASM
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const RAPIER = (await import('@dimforge/rapier2d-compat')).default as any;
+      const RAPIER = (await import('@dimforge/rapier2d-deterministic-compat')).default as any;
       await RAPIER.init();
       const rapier = RAPIER as unknown as RapierModule2d;
       if (disposed) { inputProvider.dispose(); return; }
@@ -88,7 +83,7 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
 <% } else if (simulationType === 'physics3d') { -%>
       // Load Rapier 3D WASM
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const RAPIER = (await import('@dimforge/rapier3d-compat')).default as any;
+      const RAPIER = (await import('@dimforge/rapier3d-deterministic-compat')).default as any;
       await RAPIER.init();
       const rapier = RAPIER as unknown as RapierModule3d;
       if (disposed) { inputProvider.dispose(); return; }
@@ -142,20 +137,6 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
 <% } -%>
       }
 
-<% if (simulationType !== 'raw') { -%>
-      // Hook state transfer to rebuild ColliderEntityMap after receiving external state
-      const worldManager = _runner.PhysicsWorldManager;
-      _runner.Simulation.addStateTransferHandler(() => {
-        worldManager.colliderEntityMap.clear();
-        const physicsFilter = _runner.DIContainer.resolve(PhysicsRefsFilter);
-        const refs = _runner.DIContainer.resolve(PhysicsRefs);
-        const refsUnsafe = refs.unsafe;
-        for (const e of physicsFilter) {
-          worldManager.registerCollider(refsUnsafe.colliderHandle[e], e);
-        }
-      });
-
-<% } -%>
       // Set up keyboard input drainer with hash reporting
       const reportHash = createHashReporter(_runner, {
         reportInterval: <%= projectName %>Arena.hashReportInterval,

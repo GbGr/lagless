@@ -35,12 +35,13 @@ BodyType.KINEMATIC_VELOCITY  // 3 — moved by setting velocity directly
 
 ## Creating Bodies and Colliders
 
-Use `PhysicsWorldManager2d` to create physics bodies:
+Use `PhysicsWorldManager2d` to create physics bodies. The manager provides factory methods that return Rapier body/collider objects. You configure them via Rapier's native API, then store handles in the ECS `PhysicsRefs` component and register the collider for entity lookup.
 
 ```typescript
-import { ECSSystem, IECSSystem } from '@lagless/core';
+import { ECSSystem, IECSSystem, EntitiesManager } from '@lagless/core';
 import { PhysicsWorldManager2d } from '@lagless/physics2d';
 import { BodyType, CollisionLayers } from '@lagless/physics-shared';
+import { Transform2d, PhysicsRefs } from '../code-gen/core.js';
 
 @ECSSystem()
 export class SpawnSystem implements IECSSystem {
@@ -48,6 +49,7 @@ export class SpawnSystem implements IECSSystem {
     private readonly _physics: PhysicsWorldManager2d,
     private readonly _entities: EntitiesManager,
     private readonly _transform: Transform2d,
+    private readonly _physicsRefs: PhysicsRefs,
   ) {}
 
   update(tick: number): void {
@@ -56,45 +58,60 @@ export class SpawnSystem implements IECSSystem {
     this._entities.addComponent(entity, Transform2d);
     this._entities.addComponent(entity, PhysicsRefs);
 
-    // Set initial position
-    this._transform.set(entity, {
-      positionX: 100, positionY: 200,
-      prevPositionX: 100, prevPositionY: 200,
-      rotation: 0, prevRotation: 0,
-    });
+    // Set initial position in ECS (including prev for interpolation)
+    const t = this._transform.unsafe;
+    t.positionX[entity] = 100;
+    t.positionY[entity] = 200;
+    t.prevPositionX[entity] = 100;
+    t.prevPositionY[entity] = 200;
+    t.rotation[entity] = 0;
+    t.prevRotation[entity] = 0;
 
-    // Create physics body + collider
-    this._physics.createBody(entity, {
-      bodyType: BodyType.DYNAMIC,
-      position: { x: 100, y: 200 },
-      rotation: 0,
-    });
+    // Create a dynamic Rapier body and configure it
+    const body = this._physics.createDynamicBody();
+    body.setTranslation({ x: 100, y: 200 }, true);
+    body.setLinearDamping(5.0);
 
-    this._physics.createCollider(entity, {
-      shape: { type: 'ball', radius: 20 },
-      density: 1.0,
-      friction: 0.5,
-      restitution: 0.3,
-      collisionLayer: CollisionLayers.get('player'),
-    });
+    // Create a ball collider attached to the body
+    const groups = CollisionLayers.get('player');
+    const collider = this._physics.createBallCollider(20, body, groups);
+
+    // Store handles in ECS for later lookup
+    const pr = this._physicsRefs.unsafe;
+    pr.bodyHandle[entity] = body.handle;
+    pr.colliderHandle[entity] = collider.handle;
+    pr.bodyType[entity] = BodyType.DYNAMIC;
+    pr.collisionLayer[entity] = groups;
+
+    // Register collider→entity mapping (used by collision events)
+    this._physics.registerCollider(collider.handle, entity);
   }
 }
 ```
 
 ### Collider Shapes
 
+All collider factories take an optional `parent` body, `groups` (collision groups), and `activeEvents` bitmask:
+
 ```typescript
 // Circle
-{ type: 'ball', radius: 20 }
+this._physics.createBallCollider(radius, parent, groups, activeEvents);
 
-// Rectangle
-{ type: 'cuboid', hx: 50, hy: 25 }  // half-extents
+// Rectangle (half-extents)
+this._physics.createCuboidCollider(hx, hy, parent, groups, activeEvents);
 
 // Capsule
-{ type: 'capsule', halfHeight: 30, radius: 10 }
+this._physics.createCapsuleCollider(halfHeight, radius, parent, groups, activeEvents);
 
-// Convex polygon
-{ type: 'convexHull', points: [x1,y1, x2,y2, ...] }
+// Convex polygon (returns null if hull computation fails)
+this._physics.createConvexHullCollider(new Float32Array([x1,y1, x2,y2, ...]), parent, groups, activeEvents);
+
+// Triangle mesh (static geometry only)
+this._physics.createTrimeshCollider(vertices, indices, parent, groups, activeEvents);
+
+// Custom collider from a Rapier ColliderDesc
+const desc = this._physics.rapier.ColliderDesc.ball(10).setDensity(2.0).setFriction(0.5);
+this._physics.createColliderFromDesc(desc, parent);
 ```
 
 ## Collision Layers
@@ -199,9 +216,7 @@ You generally don't interact with this directly — it's managed by `PhysicsWorl
 On rollback:
 1. ArrayBuffer is restored → ECS state reverts
 2. Rapier world snapshot is restored → physics state reverts
-3. `updateSceneQueries()` is called → QueryPipeline is rebuilt
-
-**Critical fix applied:** `World.restoreSnapshot()` creates a world with an **empty** QueryPipeline (not serialized). The framework calls `updateSceneQueries()` after restore to fix this. Without it, ray casts and shape casts fail on the first tick after rollback.
+3. `ColliderEntityMap` is rebuilt automatically
 
 ## State Transfer
 
@@ -217,7 +232,7 @@ This is handled automatically by the physics runner. You don't need to do anythi
 ```typescript
 import { ECSSystem, IECSSystem, AbstractInputProvider, ECSConfig, EntitiesManager } from '@lagless/core';
 import { MathOps } from '@lagless/math';
-import { PhysicsWorldManager2d, CollisionEvents2d } from '@lagless/physics2d';
+import { PhysicsWorldManager2d } from '@lagless/physics2d';
 import { BodyType } from '@lagless/physics-shared';
 import { Transform2d, PhysicsRefs, PlayerBody, PlayerFilter, MoveInput } from '../code-gen/core.js';
 
@@ -228,9 +243,9 @@ export class ApplyMoveInputSystem implements IECSSystem {
   constructor(
     private readonly _input: AbstractInputProvider,
     private readonly _physics: PhysicsWorldManager2d,
+    private readonly _physicsRefs: PhysicsRefs,
     private readonly _playerBody: PlayerBody,
     private readonly _filter: PlayerFilter,
-    private readonly _config: ECSConfig,
   ) {}
 
   update(tick: number): void {
@@ -244,11 +259,10 @@ export class ApplyMoveInputSystem implements IECSSystem {
         if (this._playerBody.unsafe.playerSlot[entity] !== slot) continue;
 
         const speed = 300;
-        // Apply velocity to Rapier body
-        this._physics.setLinearVelocity(entity, {
-          x: dirX * speed,
-          y: dirY * speed,
-        });
+        // Get the Rapier body via its handle stored in PhysicsRefs
+        const body = this._physics.getBody(this._physicsRefs.unsafe.bodyHandle[entity]);
+        // Apply velocity directly on the Rapier body
+        body.setLinvel({ x: dirX * speed, y: dirY * speed }, true);
         break;
       }
     }

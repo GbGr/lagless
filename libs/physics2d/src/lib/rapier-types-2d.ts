@@ -1,6 +1,6 @@
 /**
  * Minimal type abstractions for Rapier 2D API.
- * Works with both @dimforge/rapier2d and @dimforge/rapier2d-compat.
+ * Works with both @dimforge/rapier2d-deterministic and @dimforge/rapier2d-deterministic-compat.
  * The consumer project injects the actual RAPIER module at runtime.
  */
 
@@ -85,8 +85,43 @@ export interface RapierWorld2d {
   createCollider(desc: RapierColliderDesc2d, parent?: RapierRigidBody2d): RapierCollider2d;
   removeRigidBody(body: RapierRigidBody2d): void;
   removeCollider(collider: RapierCollider2d, wakeUp: boolean): void;
-  /** Rebuilds the query pipeline (BVH) from current collider positions. Must be called after restoreSnapshot(). */
-  updateSceneQueries(): void;
+  createCharacterController(offset: number): RapierKinematicCharacterController2d;
+}
+
+// ─── Kinematic Character Controller (2D) ────────────────────────
+
+export interface RapierCharacterCollision2d {
+  toi: number;
+  witness1: RapierVector2;
+  witness2: RapierVector2;
+  normal1: RapierVector2;
+  normal2: RapierVector2;
+  translationDeltaApplied: RapierVector2;
+  translationDeltaRemaining: RapierVector2;
+}
+
+export interface RapierKinematicCharacterController2d {
+  setUp(up: RapierVector2): void;
+  setMaxSlopeClimbAngle(angle: number): void;
+  setMinSlopeSlideAngle(angle: number): void;
+  enableAutostep(maxHeight: number, minWidth: number, includeDynamicBodies: boolean): void;
+  disableAutostep(): void;
+  enableSnapToGround(distance: number): void;
+  disableSnapToGround(): void;
+  setSlideEnabled(enabled: boolean): void;
+  setCharacterMass(mass: number): void;
+  setApplyImpulsesToDynamicBodies(apply: boolean): void;
+  computeColliderMovement(
+    collider: RapierCollider2d,
+    desiredTranslation: RapierVector2,
+    filterFlags?: number,
+    filterGroups?: number,
+  ): void;
+  computedMovement(): RapierVector2;
+  computedGrounded(): boolean;
+  numComputedCollisions(): number;
+  computedCollision(index: number): RapierCharacterCollision2d | null;
+  free(): void;
 }
 
 export interface RapierModule2d {
@@ -114,5 +149,15 @@ export interface RapierModule2d {
     NONE: number;
     COLLISION_EVENTS: number;
     CONTACT_FORCE_EVENTS: number;
+  };
+  QueryFilterFlags: {
+    ONLY_DYNAMIC: number;
+    ONLY_KINEMATIC: number;
+    ONLY_FIXED: number;
+    EXCLUDE_DYNAMIC: number;
+    EXCLUDE_KINEMATIC: number;
+    EXCLUDE_FIXED: number;
+    EXCLUDE_SENSORS: number;
+    EXCLUDE_SOLIDS: number;
   };
 }

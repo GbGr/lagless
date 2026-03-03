@@ -5,10 +5,10 @@ Rapier 3D physics integration for the lagless ECS framework. Deterministic stepp
 ## Installation
 
 ```bash
-pnpm add @lagless/physics3d @dimforge/rapier3d-compat
+pnpm add @lagless/physics3d @dimforge/rapier3d-deterministic-compat
 ```
 
-Peer dependency: `@dimforge/rapier3d-compat >= 0.14.0`
+Peer dependency: `@dimforge/rapier3d-deterministic-compat >= 0.15.0`
 
 ## Architecture
 
@@ -18,7 +18,7 @@ Peer dependency: `@dimforge/rapier3d-compat >= 0.14.0`
         ▼
 @lagless/physics3d       (3D wrappers: PhysicsWorldManager3d, PhysicsStepSync3d, PhysicsRunner3d, ...)
         │
-        └── peer: @dimforge/rapier3d-compat
+        └── peer: @dimforge/rapier3d-deterministic-compat
 ```
 
 ## ECS Schema (codegen)
@@ -55,7 +55,7 @@ filters:
 ### Runner Setup
 
 ```typescript
-import RAPIER from '@dimforge/rapier3d-compat';
+import RAPIER from '@dimforge/rapier3d-deterministic-compat';
 import { PhysicsConfig3d } from '@lagless/physics3d';
 import { MyGameRunner } from './code-gen/my-game.runner.js';
 

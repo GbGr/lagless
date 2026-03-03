@@ -37,9 +37,13 @@ BodyType.KINEMATIC_VELOCITY  // 3 — moved by setting velocity
 
 ## Creating Bodies and Colliders
 
+The manager provides factory methods that return Rapier body/collider objects. You configure them via Rapier's native API, then store handles in the ECS `PhysicsRefs` component and register the collider for entity lookup.
+
 ```typescript
+import { ECSSystem, IECSSystem, EntitiesManager } from '@lagless/core';
 import { PhysicsWorldManager3d } from '@lagless/physics3d';
 import { BodyType, CollisionLayers } from '@lagless/physics-shared';
+import { Transform3d, PhysicsRefs } from '../code-gen/core.js';
 
 @ECSSystem()
 export class SpawnSystem implements IECSSystem {
@@ -47,6 +51,7 @@ export class SpawnSystem implements IECSSystem {
     private readonly _physics: PhysicsWorldManager3d,
     private readonly _entities: EntitiesManager,
     private readonly _transform: Transform3d,
+    private readonly _physicsRefs: PhysicsRefs,
   ) {}
 
   update(tick: number): void {
@@ -54,50 +59,74 @@ export class SpawnSystem implements IECSSystem {
     this._entities.addComponent(entity, Transform3d);
     this._entities.addComponent(entity, PhysicsRefs);
 
-    this._transform.set(entity, {
-      positionX: 0, positionY: 5, positionZ: 0,
-      rotationX: 0, rotationY: 0, rotationZ: 0, rotationW: 1,
-      prevPositionX: 0, prevPositionY: 5, prevPositionZ: 0,
-      prevRotationX: 0, prevRotationY: 0, prevRotationZ: 0, prevRotationW: 1,
-    });
+    // Set initial position in ECS (including prev for interpolation)
+    const t = this._transform.unsafe;
+    t.positionX[entity] = 0;
+    t.positionY[entity] = 5;
+    t.positionZ[entity] = 0;
+    t.rotationX[entity] = 0;
+    t.rotationY[entity] = 0;
+    t.rotationZ[entity] = 0;
+    t.rotationW[entity] = 1;
+    t.prevPositionX[entity] = 0;
+    t.prevPositionY[entity] = 5;
+    t.prevPositionZ[entity] = 0;
+    t.prevRotationX[entity] = 0;
+    t.prevRotationY[entity] = 0;
+    t.prevRotationZ[entity] = 0;
+    t.prevRotationW[entity] = 1;
 
-    this._physics.createBody(entity, {
-      bodyType: BodyType.DYNAMIC,
-      position: { x: 0, y: 5, z: 0 },
-      rotation: { x: 0, y: 0, z: 0, w: 1 },
-    });
+    // Create a dynamic Rapier body and configure it
+    const body = this._physics.createDynamicBody();
+    body.setTranslation({ x: 0, y: 5, z: 0 }, true);
+    body.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true);
 
-    this._physics.createCollider(entity, {
-      shape: { type: 'ball', radius: 0.5 },
-      density: 1.0,
-      friction: 0.5,
-      restitution: 0.3,
-      collisionLayer: CollisionLayers.get('player'),
-    });
+    // Create a ball collider attached to the body
+    const groups = CollisionLayers.get('player');
+    const collider = this._physics.createBallCollider(0.5, body, groups);
+
+    // Store handles in ECS for later lookup
+    const pr = this._physicsRefs.unsafe;
+    pr.bodyHandle[entity] = body.handle;
+    pr.colliderHandle[entity] = collider.handle;
+    pr.bodyType[entity] = BodyType.DYNAMIC;
+    pr.collisionLayer[entity] = groups;
+
+    // Register collider→entity mapping (used by collision events)
+    this._physics.registerCollider(collider.handle, entity);
   }
 }
 ```
 
 ### Collider Shapes (3D)
 
+All collider factories take an optional `parent` body, `groups` (collision groups), and `activeEvents` bitmask:
+
 ```typescript
 // Sphere
-{ type: 'ball', radius: 0.5 }
+this._physics.createBallCollider(radius, parent, groups, activeEvents);
 
-// Box
-{ type: 'cuboid', hx: 1, hy: 0.5, hz: 1 }  // half-extents
+// Box (half-extents, 3 dimensions)
+this._physics.createCuboidCollider(hx, hy, hz, parent, groups, activeEvents);
 
 // Capsule
-{ type: 'capsule', halfHeight: 0.5, radius: 0.3 }
+this._physics.createCapsuleCollider(halfHeight, radius, parent, groups, activeEvents);
 
-// Cylinder
-{ type: 'cylinder', halfHeight: 1.0, radius: 0.5 }
+// Cylinder (3D only)
+this._physics.createCylinderCollider(halfHeight, radius, parent, groups, activeEvents);
 
-// Convex hull
-{ type: 'convexHull', points: Float32Array }
+// Cone (3D only)
+this._physics.createConeCollider(halfHeight, radius, parent, groups, activeEvents);
 
-// Triangle mesh (static only)
-{ type: 'trimesh', vertices: Float32Array, indices: Uint32Array }
+// Convex hull (returns null if hull computation fails)
+this._physics.createConvexHullCollider(new Float32Array([...]), parent, groups, activeEvents);
+
+// Triangle mesh (static geometry only)
+this._physics.createTrimeshCollider(vertices, indices, parent, groups, activeEvents);
+
+// Custom collider from a Rapier ColliderDesc
+const desc = this._physics.rapier.ColliderDesc.ball(0.5).setDensity(2.0).setFriction(0.5);
+this._physics.createColliderFromDesc(desc, parent);
 ```
 
 ## Collision Layers and Events
@@ -281,10 +310,8 @@ export const systems = [
 On rollback:
 1. ArrayBuffer is restored → ECS state reverts
 2. Rapier 3D world snapshot is restored → physics state reverts
-3. `updateSceneQueries()` is called → QueryPipeline is rebuilt
+3. `ColliderEntityMap` is rebuilt automatically
 4. KCC controllers are recreated via `recreateAll()`
-
-**Critical fix:** `World.restoreSnapshot()` creates a world with an empty QueryPipeline. The framework calls `updateSceneQueries()` after restore. Without this, `computeColliderMovement()` queries fail on the first tick after rollback.
 
 ## State Transfer
 

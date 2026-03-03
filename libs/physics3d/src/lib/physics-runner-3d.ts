@@ -1,17 +1,16 @@
 import { AbstractInputProvider, ECSConfig, ECSRunner, ECSDeps, IECSSystemConstructor } from '@lagless/core';
 import { ISignalConstructor } from '@lagless/core';
-import { CollisionLayers } from '@lagless/physics-shared';
+import { CollisionLayers, PhysicsSimulationBase, wireColliderEntityMapRebuild } from '@lagless/physics-shared';
 import { CollisionEvents3d } from './collision-events-3d.js';
 import { PhysicsConfig3d } from './physics-config-3d.js';
-import { PhysicsSimulation3d } from './physics-simulation-3d.js';
 import { PhysicsWorldManager3d } from './physics-world-manager-3d.js';
-import { RapierModule3d } from './rapier-types.js';
+import { RapierModule3d } from './rapier-types-3d.js';
 
 export abstract class PhysicsRunner3d extends ECSRunner {
   public readonly PhysicsWorldManager: PhysicsWorldManager3d;
   public readonly PhysicsConfig: PhysicsConfig3d;
   public readonly CollisionEvents: CollisionEvents3d;
-  public override readonly Simulation: PhysicsSimulation3d;
+  public override readonly Simulation: PhysicsSimulationBase;
 
   protected constructor(
     Config: ECSConfig,
@@ -26,7 +25,7 @@ export abstract class PhysicsRunner3d extends ECSRunner {
   ) {
     const config = physicsConfig ?? new PhysicsConfig3d();
     const worldManager = new PhysicsWorldManager3d(rapier, config, Config.frameLength);
-    const simulation = new PhysicsSimulation3d(Config, Deps, InputProviderInstance, worldManager);
+    const simulation = new PhysicsSimulationBase(Config, Deps, InputProviderInstance, worldManager);
 
     const extraRegs: Array<[unknown, unknown]> = [
       [PhysicsWorldManager3d, worldManager],
@@ -46,6 +45,8 @@ export abstract class PhysicsRunner3d extends ECSRunner {
     this.PhysicsConfig = config;
     this.Simulation = simulation;
     this.CollisionEvents = worldManager.collisionEvents;
+
+    wireColliderEntityMapRebuild(Deps, simulation, worldManager.colliderEntityMap);
   }
 
   public override dispose(): void {

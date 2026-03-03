@@ -4,3 +4,4 @@ export * from './lib/collision-layers.js';
 export * from './lib/collision-events-base.js';
 export * from './lib/physics-simulation-base.js';
 export * from './lib/physics-sync-interfaces.js';
+export * from './lib/wire-collider-entity-map-rebuild.js';

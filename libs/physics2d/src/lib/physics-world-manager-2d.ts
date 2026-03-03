@@ -29,6 +29,10 @@ export class PhysicsWorldManager2d {
     return this._substeps;
   }
 
+  public get substepDt(): number {
+    return this._substepDt;
+  }
+
   public get colliderEntityMap(): ColliderEntityMap {
     return this._colliderEntityMap;
   }
@@ -82,10 +86,6 @@ export class PhysicsWorldManager2d {
       return;
     }
     this._world = restored;
-    // CRITICAL: QueryPipeline is NOT included in the Rapier snapshot format.
-    // After restoreSnapshot(), the world has a fresh empty QueryPipeline.
-    // Any scene queries (ray casts, shape casts) will return wrong results until rebuilt.
-    this._world.updateSceneQueries();
   }
 
   // Entity-collider mapping
@@ -176,8 +176,12 @@ export class PhysicsWorldManager2d {
     vertices: Float32Array,
     indices: Uint32Array,
     parent?: RapierRigidBody2d,
+    groups?: number,
+    activeEvents?: number,
   ): RapierCollider2d {
     const desc = this._rapier.ColliderDesc.trimesh(vertices, indices);
+    if (groups !== undefined) desc.setCollisionGroups(groups);
+    if (activeEvents !== undefined) desc.setActiveEvents(activeEvents);
     return this._world.createCollider(desc, parent);
   }
 

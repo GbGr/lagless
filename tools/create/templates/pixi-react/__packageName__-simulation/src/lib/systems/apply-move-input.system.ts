@@ -74,6 +74,8 @@ import { ECSSystem, IECSSystem, InputProvider, PlayerResources } from '@lagless/
 import { MoveInput, PlayerResource, Velocity2d } from '../schema/code-gen/index.js';
 import { <%= projectName %>Arena } from '../arena.js';
 
+const finite = (v: number): number => Number.isFinite(v) ? v : 0;
+
 @ECSSystem()
 export class ApplyMoveInputSystem implements IECSSystem {
   constructor(
@@ -88,8 +90,13 @@ export class ApplyMoveInputSystem implements IECSSystem {
     for (const rpc of rpcs) {
       const playerResource = this._PlayerResources.get(PlayerResource, rpc.meta.playerSlot);
       const entity = playerResource.safe.entity;
-      this._Velocity2d.unsafe.velocityX[entity] = rpc.data.directionX * <%= projectName %>Arena.moveSpeed;
-      this._Velocity2d.unsafe.velocityY[entity] = rpc.data.directionY * <%= projectName %>Arena.moveSpeed;
+
+      // Sanitize input
+      const dirX = finite(rpc.data.directionX);
+      const dirY = finite(rpc.data.directionY);
+
+      this._Velocity2d.unsafe.velocityX[entity] = dirX * <%= projectName %>Arena.moveSpeed;
+      this._Velocity2d.unsafe.velocityY[entity] = dirY * <%= projectName %>Arena.moveSpeed;
     }
   }
 }

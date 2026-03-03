@@ -6,5 +6,5 @@ export * from './lib/physics-step-sync-2d.js';
 export * from './lib/physics-simulation-2d.js';
 export * from './lib/physics-runner-2d.js';
 
-export { BodyType, type BodyTypeValue, ColliderEntityMap, handleToIndex, CollisionLayers, CollisionEventsBase } from '@lagless/physics-shared';
+export { BodyType, type BodyTypeValue, ColliderEntityMap, UNMAPPED_ENTITY, handleToIndex, CollisionLayers, CollisionEventsBase } from '@lagless/physics-shared';
 export type { IPhysicsRefsComponent, IFilter, IPhysicsWorldManagerBase, IRapierEventQueue, IColliderSensorChecker } from '@lagless/physics-shared';

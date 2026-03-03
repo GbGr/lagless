@@ -281,7 +281,7 @@ importers:
         version: link:../../libs/relay-client
       '@pixi/react':
         specifier: ^8.0.5
-        version: 8.0.5(@types/react@19.0.0)(pixi.js@8.12.0)(react@19.0.0)
+        version: 8.0.5(@types/react@19.0.0)(pixi.js@8.12.0)(react@19.1.0)
       fontfaceobserver:
         specifier: ^2.3.0
         version: 2.3.0
@@ -404,7 +404,7 @@ importers:
     devDependencies:
       unplugin-swc:
         specifier: ^1.5.7
-        version: 1.5.7(@swc/core@1.5.29(@swc/helpers@0.5.17))(rollup@4.52.4)
+        version: 1.5.7(@swc/core@1.15.11(@swc/helpers@0.5.17))(rollup@4.52.4)
 
   libs/dev-tools:
     dependencies:
@@ -471,7 +471,7 @@ importers:
     devDependencies:
       unplugin-swc:
         specifier: ^1.5.7
-        version: 1.5.7(@swc/core@1.5.29(@swc/helpers@0.5.17))(rollup@4.52.4)
+        version: 1.5.7(@swc/core@1.15.11(@swc/helpers@0.5.17))(rollup@4.52.4)
 
   libs/physics2d:
     dependencies:
@@ -488,12 +488,12 @@ importers:
         specifier: ~0.5.11
         version: 0.5.17
     devDependencies:
-      '@dimforge/rapier2d-compat':
-        specifier: ^0.14.0
-        version: 0.14.0
+      '@dimforge/rapier2d-deterministic-compat':
+        specifier: ^0.19.0
+        version: 0.19.3
       unplugin-swc:
         specifier: ^1.5.7
-        version: 1.5.7(@swc/core@1.5.29(@swc/helpers@0.5.17))(rollup@4.52.4)
+        version: 1.5.7(@swc/core@1.15.11(@swc/helpers@0.5.17))(rollup@4.52.4)
 
   libs/physics3d:
     dependencies:
@@ -510,12 +510,12 @@ importers:
         specifier: ~0.5.11
         version: 0.5.17
     devDependencies:
-      '@dimforge/rapier3d-compat':
-        specifier: ^0.14.0
-        version: 0.14.0
+      '@dimforge/rapier3d-deterministic-compat':
+        specifier: ^0.19.0
+        version: 0.19.3
       unplugin-swc:
         specifier: ^1.5.7
-        version: 1.5.7(@swc/core@1.5.29(@swc/helpers@0.5.17))(rollup@4.52.4)
+        version: 1.5.7(@swc/core@1.15.11(@swc/helpers@0.5.17))(rollup@4.52.4)
 
   libs/pixi-react:
     dependencies:
@@ -549,6 +549,9 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.90.9
         version: 5.90.9(react@19.1.0)
+      axios:
+        specifier: ^1.7.0
+        version: 1.12.2
       react:
         specifier: ^19.0.0
         version: 19.1.0
@@ -613,9 +616,9 @@ importers:
       '@babylonjs/core':
         specifier: ^7.0.0
         version: 7.54.3
-      '@dimforge/rapier3d-compat':
-        specifier: ^0.14.0
-        version: 0.14.0
+      '@dimforge/rapier3d-deterministic-compat':
+        specifier: ^0.19.0
+        version: 0.19.3
       '@lagless/animation-controller':
         specifier: workspace:*
         version: link:../../libs/animation-controller
@@ -715,12 +718,12 @@ importers:
         specifier: ~0.5.11
         version: 0.5.17
     devDependencies:
-      '@dimforge/rapier3d-compat':
-        specifier: ^0.14.0
-        version: 0.14.0
+      '@dimforge/rapier3d-deterministic-compat':
+        specifier: ^0.19.0
+        version: 0.19.3
       unplugin-swc:
         specifier: ^1.5.7
-        version: 1.5.7(@swc/core@1.5.29(@swc/helpers@0.5.17))(rollup@4.52.4)
+        version: 1.5.7(@swc/core@1.15.11(@swc/helpers@0.5.17))(rollup@4.52.4)
 
   sync-test/sync-test-game:
     dependencies:
@@ -838,6 +841,9 @@ importers:
 
   tools/create:
     dependencies:
+      '@inquirer/prompts':
+        specifier: ^8.3.0
+        version: 8.3.0(@types/node@20.19.9)
       '@swc/helpers':
         specifier: ~0.5.11
         version: 0.5.17
@@ -848,9 +854,6 @@ importers:
         specifier: ^3.1.10
         version: 3.1.10
     devDependencies:
-      '@inquirer/prompts':
-        specifier: ^8.3.0
-        version: 8.3.0(@types/node@20.19.9)
       '@types/ejs':
         specifier: ^3.1.5
         version: 3.1.5
@@ -1583,11 +1586,11 @@ packages:
   '@bufbuild/protobuf@2.10.1':
     resolution: {integrity: sha512-ckS3+vyJb5qGpEYv/s1OebUHDi/xSNtfgw1wqKZo7MR9F2z+qXr0q5XagafAG/9O0QPVIUfST0smluYSTpYFkg==}
 
-  '@dimforge/rapier2d-compat@0.14.0':
-    resolution: {integrity: sha512-sljQVPstRS63hVLnVNphsZUjH51TZoptVM0XlglKAdZ8CT+kWnmA6olwjkF7omPWYrlKMd/nHORxOUdJDOSoAQ==}
+  '@dimforge/rapier2d-deterministic-compat@0.19.3':
+    resolution: {integrity: sha512-1NEi9rcsscmG5cv5SmC+bR0CrPK55zW5zvCUWXv7U4TBPA3Iv7lAR+IrbZhQU8AqipPW+8J47zb+BxX+owdvWA==}
 
-  '@dimforge/rapier3d-compat@0.14.0':
-    resolution: {integrity: sha512-/uHrUzS+CRQ+NQrrJCEDUkhwHlNsAAexbNXgbN9sHY+GwR+SFFAFrxRr8Llf5/AJZzqiLANdQIfJ63Cw4gJVqw==}
+  '@dimforge/rapier3d-deterministic-compat@0.19.3':
+    resolution: {integrity: sha512-peuD6Cq4ePNW+awx9zzB20nUJ6qNWuf1brPk2bU8o1eV8LDgBqcZ/jz3w8Stuy7KVIhWZCeVkGheiGDIWvjE8Q==}
 
   '@discoveryjs/json-ext@0.5.7':
     resolution: {integrity: sha512-dBVuXR082gk3jsFp7Rd/JI4kytwGHecnCoTtXFb7DB6CNHp4rg5k1bhg0nWdLGLnOV71lmDzGQaLMy8iPLY0pw==}
@@ -10562,9 +10565,9 @@ snapshots:
 
   '@bufbuild/protobuf@2.10.1': {}
 
-  '@dimforge/rapier2d-compat@0.14.0': {}
+  '@dimforge/rapier2d-deterministic-compat@0.19.3': {}
 
-  '@dimforge/rapier3d-compat@0.14.0': {}
+  '@dimforge/rapier3d-deterministic-compat@0.19.3': {}
 
   '@discoveryjs/json-ext@0.5.7': {}
 
@@ -12354,15 +12357,6 @@ snapshots:
       typescript: 5.9.3
 
   '@pixi/colord@2.9.6': {}
-
-  '@pixi/react@8.0.5(@types/react@19.0.0)(pixi.js@8.12.0)(react@19.0.0)':
-    dependencies:
-      its-fine: 2.0.0(@types/react@19.0.0)(react@19.0.0)
-      pixi.js: 8.12.0
-      react: 19.0.0
-      react-reconciler: 0.31.0(react@19.0.0)
-    transitivePeerDependencies:
-      - '@types/react'
 
   '@pixi/react@8.0.5(@types/react@19.0.0)(pixi.js@8.12.0)(react@19.1.0)':
     dependencies:
@@ -16275,13 +16269,6 @@ snapshots:
       has-symbols: 1.1.0
       set-function-name: 2.0.2
 
-  its-fine@2.0.0(@types/react@19.0.0)(react@19.0.0):
-    dependencies:
-      '@types/react-reconciler': 0.28.9(@types/react@19.0.0)
-      react: 19.0.0
-    transitivePeerDependencies:
-      - '@types/react'
-
   its-fine@2.0.0(@types/react@19.0.0)(react@19.1.0):
     dependencies:
       '@types/react-reconciler': 0.28.9(@types/react@19.0.0)
@@ -18119,11 +18106,6 @@ snapshots:
 
   react-is@18.3.1: {}
 
-  react-reconciler@0.31.0(react@19.0.0):
-    dependencies:
-      react: 19.0.0
-      scheduler: 0.25.0
-
   react-reconciler@0.31.0(react@19.1.0):
     dependencies:
       react: 19.1.0
@@ -19408,10 +19390,10 @@ snapshots:
 
   unpipe@1.0.0: {}
 
-  unplugin-swc@1.5.7(@swc/core@1.5.29(@swc/helpers@0.5.17))(rollup@4.52.4):
+  unplugin-swc@1.5.7(@swc/core@1.15.11(@swc/helpers@0.5.17))(rollup@4.52.4):
     dependencies:
       '@rollup/pluginutils': 5.3.0(rollup@4.52.4)
-      '@swc/core': 1.5.29(@swc/helpers@0.5.17)
+      '@swc/core': 1.15.11(@swc/helpers@0.5.17)
       load-tsconfig: 0.2.5
       unplugin: 2.3.10
     transitivePeerDependencies:

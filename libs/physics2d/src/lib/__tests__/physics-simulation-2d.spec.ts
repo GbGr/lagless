@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
-import RAPIER from '@dimforge/rapier2d-compat';
+import RAPIER from '@dimforge/rapier2d-deterministic-compat';
 import { ECSConfig, LocalInputProvider, InputRegistry } from '@lagless/core';
 import type { ECSDeps } from '@lagless/core';
 import { PhysicsSimulation2d } from '../physics-simulation-2d.js';
@@ -95,6 +95,78 @@ describe('PhysicsSimulation2d', () => {
     // This should not throw
     simulation.applyExternalState(ecsState, 500);
     expect(simulation.tick).toBe(500);
+  });
+
+  it('should not throw "Ticks must be non-decreasing" when applyExternalState to earlier tick', () => {
+    const test = createTestSimulation();
+    simulation = test.simulation;
+    worldManager = test.worldManager;
+
+    // Advance simulation to a high tick so snapshot history has entries
+    simulation.registerSystems([{ update: () => worldManager.step() }]);
+    simulation.start();
+    simulation.update(test.config.frameLength * 500);
+    expect(simulation.tick).toBeGreaterThanOrEqual(400);
+
+    // Export state and apply at a much lower tick — this used to crash
+    const state = simulation.mem.exportSnapshot();
+    expect(() => simulation.applyExternalState(state, 100)).not.toThrow();
+    expect(simulation.tick).toBe(100);
+  });
+
+  describe('exportStateForTransfer / applyStateFromTransfer', () => {
+    it('should roundtrip ECS + Rapier state through combined blob', () => {
+      const test = createTestSimulation();
+      simulation = test.simulation;
+      worldManager = test.worldManager;
+
+      // Create a body at a known position
+      const body = worldManager.createDynamicBody();
+      body.setTranslation({ x: 7, y: 13 }, true);
+      worldManager.createBallCollider(0.5, body);
+
+      // Advance simulation a few ticks
+      simulation.registerSystems([{ update: () => worldManager.step() }]);
+      simulation.start();
+      simulation.update(test.config.frameLength * 5);
+      const tickBefore = simulation.tick;
+
+      // Export combined blob
+      const blob = simulation.exportStateForTransfer();
+      expect(blob.byteLength).toBeGreaterThan(simulation.mem.exportSnapshot().byteLength);
+
+      // Create a fresh simulation and apply the blob
+      const test2 = createTestSimulation();
+      const sim2 = test2.simulation;
+      const wm2 = test2.worldManager;
+
+      sim2.applyStateFromTransfer(blob, tickBefore);
+
+      expect(sim2.tick).toBe(tickBefore);
+
+      // Rapier world should have the body — verify by checking snapshot size
+      const emptySnapshotSize = new PhysicsWorldManager2d(
+        rapier, new PhysicsConfig2d({ gravityY: -9.81 }), test.config.frameLength,
+      ).takeSnapshot().byteLength;
+      const restoredSnapshotSize = wm2.takeSnapshot().byteLength;
+      expect(restoredSnapshotSize).toBeGreaterThan(emptySnapshotSize);
+
+      wm2.dispose();
+    });
+
+    it('should fire state transfer handler', () => {
+      const test = createTestSimulation();
+      simulation = test.simulation;
+      worldManager = test.worldManager;
+
+      const blob = simulation.exportStateForTransfer();
+
+      let handlerTick: number | undefined;
+      simulation.addStateTransferHandler((tick) => { handlerTick = tick; });
+
+      simulation.applyStateFromTransfer(blob, 77);
+      expect(handlerTick).toBe(77);
+    });
   });
 
   describe('snapshot and rollback', () => {

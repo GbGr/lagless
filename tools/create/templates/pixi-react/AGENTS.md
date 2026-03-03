@@ -53,8 +53,7 @@ This is a Lagless multiplayer game with three packages:
 
 ### For Physics Changes (<%= simulationType !== 'raw' ? 'APPLIES TO THIS PROJECT' : 'if applicable' %>)
 - [ ] Bodies created with correct BodyType
-- [ ] `updateSceneQueries()` called after snapshot restore
-- [ ] ColliderEntityMap rebuilt after state transfer
+- [ ] ColliderEntityMap rebuild is automatic (verify no manual rebuild code)
 - [ ] Collision layers configured correctly
 
 ## Key Constraints

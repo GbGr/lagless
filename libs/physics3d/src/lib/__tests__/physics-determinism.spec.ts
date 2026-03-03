@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
-import RAPIER from '@dimforge/rapier3d-compat';
+import RAPIER from '@dimforge/rapier3d-deterministic-compat';
 import { ECSConfig, LocalInputProvider, InputRegistry } from '@lagless/core';
 import type { ECSDeps, IECSSystem } from '@lagless/core';
 import { PhysicsSimulation3d } from '../physics-simulation-3d.js';
 import { PhysicsWorldManager3d } from '../physics-world-manager-3d.js';
 import { PhysicsConfig3d } from '../physics-config-3d.js';
-import type { RapierModule3d } from '../rapier-types.js';
+import type { RapierModule3d } from '../rapier-types-3d.js';
 
 let rapier: RapierModule3d;
 
