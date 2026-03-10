@@ -1,6 +1,6 @@
 {
   "name": "@lagless/desync-diagnostics",
-  "version": "0.0.1",
+  "version": "0.0.50",
   "license": "CC-BY-NC-4.0",
   "type": "module",
   "repository": {
@@ -28,7 +28,11 @@
     "react": "^18.0.0 || ^19.0.0"
   },
   "peerDependenciesMeta": {
-    "@lagless/react": { "optional": true },
-    "react": { "optional": true }
+    "@lagless/react": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
   }
 }
