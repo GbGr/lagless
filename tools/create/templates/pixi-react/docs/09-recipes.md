@@ -360,3 +360,63 @@ export class ProjectileLifetimeSystem implements IECSSystem {
      this._arenaConfig.radius -= this._arenaConfig.shrinkRate;
    }
    ```
+<% if (simulationType === 'physics2d') { -%>
+
+## Add Procedural 2D Map
+
+1. **Install packages:**
+   ```bash
+   pnpm add @lagless/2d-map-generator @lagless/2d-map-renderer
+   ```
+
+2. **Define object types** in `simulation/src/lib/map-config/objects.ts`:
+   ```typescript
+   import type { MapObjectDef, MapObjectRegistry } from '@lagless/2d-map-generator';
+   import { RenderLayer, ShapeType, CANOPY_SENSOR_TAG } from '@lagless/2d-map-generator';
+
+   export enum ObjectType { Tree = 0 }
+
+   const TREE: MapObjectDef = {
+     typeId: ObjectType.Tree,
+     colliders: [
+       { shape: { type: ShapeType.Circle, radius: 30 } },
+       { shape: { type: ShapeType.Circle, radius: 128 }, isSensor: true, tag: CANOPY_SENSOR_TAG },
+     ],
+     visuals: [
+       { texture: 'tree-trunk', layer: RenderLayer.Ground },
+       { texture: 'tree-foliage', layer: RenderLayer.Canopy },
+     ],
+     scaleRange: [0.1, 0.2],
+     includeSensorsInBounds: true,
+   };
+
+   export const OBJECT_REGISTRY: MapObjectRegistry = new Map([[0, TREE]]);
+   ```
+
+3. **Create generator factory** in `simulation/src/lib/map-config/create-map-generator.ts`:
+   ```typescript
+   import { MapGenerator, BiomeFeature, ShoreFeature, GrassFeature,
+     ObjectPlacementFeature, PlacementKind, TerrainZone, STANDARD_BIOME,
+   } from '@lagless/2d-map-generator';
+   import { OBJECT_REGISTRY, ObjectType } from './objects.js';
+
+   export function createMapGenerator(): MapGenerator {
+     return new MapGenerator({ baseWidth: 720, baseHeight: 720, scale: 1, extension: 80, gridSize: 16 })
+       .addFeature(new BiomeFeature(), STANDARD_BIOME)
+       .addFeature(new ShoreFeature(), { inset: 48, divisions: 12, variation: 4 })
+       .addFeature(new GrassFeature(), { inset: 18, variation: 3 })
+       .addFeature(new ObjectPlacementFeature(), {
+         registry: OBJECT_REGISTRY,
+         stages: [{ kind: PlacementKind.Density, typeId: ObjectType.Tree, density: 100, terrainZone: TerrainZone.Grass }],
+       });
+   }
+   ```
+
+4. **Extend runner** — generate map + create physics colliders in constructor, call `capturePreStartState()` after.
+
+5. **Render** — use `MapTerrainRenderer` and `MapObjectRenderer` from `@lagless/2d-map-renderer`.
+
+6. **Canopy transparency** — use `extractCanopyZones()` + `isInsideCanopyZone()` per frame.
+
+> Full details: [docs/11-2d-map-generation.md](11-2d-map-generation.md)
+<% } -%>

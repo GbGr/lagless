@@ -573,7 +573,7 @@ export const sanitizeInputData = (
   }
 };
 
-export const getFastHash = (arrayBuffer: ArrayBuffer): number => {
+export const getFastHash = (arrayBuffer: ArrayBufferLike): number => {
   const dataView = new DataView(arrayBuffer);
   let hash = 0;
   for (let i = 0; i < dataView.byteLength; i++) {

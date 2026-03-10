@@ -1,16 +1,13 @@
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRunner } from '../runner-provider';
-import { PlayerResources, ECSConfig, ReplayInputProvider, SignalEvent } from '@lagless/core';
-import { GameState, PlayerResource, DivergenceSignal, DivergenceData, SyncTestArena } from '@lagless/sync-test-simulation';
+import { PlayerResources, ECSConfig, ReplayInputProvider } from '@lagless/core';
+import { GameState, PlayerResource, SyncTestArena } from '@lagless/sync-test-simulation';
 
 interface PlayerHudData {
   slot: number;
   connected: boolean;
   score: number;
   collectCount: number;
-  lastHash: number;
-  lastHashTick: number;
-  mismatchCount: number;
 }
 
 export const HUD: FC = () => {
@@ -20,24 +17,11 @@ export const HUD: FC = () => {
   const [localHash, setLocalHash] = useState(0);
   const [totalCollected, setTotalCollected] = useState(0);
   const [players, setPlayers] = useState<PlayerHudData[]>([]);
-  const [hasDivergence, setHasDivergence] = useState(false);
-  const [divergenceInfo, setDivergenceInfo] = useState('');
 
   const isReplay = useMemo(() => runner.InputProviderInstance instanceof ReplayInputProvider, [runner]);
   const _ECSConfig = useMemo(() => runner.DIContainer.resolve(ECSConfig), [runner]);
   const _GameState = useMemo(() => runner.DIContainer.resolve(GameState), [runner]);
   const _PlayerResources = useMemo(() => runner.DIContainer.resolve(PlayerResources), [runner]);
-
-  useEffect(() => {
-    const signal = runner.DIContainer.resolve(DivergenceSignal);
-    const unsub = signal.Predicted.subscribe((e: SignalEvent<DivergenceData>) => {
-      setHasDivergence(true);
-      setDivergenceInfo(
-        `P${e.data.slotA} vs P${e.data.slotB}: ${e.data.hashA.toString(16)} != ${e.data.hashB.toString(16)} @ tick ${e.data.atTick}`,
-      );
-    });
-    return () => unsub();
-  }, [runner]);
 
   const updateStats = useCallback(() => {
     const currentTick = runner.Simulation.tick;
@@ -58,9 +42,6 @@ export const HUD: FC = () => {
           connected: pr.safe.connected === 1,
           score: pr.safe.score,
           collectCount: pr.safe.collectCount,
-          lastHash: pr.safe.lastReportedHash,
-          lastHashTick: pr.safe.lastReportedHashTick,
-          mismatchCount: pr.safe.hashMismatchCount,
         });
       }
     }
@@ -118,9 +99,6 @@ export const HUD: FC = () => {
         ))}
       </div>
 
-      <div style={{ ...styles.syncStatus, color: hasDivergence ? '#ff4444' : '#44ff44' }}>
-        {hasDivergence ? `DIVERGENCE: ${divergenceInfo}` : 'IN SYNC'}
-      </div>
     </div>
   );
 };
@@ -171,11 +149,6 @@ const styles: Record<string, React.CSSProperties> = {
   },
   playerStat: {
     color: '#cccccc',
-  },
-  syncStatus: {
-    textAlign: 'center' as const,
-    fontWeight: 'bold',
-    fontSize: 11,
   },
   replayBadge: {
     background: '#ff4444',

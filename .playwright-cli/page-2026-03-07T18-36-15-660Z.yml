@@ -1,0 +1,160 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: Game
+      - combobox [disabled] [ref=e7]:
+        - option "Sync Test"
+        - option "Circle Sumo"
+        - option "Roblox-Like"
+        - option "2D Map Test" [selected]
+    - generic [ref=e8]:
+      - generic [ref=e9]: Instances
+      - spinbutton [disabled] [ref=e10]: "2"
+    - button "Stop" [ref=e44] [cursor=pointer]
+    - generic [ref=e13]:
+      - textbox "Preset name" [ref=e14]
+      - button "Save" [disabled] [ref=e15] [cursor=pointer]
+  - generic [ref=e16]:
+    - generic [ref=e17]:
+      - generic [ref=e18]:
+        - generic [ref=e45]:
+          - generic [ref=e46]:
+            - generic [ref=e47]: "#0 P1 T:35136"
+            - button "↻" [ref=e48] [cursor=pointer]
+          - iframe [ref=e49]:
+            - generic [ref=f1e15]:
+              - generic [ref=f1e16]: 2D Map Test
+              - generic [ref=f1e17]: Multiplayer Map Generation Testbench
+              - generic [ref=f1e18]:
+                - button "Play Local" [ref=f1e19] [cursor=pointer]
+                - button "Play Online" [ref=f1e20] [cursor=pointer]
+              - link "Map Generator Demo" [ref=f1e22] [cursor=pointer]:
+                - /url: /map-demo
+              - generic [ref=f1e23]:
+                - generic [ref=f1e24]: Controls
+                - generic [ref=f1e25]: WASD / Arrow Keys — Move
+                - generic [ref=f1e26]: F3 — Debug Panel
+        - generic [ref=e50]:
+          - generic [ref=e51]:
+            - generic [ref=e52]: "#1 P0 T:35136"
+            - button "↻" [ref=e53] [cursor=pointer]
+          - iframe [ref=e54]:
+            - generic [ref=f2e15]:
+              - generic [ref=f2e16]: 2D Map Test
+              - generic [ref=f2e17]: Multiplayer Map Generation Testbench
+              - generic [ref=f2e18]:
+                - button "Play Local" [ref=f2e19] [cursor=pointer]
+                - button "Play Online" [ref=f2e20] [cursor=pointer]
+              - link "Map Generator Demo" [ref=f2e22] [cursor=pointer]:
+                - /url: /map-demo
+              - generic [ref=f2e23]:
+                - generic [ref=f2e24]: Controls
+                - generic [ref=f2e25]: WASD / Arrow Keys — Move
+                - generic [ref=f2e26]: F3 — Debug Panel
+      - generic [ref=e19]:
+        - table [ref=e21]:
+          - rowgroup [ref=e22]:
+            - row "# Slot Tick VfTick Hash RTT Jitter InpDly Rollbacks State" [ref=e23]:
+              - columnheader "#" [ref=e24]
+              - columnheader "Slot" [ref=e25]
+              - columnheader "Tick" [ref=e26]
+              - columnheader "VfTick" [ref=e27]
+              - columnheader "Hash" [ref=e28]
+              - columnheader "RTT" [ref=e29]
+              - columnheader "Jitter" [ref=e30]
+              - columnheader "InpDly" [ref=e31]
+              - columnheader "Rollbacks" [ref=e32]
+              - columnheader "State" [ref=e33]
+          - rowgroup [ref=e55]:
+            - row "0 1 35136 35089 6e66ca53 508ms 3ms 12 292 playing" [ref=e475]:
+              - cell "0" [ref=e57]
+              - cell "1" [ref=e88]
+              - cell "35136" [ref=e476]
+              - cell "35089" [ref=e477]
+              - cell "6e66ca53" [ref=e478]
+              - cell "508ms" [ref=e479]
+              - cell "3ms" [ref=e452]
+              - cell "12" [ref=e94]
+              - cell "292" [ref=e480]
+              - cell "playing" [ref=e96]
+            - row "1 0 35136 35088 6e66ca53 509ms 4ms 12 292 playing" [ref=e481]:
+              - cell "1" [ref=e68]
+              - cell "0" [ref=e98]
+              - cell "35136" [ref=e482]
+              - cell "35088" [ref=e483]
+              - cell "6e66ca53" [ref=e484]
+              - cell "509ms" [ref=e485]
+              - cell "4ms" [ref=e486]
+              - cell "12" [ref=e104]
+              - cell "292" [ref=e487]
+              - cell "playing" [ref=e106]
+        - generic [ref=e107]:
+          - generic [ref=e108]: Hash Comparison
+          - table [ref=e110]:
+            - rowgroup [ref=e111]:
+              - 'row "Tick #0 #1" [ref=e112]':
+                - columnheader "Tick" [ref=e113]
+                - columnheader "#0" [ref=e114]
+                - columnheader "#1" [ref=e115]
+            - rowgroup [ref=e116]:
+              - row "34800 e121 e121" [ref=e488]:
+                - cell "34800" [ref=e489]
+                - cell "e121" [ref=e490]
+                - cell "e121" [ref=e491]
+              - row "34920 8bea 8bea" [ref=e492]:
+                - cell "34920" [ref=e493]
+                - cell "8bea" [ref=e494]
+                - cell "8bea" [ref=e495]
+              - row "35040 4472 4472" [ref=e496]:
+                - cell "35040" [ref=e497]
+                - cell "4472" [ref=e498]
+                - cell "4472" [ref=e499]
+        - generic [ref=e34]:
+          - generic [ref=e35]: Hash Timeline
+          - generic [ref=e37]:
+            - generic [ref=e38]: Match
+            - generic [ref=e40]: Diverge
+            - generic [ref=e42]: Pending
+        - generic [ref=e129]:
+          - generic [ref=e130]:
+            - generic [ref=e131]: Diagnostics
+            - button "Download All" [ref=e362] [cursor=pointer]
+          - table [ref=e133]:
+            - rowgroup [ref=e134]:
+              - row "# Ticks Rollbacks Last RB VT Gaps ECS Hash Phys Hash" [ref=e135]:
+                - columnheader "#" [ref=e136]
+                - columnheader "Ticks" [ref=e137]
+                - columnheader "Rollbacks" [ref=e138]
+                - columnheader "Last RB" [ref=e139]
+                - columnheader "VT Gaps" [ref=e140]
+                - columnheader "ECS Hash" [ref=e141]
+                - columnheader "Phys Hash" [ref=e142]
+                - columnheader [ref=e143]
+            - rowgroup [ref=e144]:
+              - row "0✓ 18000 0 - 589 bf48c119 - Download" [ref=e500]:
+                - cell "0✓" [ref=e303]
+                - cell "18000" [ref=e304]
+                - cell "0" [ref=e148]
+                - cell "-" [ref=e149]
+                - cell "589" [ref=e501]
+                - cell "bf48c119" [ref=e502]
+                - cell "-" [ref=e152]
+                - cell "Download" [ref=e153]:
+                  - button "Download" [ref=e154] [cursor=pointer]
+    - generic [ref=e78]:
+      - generic [ref=e79]: Global Latency
+      - generic [ref=e80]:
+        - generic [ref=e81]: Delay 0ms
+        - slider [ref=e82]: "0"
+      - generic [ref=e83]:
+        - generic [ref=e84]: Jitter 0ms
+        - slider [ref=e85]: "0"
+      - button "Apply Global" [ref=e86] [cursor=pointer]
+      - generic [ref=e155]: Per-Player Latency
+      - generic [ref=e156]:
+        - generic [ref=e157]: "P0: 0ms"
+        - slider [ref=e158]: "0"
+      - generic [ref=e159]:
+        - generic [ref=e160]: "P1: 0ms"
+        - slider [ref=e161]: "0"
+      - button "Clear Per-Player" [ref=e162] [cursor=pointer]

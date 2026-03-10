@@ -2,6 +2,7 @@ import { createLogger } from '@lagless/misc';
 import {
   TickInputKind, HeaderSchema,
   packServerHello, packPong, packStateResponse, packTickInputFanout,
+  packHashMismatch, unpackHashReport,
 } from '@lagless/net-wire';
 import { InputBinarySchema, LE } from '@lagless/binary';
 import { ServerClock } from './server-clock.js';
@@ -62,6 +63,7 @@ export class RelayRoom {
   private _serverSeq = 1;
   private _latencySimulator: LatencySimulator | null = null;
   private _nextSlot: number;
+  private readonly _hashReports = new Map<number, Map<number, number>>(); // tick → slot → hash
 
   constructor(
     public readonly matchId: MatchId,
@@ -355,6 +357,9 @@ export class RelayRoom {
       case 7: // MsgType.StateResponse
         this.handleStateResponse(conn, data);
         break;
+      case 10: // MsgType.HashReport
+        this.handleHashReport(conn, data);
+        break;
       default:
         log.warn(`Unknown message type ${msgType} from player ${playerId} (dataLen=${data.byteLength})`);
     }
@@ -507,6 +512,56 @@ export class RelayRoom {
     const state = raw.slice(offset + 16, offset + 16 + stateLength);
 
     this._stateTransfer.receiveResponse(conn.slot, requestId, tick, hash, state);
+  }
+
+  private handleHashReport(conn: PlayerConnection, raw: ArrayBuffer): void {
+    const report = unpackHashReport(raw);
+    const tick = report.atTick;
+
+    let tickMap = this._hashReports.get(tick);
+    if (!tickMap) {
+      tickMap = new Map();
+      this._hashReports.set(tick, tickMap);
+    }
+    tickMap.set(conn.slot, report.hash);
+
+    // Check if all connected non-bot players have reported for this tick
+    let allReported = true;
+    for (const c of this._connections.values()) {
+      if (c.isBot || !c.isConnected) continue;
+      if (!tickMap.has(c.slot)) {
+        allReported = false;
+        break;
+      }
+    }
+
+    if (allReported && tickMap.size >= 2) {
+      // Compare all hashes — find first mismatch
+      const entries = Array.from(tickMap.entries());
+      for (let i = 0; i < entries.length; i++) {
+        for (let j = i + 1; j < entries.length; j++) {
+          if (entries[i][1] !== entries[j][1]) {
+            const mismatch = packHashMismatch({
+              slotA: entries[i][0],
+              slotB: entries[j][0],
+              hashA: entries[i][1],
+              hashB: entries[j][1],
+              atTick: tick,
+            });
+            this.broadcastToAll(mismatch);
+            log.warn(`Hash mismatch at tick ${tick}: slot ${entries[i][0]} (0x${entries[i][1].toString(16)}) vs slot ${entries[j][0]} (0x${entries[j][1].toString(16)})`);
+            // Only report first mismatch per tick
+            break;
+          }
+        }
+      }
+    }
+
+    // Prune old hash reports (keep last ~10 seconds)
+    const pruneThreshold = this._clock.tick - (this._config.tickRateHz * 10);
+    for (const [t] of this._hashReports) {
+      if (t < pruneThreshold) this._hashReports.delete(t);
+    }
   }
 
   // ─── Private: Lifecycle ────────────────────────────────

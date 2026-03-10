@@ -13,7 +13,7 @@ export default [
             '{projectRoot}/vite.config.{js,ts,mjs,mts}',
             '{projectRoot}/vitest.setup.ts',
           ],
-          ignoredDependencies: ['@dimforge/rapier2d-deterministic-compat'],
+          ignoredDependencies: ['@lagless/rapier2d-deterministic-compat'],
         },
       ],
     },

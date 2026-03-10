@@ -4,6 +4,5 @@ import { InputRegistry } from '@lagless/core';
 import { PlayerJoined } from './PlayerJoined.js';
 import { PlayerLeft } from './PlayerLeft.js';
 import { CharacterMove } from './CharacterMove.js';
-import { ReportHash } from './ReportHash.js';
 
-export const RobloxLikeInputRegistry = new InputRegistry([PlayerJoined, PlayerLeft, CharacterMove, ReportHash]);
+export const RobloxLikeInputRegistry = new InputRegistry([PlayerJoined, PlayerLeft, CharacterMove]);

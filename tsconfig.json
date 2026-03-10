@@ -92,6 +92,24 @@
     },
     {
       "path": "./tools/dev-player"
+    },
+    {
+      "path": "./2d-map-test/2d-map-test-simulation"
+    },
+    {
+      "path": "./2d-map-test/2d-map-test-game"
+    },
+    {
+      "path": "./2d-map-test/2d-map-test-server"
+    },
+    {
+      "path": "./libs/2d-map/2d-map-generator"
+    },
+    {
+      "path": "./libs/2d-map/2d-map-renderer"
+    },
+    {
+      "path": "./libs/desync-diagnostics"
     }
   ]
 }

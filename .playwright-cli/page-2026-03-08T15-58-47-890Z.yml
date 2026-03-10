@@ -1,0 +1,35 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: Game
+      - combobox [ref=e7]:
+        - option "Sync Test" [selected]
+        - option "Circle Sumo"
+        - option "Roblox-Like"
+        - option "2D Map Test"
+    - generic [ref=e8]:
+      - generic [ref=e9]: Instances
+      - spinbutton [ref=e10]: "2"
+    - generic [ref=e12] [cursor=pointer]:
+      - checkbox "Diagnostics" [active] [ref=e13]
+      - text: Diagnostics
+    - button "Start" [ref=e15] [cursor=pointer]
+    - generic [ref=e16]:
+      - textbox "Preset name" [ref=e17]
+      - button "Save" [disabled] [ref=e18] [cursor=pointer]
+  - generic [ref=e20]:
+    - generic [ref=e21]: Select a game and press Start
+    - table [ref=e24]:
+      - rowgroup [ref=e25]:
+        - row "# Slot Tick VfTick FPS RTT Jitter InpDly Rollbacks State" [ref=e48]:
+          - columnheader "#" [ref=e27]
+          - columnheader "Slot" [ref=e28]
+          - columnheader "Tick" [ref=e29]
+          - columnheader "VfTick" [ref=e30]
+          - columnheader "FPS" [ref=e32]
+          - columnheader "RTT" [ref=e33]
+          - columnheader "Jitter" [ref=e34]
+          - columnheader "InpDly" [ref=e35]
+          - columnheader "Rollbacks" [ref=e36]
+          - columnheader "State" [ref=e37]
+      - rowgroup

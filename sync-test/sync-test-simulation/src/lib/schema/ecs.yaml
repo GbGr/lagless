@@ -29,9 +29,6 @@ playerResources:
     connected: uint8
     score: uint32
     collectCount: uint16
-    lastReportedHash: uint32
-    lastReportedHashTick: uint32
-    hashMismatchCount: uint16
 
 inputs:
   PlayerJoined:
@@ -43,9 +40,6 @@ inputs:
   MoveInput:
     directionX: float32
     directionY: float32
-  ReportHash:
-    hash: uint32
-    atTick: uint32
 
 filters:
   PlayerFilter:

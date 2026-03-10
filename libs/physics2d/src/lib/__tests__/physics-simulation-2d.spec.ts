@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
-import RAPIER from '@dimforge/rapier2d-deterministic-compat';
+import RAPIER from '@lagless/rapier2d-deterministic-compat';
 import { ECSConfig, LocalInputProvider, InputRegistry } from '@lagless/core';
 import type { ECSDeps } from '@lagless/core';
 import { PhysicsSimulation2d } from '../physics-simulation-2d.js';
@@ -166,6 +166,72 @@ describe('PhysicsSimulation2d', () => {
 
       simulation.applyStateFromTransfer(blob, 77);
       expect(handlerTick).toBe(77);
+    });
+  });
+
+  describe('capturePreStartState', () => {
+    it('should preserve pre-start bodies when rollback falls through to initial snapshot', () => {
+      const test = createTestSimulation();
+      simulation = test.simulation;
+      worldManager = test.worldManager;
+
+      // Create static bodies AFTER construction (simulating tree colliders)
+      const treeBody = worldManager.createFixedBody();
+      treeBody.setTranslation({ x: 100, y: 200 }, false);
+      worldManager.createBallCollider(5, treeBody);
+
+      // Re-capture initial state so it includes the tree body
+      simulation.capturePreStartState();
+
+      // Register a minimal system and start
+      simulation.registerSystems([{ update: () => worldManager.step() }]);
+      simulation.start();
+
+      // Advance a few ticks so snapshot history has entries at ticks 1..5
+      simulation.update(test.config.frameLength * 5);
+      expect(simulation.tick).toBeGreaterThanOrEqual(4);
+
+      // Force a rollback to tick 1 — getNearest(1) throws (no snapshot with tick < 1)
+      // This uses _initialRapierSnapshot as fallback
+      // @ts-expect-error — accessing protected method for testing
+      simulation.rollback(1);
+
+      // The tree body should still exist in the Rapier world
+      const restored = worldManager.getBody(treeBody.handle);
+      expect(restored).toBeDefined();
+      expect(restored.translation().x).toBeCloseTo(100);
+      expect(restored.translation().y).toBeCloseTo(200);
+    });
+
+    it('should lose pre-start bodies without capturePreStartState', () => {
+      const test = createTestSimulation();
+      simulation = test.simulation;
+      worldManager = test.worldManager;
+
+      // Create static bodies AFTER construction but do NOT call capturePreStartState
+      const treeBody = worldManager.createFixedBody();
+      treeBody.setTranslation({ x: 100, y: 200 }, false);
+      worldManager.createBallCollider(5, treeBody);
+
+      // Register a minimal system and start
+      simulation.registerSystems([{ update: () => worldManager.step() }]);
+      simulation.start();
+
+      // Advance
+      simulation.update(test.config.frameLength * 5);
+
+      // Force rollback to tick 1 — falls through to initial snapshot (no tree)
+      // @ts-expect-error — accessing protected method for testing
+      simulation.rollback(1);
+
+      // The tree body should NOT exist — the initial snapshot had no bodies
+      const emptySnap = worldManager.takeSnapshot();
+      const freshEmptyWm = new PhysicsWorldManager2d(
+        rapier, new PhysicsConfig2d({ gravityY: -9.81 }), test.config.frameLength,
+      );
+      const freshEmptySnap = freshEmptyWm.takeSnapshot();
+      expect(emptySnap.byteLength).toBe(freshEmptySnap.byteLength);
+      freshEmptyWm.dispose();
     });
   });
 

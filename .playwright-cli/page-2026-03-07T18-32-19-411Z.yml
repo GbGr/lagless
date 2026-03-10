@@ -1,0 +1,138 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: Game
+      - combobox [disabled] [ref=e7]:
+        - option "Sync Test"
+        - option "Circle Sumo"
+        - option "Roblox-Like"
+        - option "2D Map Test" [selected]
+    - generic [ref=e8]:
+      - generic [ref=e9]: Instances
+      - spinbutton [disabled] [ref=e10]: "2"
+    - button "Stop" [ref=e44] [cursor=pointer]
+    - generic [ref=e13]:
+      - textbox "Preset name" [ref=e14]
+      - button "Save" [disabled] [ref=e15] [cursor=pointer]
+  - generic [ref=e16]:
+    - generic [ref=e17]:
+      - generic [ref=e18]:
+        - generic [ref=e45]:
+          - generic [ref=e46]:
+            - generic [ref=e47]: "#0 P1 T:22260"
+            - button "↻" [ref=e48] [cursor=pointer]
+          - iframe [ref=e49]:
+            
+        - generic [ref=e50]:
+          - generic [ref=e51]:
+            - generic [ref=e52]: "#1 P0 T:22260"
+            - button "↻" [ref=e53] [cursor=pointer]
+          - iframe [ref=e54]:
+            
+      - generic [ref=e19]:
+        - table [ref=e21]:
+          - rowgroup [ref=e22]:
+            - row "# Slot Tick VfTick Hash RTT Jitter InpDly Rollbacks State" [ref=e23]:
+              - columnheader "#" [ref=e24]
+              - columnheader "Slot" [ref=e25]
+              - columnheader "Tick" [ref=e26]
+              - columnheader "VfTick" [ref=e27]
+              - columnheader "Hash" [ref=e28]
+              - columnheader "RTT" [ref=e29]
+              - columnheader "Jitter" [ref=e30]
+              - columnheader "InpDly" [ref=e31]
+              - columnheader "Rollbacks" [ref=e32]
+              - columnheader "State" [ref=e33]
+          - rowgroup [ref=e55]:
+            - row "0 1 22260 22248 f9952f2c 508ms 3ms 12 185 playing" [ref=e276]:
+              - cell "0" [ref=e57]
+              - cell "1" [ref=e88]
+              - cell "22260" [ref=e277]
+              - cell "22248" [ref=e278]
+              - cell "f9952f2c" [ref=e279]
+              - cell "508ms" [ref=e280]
+              - cell "3ms" [ref=e167]
+              - cell "12" [ref=e94]
+              - cell "185" [ref=e281]
+              - cell "playing" [ref=e96]
+            - row "1 0 22260 22248 f9952f2c 506ms 2ms 12 185 playing" [ref=e282]:
+              - cell "1" [ref=e68]
+              - cell "0" [ref=e98]
+              - cell "22260" [ref=e283]
+              - cell "22248" [ref=e284]
+              - cell "f9952f2c" [ref=e285]
+              - cell "506ms" [ref=e286]
+              - cell "2ms" [ref=e287]
+              - cell "12" [ref=e104]
+              - cell "185" [ref=e288]
+              - cell "playing" [ref=e106]
+        - generic [ref=e107]:
+          - generic [ref=e108]: Hash Comparison
+          - table [ref=e110]:
+            - rowgroup [ref=e111]:
+              - 'row "Tick #0 #1" [ref=e112]':
+                - columnheader "Tick" [ref=e113]
+                - columnheader "#0" [ref=e114]
+                - columnheader "#1" [ref=e115]
+            - rowgroup [ref=e116]:
+              - row "21960 6f97 6f97" [ref=e289]:
+                - cell "21960" [ref=e290]
+                - cell "6f97" [ref=e291]
+                - cell "6f97" [ref=e292]
+              - row "22080 1a60 1a60" [ref=e293]:
+                - cell "22080" [ref=e294]
+                - cell "1a60" [ref=e295]
+                - cell "1a60" [ref=e296]
+              - row "22200 d2e8 d2e8" [ref=e297]:
+                - cell "22200" [ref=e298]
+                - cell "d2e8" [ref=e299]
+                - cell "d2e8" [ref=e300]
+        - generic [ref=e34]:
+          - generic [ref=e35]: Hash Timeline
+          - generic [ref=e37]:
+            - generic [ref=e38]: Match
+            - generic [ref=e40]: Diverge
+            - generic [ref=e42]: Pending
+        - generic [ref=e129]:
+          - generic [ref=e130]:
+            - generic [ref=e131]: Diagnostics
+            - button "Collecting..." [disabled] [ref=e301] [cursor=pointer]
+          - table [ref=e133]:
+            - rowgroup [ref=e134]:
+              - row "# Ticks Rollbacks Last RB VT Gaps ECS Hash Phys Hash" [ref=e135]:
+                - columnheader "#" [ref=e136]
+                - columnheader "Ticks" [ref=e137]
+                - columnheader "Rollbacks" [ref=e138]
+                - columnheader "Last RB" [ref=e139]
+                - columnheader "VT Gaps" [ref=e140]
+                - columnheader "ECS Hash" [ref=e141]
+                - columnheader "Phys Hash" [ref=e142]
+                - columnheader [ref=e143]
+            - rowgroup [ref=e144]:
+              - row "0✓ 18000 0 - 375 f9952f2c - Download" [ref=e302]:
+                - cell "0✓" [ref=e303]
+                - cell "18000" [ref=e304]
+                - cell "0" [ref=e148]
+                - cell "-" [ref=e149]
+                - cell "375" [ref=e305]
+                - cell "f9952f2c" [ref=e306]
+                - cell "-" [ref=e152]
+                - cell "Download" [ref=e153]:
+                  - button "Download" [ref=e154] [cursor=pointer]
+    - generic [ref=e78]:
+      - generic [ref=e79]: Global Latency
+      - generic [ref=e80]:
+        - generic [ref=e81]: Delay 0ms
+        - slider [ref=e82]: "0"
+      - generic [ref=e83]:
+        - generic [ref=e84]: Jitter 0ms
+        - slider [ref=e85]: "0"
+      - button "Apply Global" [ref=e86] [cursor=pointer]
+      - generic [ref=e155]: Per-Player Latency
+      - generic [ref=e156]:
+        - generic [ref=e157]: "P0: 0ms"
+        - slider [ref=e158]: "0"
+      - generic [ref=e159]:
+        - generic [ref=e160]: "P1: 0ms"
+        - slider [ref=e161]: "0"
+      - button "Clear Per-Player" [ref=e162] [cursor=pointer]

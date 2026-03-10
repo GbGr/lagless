@@ -11,7 +11,7 @@ export interface IPhysicsWorldManagerBase {
 
 export class PhysicsSimulationBase extends ECSSimulation {
   private _rapierSnapshotHistory: SnapshotHistory<Uint8Array>;
-  private readonly _initialRapierSnapshot: Uint8Array;
+  private _initialRapierSnapshot: Uint8Array;
   private _colliderEntityMapRebuildFn: (() => void) | null = null;
 
   constructor(
@@ -33,9 +33,19 @@ export class PhysicsSimulationBase extends ECSSimulation {
     this._colliderEntityMapRebuildFn = fn;
   }
 
+  /**
+   * Re-capture initial ECS and Rapier snapshots after pre-start setup.
+   * Call AFTER creating pre-start bodies (e.g. tree colliders) and BEFORE start().
+   */
+  public capturePreStartState(): void {
+    this._initialSnapshot = this.mem.exportSnapshot();
+    this._initialRapierSnapshot = this._physicsWorldManager.takeSnapshot();
+  }
+
   protected override saveSnapshot(tick: number): void {
     super.saveSnapshot(tick);
-    this._rapierSnapshotHistory.set(tick, this._physicsWorldManager.takeSnapshot());
+    const rapierSnap = this._physicsWorldManager.takeSnapshot();
+    this._rapierSnapshotHistory.set(tick, rapierSnap);
   }
 
   protected override rollback(tick: number): void {

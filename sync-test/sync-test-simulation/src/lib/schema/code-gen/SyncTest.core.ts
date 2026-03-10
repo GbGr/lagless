@@ -13,12 +13,11 @@ import { MovingFilter } from './MovingFilter.js';
 import { PlayerJoined } from './PlayerJoined.js';
 import { PlayerLeft } from './PlayerLeft.js';
 import { MoveInput } from './MoveInput.js';
-import { ReportHash } from './ReportHash.js';
 
 export const SyncTestCore: ECSDeps = {
   components: [Transform2d, Velocity2d, PlayerBody, Collectible],
   singletons: [GameState],
   playerResources: [PlayerResource],
   filters: [PlayerFilter, CollectibleFilter, MovingFilter],
-  inputs: [PlayerJoined, PlayerLeft, MoveInput, ReportHash],
+  inputs: [PlayerJoined, PlayerLeft, MoveInput],
 };

@@ -24,9 +24,6 @@ playerResources:
     id: uint8[16]
     entity: uint32
     connected: uint8
-    lastReportedHash: uint32
-    lastReportedHashTick: uint32
-    hashMismatchCount: uint16
 
 inputs:
   PlayerJoined:
@@ -38,9 +35,6 @@ inputs:
   MoveInput:
     directionX: float32
     directionY: float32
-  ReportHash:
-    hash: uint32
-    atTick: uint32
 
 filters:
   PlayerFilter:
@@ -69,9 +63,6 @@ playerResources:
     id: uint8[16]
     entity: uint32
     connected: uint8
-    lastReportedHash: uint32
-    lastReportedHashTick: uint32
-    hashMismatchCount: uint16
 
 inputs:
   PlayerJoined:
@@ -83,9 +74,6 @@ inputs:
   MoveInput:
     directionX: float32
     directionY: float32
-  ReportHash:
-    hash: uint32
-    atTick: uint32
 
 filters:
   PlayerFilter:
@@ -112,9 +100,6 @@ playerResources:
     id: uint8[16]
     entity: uint32
     connected: uint8
-    lastReportedHash: uint32
-    lastReportedHashTick: uint32
-    hashMismatchCount: uint16
 
 inputs:
   PlayerJoined:
@@ -126,9 +111,6 @@ inputs:
   MoveInput:
     directionX: float32
     directionY: float32
-  ReportHash:
-    hash: uint32
-    atTick: uint32
 
 filters:
   PlayerFilter:

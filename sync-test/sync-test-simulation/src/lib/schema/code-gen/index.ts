@@ -12,7 +12,6 @@ export * from './MovingFilter.js';
 export * from './PlayerJoined.js';
 export * from './PlayerLeft.js';
 export * from './MoveInput.js';
-export * from './ReportHash.js';
 export * from './SyncTestInputRegistry.js';
 export * from './SyncTest.core.js';
 export * from './SyncTest.runner.js';

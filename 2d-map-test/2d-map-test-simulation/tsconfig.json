@@ -1,0 +1,31 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "files": [],
+  "include": [],
+  "references": [
+    {
+      "path": "../../libs/2d-map/2d-map-generator"
+    },
+    {
+      "path": "../../libs/physics2d"
+    },
+    {
+      "path": "../../libs/physics-shared"
+    },
+    {
+      "path": "../../libs/binary"
+    },
+    {
+      "path": "../../libs/math"
+    },
+    {
+      "path": "../../libs/core"
+    },
+    {
+      "path": "./tsconfig.lib.json"
+    },
+    {
+      "path": "./tsconfig.spec.json"
+    }
+  ]
+}

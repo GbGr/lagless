@@ -14,7 +14,7 @@ export class ECSSimulation {
   private readonly _signalsRegistry: SignalsRegistry;
   private readonly _frameLength: number;
   private readonly _snapshotRate: number;
-  protected readonly _initialSnapshot!: ArrayBuffer;
+  protected _initialSnapshot!: ArrayBuffer;
   private readonly _systems = new Array<IECSSystem>();
   private readonly _onTickHandlers = new Set<(tick: number) => void>();
   private readonly _onRollbackHandlers = new Set<(tick: number) => void>();
@@ -90,6 +90,10 @@ export class ECSSimulation {
     }
   }
 
+  public get registeredSystems(): ReadonlyArray<IECSSystem> {
+    return this._systems;
+  }
+
   public get frameLength(): number {
     return this._frameLength;
   }
@@ -100,6 +104,11 @@ export class ECSSimulation {
 
   public enableHashTracking(interval: number): void {
     this._hashTrackingInterval = interval;
+  }
+
+  public disableHashTracking(): void {
+    this._hashTrackingInterval = 0;
+    this._hashHistory.clear();
   }
 
   public getHashAtTick(tick: number): number | undefined {

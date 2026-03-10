@@ -240,6 +240,9 @@ Systems run in array order every tick. Canonical ordering:
 <% } else if (simulationType === 'physics3d') { -%>
 | [docs/08-physics3d.md](docs/08-physics3d.md) | Rapier 3D integration, character controller, animation |
 <% } -%>
+<% if (simulationType === 'physics2d') { -%>
+| [docs/11-2d-map-generation.md](docs/11-2d-map-generation.md) | Procedural 2D map generation, terrain rendering, object placement |
+<% } -%>
 | [docs/09-recipes.md](docs/09-recipes.md) | Step-by-step cookbook for common game features |
 | [docs/10-common-mistakes.md](docs/10-common-mistakes.md) | "Never do X" reference + error solutions |
 | [docs/api-quick-reference.md](docs/api-quick-reference.md) | One-page API cheat sheet |

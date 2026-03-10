@@ -1,0 +1,52 @@
+{"frames": {
+
+"garage-floor.png":
+{
+	"frame": {"x":0,"y":0,"w":60,"h":40},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":60,"h":40},
+	"sourceSize": {"w":60,"h":40}
+},
+"garage-roof.png":
+{
+	"frame": {"x":60,"y":0,"w":60,"h":40},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":60,"h":40},
+	"sourceSize": {"w":60,"h":40}
+},
+"placeholder.png":
+{
+	"frame": {"x":0,"y":64,"w":256,"h":256},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":256,"h":256},
+	"sourceSize": {"w":256,"h":256}
+},
+"tree-failage.png":
+{
+	"frame": {"x":0,"y":320,"w":256,"h":256},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":256,"h":256},
+	"sourceSize": {"w":256,"h":256}
+},
+"tree-thunk.png":
+{
+	"frame": {"x":120,"y":0,"w":64,"h":64},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":64,"h":64},
+	"sourceSize": {"w":64,"h":64}
+}},
+"meta": {
+	"app": "https://www.codeandweb.com/texturepacker",
+	"version": "1.1",
+	"image": "atlas.png",
+	"format": "RGBA8888",
+	"size": {"w":256,"h":576},
+	"scale": "1",
+	"smartupdate": "$TexturePacker:SmartUpdate:241210f3eaa74631d701cb8640b1ae79:3b619370ba410308fdf33c79c8567cf9:cbce6b53f0f49e0bf15173c25c41f876$"
+}
+}

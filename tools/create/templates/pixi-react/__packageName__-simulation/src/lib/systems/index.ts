@@ -10,7 +10,6 @@ import { BoundarySystem } from './boundary.system.js';
 <% } else { -%>
 import { PhysicsStepSystem } from './physics-step.system.js';
 <% } -%>
-import { HashVerificationSystem } from './hash-verification.system.js';
 
 export const <%= projectName %>Systems: IECSSystemConstructor[] = [
   SavePrevTransformSystem,
@@ -24,5 +23,4 @@ export const <%= projectName %>Systems: IECSSystemConstructor[] = [
 <% } else { -%>
   PhysicsStepSystem,
 <% } -%>
-  HashVerificationSystem,
 ];

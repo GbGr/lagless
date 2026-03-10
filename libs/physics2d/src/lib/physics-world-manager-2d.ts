@@ -2,7 +2,8 @@ import { createLogger } from '@lagless/misc';
 import { ColliderEntityMap } from '@lagless/physics-shared';
 import { CollisionEvents2d } from './collision-events-2d.js';
 import { PhysicsConfig2d } from './physics-config-2d.js';
-import {
+import type {
+  DebugRenderBuffers,
   RapierCollider2d,
   RapierColliderDesc2d,
   RapierEventQueue,
@@ -54,6 +55,7 @@ export class PhysicsWorldManager2d {
     this._substeps = _config.substeps;
     this._substepDt = (frameLengthMs / 1000) / this._substeps;
     this._world.timestep = this._substepDt;
+    this._world.integrationParameters.warmstartCoefficient = _config.warmstartCoefficient;
     this._collisionEvents = new CollisionEvents2d(_rapier);
   }
 
@@ -83,9 +85,11 @@ export class PhysicsWorldManager2d {
         x: this._config.gravityX,
         y: this._config.gravityY,
       });
+      this._world.integrationParameters.warmstartCoefficient = this._config.warmstartCoefficient;
       return;
     }
     this._world = restored;
+    this._world.integrationParameters.warmstartCoefficient = this._config.warmstartCoefficient;
   }
 
   // Entity-collider mapping
@@ -207,6 +211,10 @@ export class PhysicsWorldManager2d {
   public removeCollider(handle: number, wakeUp = true): void {
     const collider = this._world.getCollider(handle);
     this._world.removeCollider(collider, wakeUp);
+  }
+
+  public debugRender(): DebugRenderBuffers {
+    return this._world.debugRender();
   }
 
   // Rapier module access (for creating descs in game code)

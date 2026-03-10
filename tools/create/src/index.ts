@@ -176,6 +176,10 @@ program
       const f = path.join(docsDir, '08-physics3d.md');
       if (fs.existsSync(f)) fs.rmSync(f);
     }
+    if (simulationType !== 'physics2d') {
+      const f = path.join(docsDir, '11-2d-map-generation.md');
+      if (fs.existsSync(f)) fs.rmSync(f);
+    }
 
     // Clone lagless framework source for AI reference
     const sourcesDir = path.join(docsDir, 'sources');

@@ -39,7 +39,7 @@ export const IframeGrid: FC<IframeGridProps> = ({ state }) => {
         const borderColor = BORDER_COLORS[inst.matchState] || '#30363d';
         const now = Date.now();
         const stale = inst.stats && (now - inst.stats.lastUpdate > 3000);
-        const src = buildIframeSrc(state.preset.gameUrl, state.preset.serverUrl, state.sessionScope, inst.id);
+        const src = buildIframeSrc(state.preset.gameUrl, state.preset.serverUrl, state.sessionScope, inst.id, state.diagnosticsEnabled);
 
         return (
           <div key={inst.id} style={{ ...styles.cell, borderColor }}>
@@ -55,6 +55,7 @@ export const IframeGrid: FC<IframeGridProps> = ({ state }) => {
               src={src}
               style={styles.iframe}
               allow="autoplay"
+              data-instance-id={inst.id}
             />
           </div>
         );
@@ -63,13 +64,14 @@ export const IframeGrid: FC<IframeGridProps> = ({ state }) => {
   );
 };
 
-function buildIframeSrc(gameUrl: string, serverUrl: string, scope: string, instanceId: string): string {
+function buildIframeSrc(gameUrl: string, serverUrl: string, scope: string, instanceId: string, diagnostics: boolean): string {
   const url = new URL(gameUrl);
   url.searchParams.set('devBridge', 'true');
   url.searchParams.set('instanceId', instanceId);
   url.searchParams.set('serverUrl', serverUrl);
   url.searchParams.set('scope', scope);
   url.searchParams.set('autoMatch', 'true');
+  url.searchParams.set('diagnostics', String(diagnostics));
   return url.toString();
 }
 

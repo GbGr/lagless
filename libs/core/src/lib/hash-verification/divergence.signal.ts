@@ -1,11 +1,6 @@
-import { Signal } from '../signals/signal.js';
+import type { HashMismatchData } from './create-hash-reporter.js';
 
-export interface DivergenceData {
-  slotA: number;
-  slotB: number;
-  hashA: number;
-  hashB: number;
-  atTick: number;
-}
-
-export class DivergenceSignal extends Signal<DivergenceData> {}
+/**
+ * @deprecated Use `HashMismatchData` from `create-hash-reporter` instead.
+ */
+export type DivergenceData = HashMismatchData;

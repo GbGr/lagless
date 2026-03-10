@@ -1,0 +1,42 @@
+{
+  "name": "@lagless/2d-map-generator",
+  "version": "0.0.1",
+  "license": "CC-BY-NC-4.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GbGr/lagless",
+    "directory": "libs/2d-map/2d-map-generator"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@lagless/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "tslib": "^2.3.0",
+    "@lagless/math": "workspace:*"
+  },
+  "peerDependencies": {
+    "@lagless/rapier2d-deterministic-compat": ">=0.14.0"
+  },
+  "peerDependenciesMeta": {
+    "@lagless/rapier2d-deterministic-compat": {
+      "optional": true
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

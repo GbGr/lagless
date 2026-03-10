@@ -1,4 +1,5 @@
-import type { ECSRunner, IPlayerResourceConstructor, ISignalConstructor } from '@lagless/core';
+import type { ECSRunner } from '@lagless/core';
+import type { HashMismatchData } from '@lagless/core';
 import type { ReactNode } from 'react';
 
 export interface NetStats {
@@ -16,12 +17,6 @@ export interface NetStats {
   fps: number;
 }
 
-export interface HashTableEntry {
-  slot: number;
-  hash: string;
-  tick: number;
-}
-
 export interface LogEntry {
   tick: number;
   message: string;
@@ -30,10 +25,7 @@ export interface LogEntry {
 export interface DebugPanelProps {
   runner: ECSRunner;
   toggleKey?: string;
-  hashVerification?: {
-    playerResourceClass: IPlayerResourceConstructor;
-    divergenceSignalClass: ISignalConstructor;
-  };
+  onDivergence?: (fn: (data: HashMismatchData) => void) => () => void;
   showConnectionControls?: boolean;
   children?: ReactNode;
 }

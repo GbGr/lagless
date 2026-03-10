@@ -13,15 +13,5 @@
   },
   "include": ["src/**/*.ts"],
   "exclude": ["src/**/*.test.ts", "src/**/*.spec.ts"],
-  "references": [
-    {
-      "path": "../../libs/core/tsconfig.lib.json"
-    },
-    {
-      "path": "../../libs/physics3d/tsconfig.lib.json"
-    },
-    {
-      "path": "../../libs/physics2d/tsconfig.lib.json"
-    }
-  ]
+  "references": []
 }

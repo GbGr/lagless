@@ -1,8 +1,10 @@
 import { FC, useEffect, useRef } from 'react';
 import type { DevPlayerState } from '../types';
+import { DiagnosticsPanel } from './diagnostics-panel';
 
 interface DashboardProps {
   state: DevPlayerState;
+  diagnosticsEnabled: boolean;
 }
 
 // Ring buffer for hash timeline
@@ -14,7 +16,7 @@ interface TickHashEntry {
   hashes: Map<string, number>; // instanceId → verifiedHash
 }
 
-export const Dashboard: FC<DashboardProps> = ({ state }) => {
+export const Dashboard: FC<DashboardProps> = ({ state, diagnosticsEnabled }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hashBufferRef = useRef<TickHashEntry[]>([]);
   const hashScrollRef = useRef<HTMLDivElement>(null);
@@ -132,7 +134,8 @@ export const Dashboard: FC<DashboardProps> = ({ state }) => {
               <th style={styles.th}>Slot</th>
               <th style={styles.th}>Tick</th>
               <th style={styles.th}>VfTick</th>
-              <th style={styles.th}>Hash</th>
+              {diagnosticsEnabled && <th style={styles.th}>Hash</th>}
+              <th style={styles.th}>FPS</th>
               <th style={styles.th}>RTT</th>
               <th style={styles.th}>Jitter</th>
               <th style={styles.th}>InpDly</th>
@@ -149,7 +152,8 @@ export const Dashboard: FC<DashboardProps> = ({ state }) => {
                   <td style={styles.td}>{s?.playerSlot ?? '-'}</td>
                   <td style={styles.td}>{s?.tick ?? 0}</td>
                   <td style={styles.td}>{s?.verifiedTick ?? '-'}</td>
-                  <td style={styles.tdMono}>{s ? (s.hash >>> 0).toString(16).padStart(8, '0') : '-'}</td>
+                  {diagnosticsEnabled && <td style={styles.tdMono}>{s ? (s.hash >>> 0).toString(16).padStart(8, '0') : '-'}</td>}
+                  <td style={styles.td}>{s?.fps ?? '-'}</td>
                   <td style={styles.td}>{s ? `${s.rtt.toFixed(0)}ms` : '-'}</td>
                   <td style={styles.td}>{s ? `${s.jitter.toFixed(0)}ms` : '-'}</td>
                   <td style={styles.td}>{s?.inputDelay ?? '-'}</td>
@@ -166,7 +170,7 @@ export const Dashboard: FC<DashboardProps> = ({ state }) => {
         </table>
       </div>
 
-      {tableEntries.length > 0 && (
+      {diagnosticsEnabled && tableEntries.length > 0 && (
         <div style={styles.hashTableWrap}>
           <div style={styles.hashTableTitle}>Hash Comparison</div>
           <div ref={hashScrollRef} style={styles.hashTableScroll}>
@@ -235,15 +239,19 @@ export const Dashboard: FC<DashboardProps> = ({ state }) => {
         </div>
       )}
 
-      <div style={styles.timelineWrap}>
-        <div style={styles.timelineTitle}>Hash Timeline</div>
-        <canvas ref={canvasRef} style={styles.canvas} />
-        <div style={styles.legend}>
-          <span><span style={{ ...styles.dot, background: '#3fb950' }} /> Match</span>
-          <span><span style={{ ...styles.dot, background: '#f85149' }} /> Diverge</span>
-          <span><span style={{ ...styles.dot, background: '#8b949e' }} /> Pending</span>
+      {diagnosticsEnabled && (
+        <div style={styles.timelineWrap}>
+          <div style={styles.timelineTitle}>Hash Timeline</div>
+          <canvas ref={canvasRef} style={styles.canvas} />
+          <div style={styles.legend}>
+            <span><span style={{ ...styles.dot, background: '#3fb950' }} /> Match</span>
+            <span><span style={{ ...styles.dot, background: '#f85149' }} /> Diverge</span>
+            <span><span style={{ ...styles.dot, background: '#8b949e' }} /> Pending</span>
+          </div>
         </div>
-      </div>
+      )}
+
+      <DiagnosticsPanel state={state} diagnosticsEnabled={diagnosticsEnabled} />
     </div>
   );
 };

@@ -15,12 +15,11 @@ import { PhysicsRefsFilter } from './PhysicsRefsFilter.js';
 import { PlayerJoined } from './PlayerJoined.js';
 import { PlayerLeft } from './PlayerLeft.js';
 import { CharacterMove } from './CharacterMove.js';
-import { ReportHash } from './ReportHash.js';
 
 export const RobloxLikeCore: ECSDeps = {
   components: [Transform3d, PhysicsRefs, CharacterState, AnimationState, PlayerTag, StaticObstacle],
   singletons: [GameState],
   playerResources: [PlayerResource],
   filters: [CharacterFilter, StaticObstacleFilter, PhysicsRefsFilter],
-  inputs: [PlayerJoined, PlayerLeft, CharacterMove, ReportHash],
+  inputs: [PlayerJoined, PlayerLeft, CharacterMove],
 };

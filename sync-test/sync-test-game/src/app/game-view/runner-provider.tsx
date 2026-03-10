@@ -4,20 +4,17 @@ import {
   SyncTestSignals,
   CollectSignal,
   CollectData,
-  DivergenceSignal,
-  DivergenceData,
   MoveInput,
   PlayerJoined,
-  ReportHash,
   SyncTestArena,
 } from '@lagless/sync-test-simulation';
-import { createContext, FC, ReactNode, useContext, useEffect, useState } from 'react';
+import { createContext, FC, ReactNode, useContext, useEffect, useRef, useState } from 'react';
 import { useTick } from '@pixi/react';
 import { useNavigate } from 'react-router-dom';
 import { ProviderStore } from '../hooks/use-start-match';
 import { ECSConfig, LocalInputProvider, ReplayInputProvider, RPC, createHashReporter, SignalEvent } from '@lagless/core';
 import { RelayInputProvider, RelayConnection } from '@lagless/relay-client';
-import { useDevBridge } from '@lagless/react';
+import { useDevBridge, useDiagnosticsControl } from '@lagless/react';
 import { getMatchInfo } from '../hooks/use-start-multiplayer-match';
 import { UUID } from '@lagless/misc';
 
@@ -39,6 +36,9 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
   const [runner, setRunner] = useState<SyncTestRunner>(null!);
   const [v, setV] = useState(0);
   const navigate = useNavigate();
+  const diagnosticsEnabled = useDiagnosticsControl();
+  const hashReporterRef = useRef<ReturnType<typeof createHashReporter> | null>(null);
+  const connectionRef = useRef<RelayConnection | null>(null);
 
   useEffect(() => {
     return ProviderStore.onProvider(() => {
@@ -91,11 +91,13 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
                 inputProvider.handleStateResponse(data);
                 console.log('[Relay] StateResponse received, state transfer at tick', data.tick);
               },
+              onHashMismatch: (data) => hashReporterRef.current?.reportMismatch(data),
               onConnected: () => console.log('[Relay] Connected to relay server'),
               onDisconnected: () => console.log('[Relay] Disconnected from relay server'),
             },
           );
 
+          connectionRef.current = _connection;
           inputProvider.setConnection(_connection);
           _connection.connect();
 
@@ -116,16 +118,8 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
         _runner = new SyncTestRunner(inputProvider.ecsConfig, inputProvider, SyncTestSystems, SyncTestSignals);
       }
 
-      // Enable hash tracking for verified-tick-based hash reporting
-      _runner.Simulation.enableHashTracking(SyncTestArena.hashReportInterval);
-
-      // Set up keyboard input drainer with hash reporting (skip for replay — all inputs pre-recorded)
+      // Set up keyboard input drainer (skip for replay — all inputs pre-recorded)
       if (!(inputProvider instanceof ReplayInputProvider)) {
-        const reportHash = createHashReporter(_runner, {
-          reportInterval: SyncTestArena.hashReportInterval,
-          reportHashRpc: ReportHash,
-        });
-
         inputProvider.drainInputs((addRPC) => {
           // Movement input
           let dx = 0;
@@ -143,9 +137,6 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
             }
             addRPC(MoveInput, { directionX: dx, directionY: dy });
           }
-
-          // Hash reporting
-          reportHash(addRPC);
         });
       }
 
@@ -180,11 +171,6 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
         console.log(`[Collect] Player ${e.data.playerSlot} collected coin at (${e.data.x.toFixed(0)}, ${e.data.y.toFixed(0)}) +${e.data.value}`);
       });
 
-      const divergenceSignal = _runner.DIContainer.resolve(DivergenceSignal);
-      divergenceSignal.Predicted.subscribe((e: SignalEvent<DivergenceData>) => {
-        console.warn(`[DIVERGENCE] Players ${e.data.slotA} vs ${e.data.slotB}: hash ${e.data.hashA} != ${e.data.hashB} at tick ${e.data.atTick}`);
-      });
-
       setRunner(_runner);
     })();
 
@@ -192,12 +178,36 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
       disposed = true;
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
+      connectionRef.current = null;
       _connection?.disconnect();
       _runner?.dispose();
     };
   }, [v, navigate]);
 
-  useDevBridge(runner, { hashTrackingInterval: SyncTestArena.hashReportInterval });
+  // Diagnostics lifecycle: enable/disable hash tracking and hash reporter based on toggle
+  useEffect(() => {
+    if (!runner || !diagnosticsEnabled) {
+      runner?.Simulation.disableHashTracking();
+      hashReporterRef.current?.dispose();
+      hashReporterRef.current = null;
+      return;
+    }
+    runner.Simulation.enableHashTracking(SyncTestArena.hashReportInterval);
+    const reporter = createHashReporter(runner, {
+      reportInterval: SyncTestArena.hashReportInterval,
+      send: (data) => connectionRef.current?.sendHashReport(data),
+    });
+    reporter.subscribeDivergence((data) => {
+      console.warn(`[DIVERGENCE] Players ${data.slotA} vs ${data.slotB}: hash ${data.hashA} != ${data.hashB} at tick ${data.atTick}`);
+    });
+    hashReporterRef.current = reporter;
+    return () => {
+      reporter.dispose();
+      hashReporterRef.current = null;
+    };
+  }, [runner, diagnosticsEnabled]);
+
+  useDevBridge(runner, { hashTrackingInterval: SyncTestArena.hashReportInterval, diagnosticsEnabled });
 
   return !runner ? null : <RunnerContext.Provider value={runner}>{children}</RunnerContext.Provider>;
 };

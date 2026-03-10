@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
-import RAPIER from '@dimforge/rapier2d-deterministic-compat';
+import RAPIER from '@lagless/rapier2d-deterministic-compat';
 import { BodyType } from '@lagless/physics-shared';
 import { PhysicsWorldManager2d } from '../physics-world-manager-2d.js';
 import { PhysicsConfig2d } from '../physics-config-2d.js';

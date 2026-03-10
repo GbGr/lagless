@@ -157,6 +157,14 @@ export class RPCHistory {
     return count;
   }
 
+  public getRPCsAtTick(tick: number): ReadonlyArray<RPC> {
+    return this._history.get(tick) ?? [];
+  }
+
+  public getRPCCountAtTick(tick: number): number {
+    return this._history.get(tick)?.length ?? 0;
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Serialization
   // ─────────────────────────────────────────────────────────────────────────

@@ -4,15 +4,6 @@
   "include": [],
   "references": [
     {
-      "path": "../../libs/core"
-    },
-    {
-      "path": "../../libs/physics3d"
-    },
-    {
-      "path": "../../libs/physics2d"
-    },
-    {
       "path": "./tsconfig.lib.json"
     }
   ]

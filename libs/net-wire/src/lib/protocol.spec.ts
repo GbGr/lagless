@@ -10,7 +10,10 @@ import {
   packStateRequest, unpackStateRequest,
   packStateResponse, unpackStateResponse,
   packPlayerFinished, unpackPlayerFinished,
+  packHashReport, unpackHashReport,
+  packHashMismatch, unpackHashMismatch,
   type ServerHelloData, type TickInputData, type FanoutData,
+  type HashReportData, type HashMismatchData,
 } from './protocol.js';
 
 // ─────────────────────────────────────────────────────────────
@@ -364,6 +367,63 @@ describe('PlayerFinished', () => {
 });
 
 // ─────────────────────────────────────────────────────────────
+// HashReport
+// ─────────────────────────────────────────────────────────────
+
+describe('HashReport', () => {
+  it('should roundtrip hash report data', () => {
+    const data: HashReportData = { hash: 0xDEADBEEF, atTick: 500 };
+    const packed = packHashReport(data);
+    const header = unpackHeader(packed.buffer as ArrayBuffer);
+    expect(header.type).toBe(MsgType.HashReport);
+
+    const unpacked = unpackHashReport(packed.buffer as ArrayBuffer);
+    expect(unpacked.hash).toBe(0xDEADBEEF);
+    expect(unpacked.atTick).toBe(500);
+  });
+
+  it('should handle zero values', () => {
+    const data: HashReportData = { hash: 0, atTick: 0 };
+    const packed = packHashReport(data);
+    const unpacked = unpackHashReport(packed.buffer as ArrayBuffer);
+    expect(unpacked.hash).toBe(0);
+    expect(unpacked.atTick).toBe(0);
+  });
+
+  it('should handle max uint32 values', () => {
+    const data: HashReportData = { hash: 0xFFFFFFFF, atTick: 0xFFFFFFFF };
+    const packed = packHashReport(data);
+    const unpacked = unpackHashReport(packed.buffer as ArrayBuffer);
+    expect(unpacked.hash).toBe(0xFFFFFFFF);
+    expect(unpacked.atTick).toBe(0xFFFFFFFF);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// HashMismatch
+// ─────────────────────────────────────────────────────────────
+
+describe('HashMismatch', () => {
+  it('should roundtrip hash mismatch data', () => {
+    const data: HashMismatchData = {
+      slotA: 0, slotB: 1,
+      hashA: 0xAAAAAAAA, hashB: 0xBBBBBBBB,
+      atTick: 1000,
+    };
+    const packed = packHashMismatch(data);
+    const header = unpackHeader(packed.buffer as ArrayBuffer);
+    expect(header.type).toBe(MsgType.HashMismatch);
+
+    const unpacked = unpackHashMismatch(packed.buffer as ArrayBuffer);
+    expect(unpacked.slotA).toBe(0);
+    expect(unpacked.slotB).toBe(1);
+    expect(unpacked.hashA).toBe(0xAAAAAAAA);
+    expect(unpacked.hashB).toBe(0xBBBBBBBB);
+    expect(unpacked.atTick).toBe(1000);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
 // Message type detection
 // ─────────────────────────────────────────────────────────────
 
@@ -375,6 +435,8 @@ describe('Message type detection', () => {
       [packCancelInput({ tick: 0, playerSlot: 0, seq: 0, reason: CancelReason.TooOld }), MsgType.CancelInput],
       [packStateRequest(0), MsgType.StateRequest],
       [packTickInput({ tick: 0, playerSlot: 0, seq: 0, kind: TickInputKind.Client, payload: new Uint8Array(0) }), MsgType.TickInput],
+      [packHashReport({ hash: 0, atTick: 0 }), MsgType.HashReport],
+      [packHashMismatch({ slotA: 0, slotB: 0, hashA: 0, hashB: 0, atTick: 0 }), MsgType.HashMismatch],
     ];
 
     for (const [msg, expectedType] of messages) {

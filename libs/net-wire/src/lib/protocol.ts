@@ -23,6 +23,8 @@ export const enum MsgType {
   StateResponse    = 7,
   PlayerFinished   = 8,
   TickInputBatch   = 9,
+  HashReport       = 10,
+  HashMismatch     = 11,
 }
 
 export const enum TickInputKind {
@@ -104,6 +106,19 @@ export const PlayerFinishedSchema = new BinarySchema({
   payloadLength: FieldType.Uint16,
 });
 
+export const HashReportSchema = new BinarySchema({
+  hash: FieldType.Uint32,
+  atTick: FieldType.Uint32,
+});
+
+export const HashMismatchSchema = new BinarySchema({
+  slotA: FieldType.Uint8,
+  slotB: FieldType.Uint8,
+  hashA: FieldType.Uint32,
+  hashB: FieldType.Uint32,
+  atTick: FieldType.Uint32,
+});
+
 // ─────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────
@@ -162,6 +177,19 @@ export interface PlayerFinishedData {
   readonly tick: number;
   readonly playerSlot: number;
   readonly payload: Uint8Array;
+}
+
+export interface HashReportData {
+  readonly hash: number;
+  readonly atTick: number;
+}
+
+export interface HashMismatchData {
+  readonly slotA: number;
+  readonly slotB: number;
+  readonly hashA: number;
+  readonly hashB: number;
+  readonly atTick: number;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -313,6 +341,26 @@ export function packStateResponse(data: StateResponseData): Uint8Array {
   return pipeline.toUint8Array();
 }
 
+export function packHashReport(data: HashReportData): Uint8Array {
+  const pipeline = new BinarySchemaPackPipeline();
+  packHeader(pipeline, MsgType.HashReport);
+  pipeline.pack(HashReportSchema, { hash: data.hash, atTick: data.atTick });
+  return pipeline.toUint8Array();
+}
+
+export function packHashMismatch(data: HashMismatchData): Uint8Array {
+  const pipeline = new BinarySchemaPackPipeline();
+  packHeader(pipeline, MsgType.HashMismatch);
+  pipeline.pack(HashMismatchSchema, {
+    slotA: data.slotA,
+    slotB: data.slotB,
+    hashA: data.hashA,
+    hashB: data.hashB,
+    atTick: data.atTick,
+  });
+  return pipeline.toUint8Array();
+}
+
 export function packPlayerFinished(data: PlayerFinishedData): Uint8Array {
   const pipeline = new BinarySchemaPackPipeline();
   packHeader(pipeline, MsgType.PlayerFinished);
@@ -449,6 +497,26 @@ export function unpackPlayerFinished(data: ArrayBuffer): PlayerFinishedData {
     tick: pf.tick,
     playerSlot: pf.playerSlot,
     payload,
+  };
+}
+
+export function unpackHashReport(data: ArrayBuffer): HashReportData {
+  const pipeline = new BinarySchemaUnpackPipeline(data);
+  pipeline.unpack(HeaderSchema);
+  const report = pipeline.unpack(HashReportSchema);
+  return { hash: report.hash, atTick: report.atTick };
+}
+
+export function unpackHashMismatch(data: ArrayBuffer): HashMismatchData {
+  const pipeline = new BinarySchemaUnpackPipeline(data);
+  pipeline.unpack(HeaderSchema);
+  const mismatch = pipeline.unpack(HashMismatchSchema);
+  return {
+    slotA: mismatch.slotA,
+    slotB: mismatch.slotB,
+    hashA: mismatch.hashA,
+    hashB: mismatch.hashB,
+    atTick: mismatch.atTick,
   };
 }
 

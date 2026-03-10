@@ -2,13 +2,11 @@ import {
   <%= projectName %>Runner,
   <%= projectName %>Systems,
   <%= projectName %>Signals,
-  DivergenceSignal,
   MoveInput,
   PlayerJoined,
-  ReportHash,
   <%= projectName %>Arena,
 } from '<%= packageName %>-simulation';
-import { createContext, FC, ReactNode, useContext, useEffect, useState } from 'react';
+import { createContext, FC, ReactNode, useContext, useEffect, useRef, useState } from 'react';
 import { useTick } from '@pixi/react';
 import { useNavigate } from 'react-router-dom';
 import { ProviderStore } from '../hooks/use-start-match';
@@ -16,7 +14,7 @@ import { ECSConfig, LocalInputProvider, RPC, createHashReporter } from '@lagless
 import { RelayInputProvider, RelayConnection } from '@lagless/relay-client';
 import { getMatchInfo } from '../hooks/use-start-multiplayer-match';
 import { UUID } from '@lagless/misc';
-import { useDevBridge } from '@lagless/react';
+import { useDevBridge, useDiagnosticsControl } from '@lagless/react';
 <% if (simulationType === 'physics2d') { -%>
 import { PhysicsWorldManager2d, type RapierModule2d } from '@lagless/physics2d';
 <% } else if (simulationType === 'physics3d') { -%>
@@ -41,6 +39,9 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
   const [runner, setRunner] = useState<<%= projectName %>Runner>(null!);
   const [v, setV] = useState(0);
   const navigate = useNavigate();
+  const diagnosticsEnabled = useDiagnosticsControl();
+  const hashReporterRef = useRef<ReturnType<typeof createHashReporter> | null>(null);
+  const connectionRef = useRef<RelayConnection | null>(null);
 
   useEffect(() => {
     return ProviderStore.onProvider(() => {
@@ -75,7 +76,7 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
 <% if (simulationType === 'physics2d') { -%>
       // Load Rapier 2D WASM
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const RAPIER = (await import('@dimforge/rapier2d-deterministic-compat')).default as any;
+      const RAPIER = (await import('@lagless/rapier2d-deterministic-compat')).default as any;
       await RAPIER.init();
       const rapier = RAPIER as unknown as RapierModule2d;
       if (disposed) { inputProvider.dispose(); return; }
@@ -105,11 +106,13 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
               onPong: (data) => inputProvider.handlePong(data),
               onStateRequest: (requestId) => inputProvider.handleStateRequest(requestId),
               onStateResponse: (data) => inputProvider.handleStateResponse(data),
+              onHashMismatch: (data) => hashReporterRef.current?.reportMismatch(data),
               onConnected: () => console.log('[Relay] Connected'),
               onDisconnected: () => console.log('[Relay] Disconnected'),
             },
           );
 
+          connectionRef.current = _connection;
           inputProvider.setConnection(_connection);
           _connection.connect();
 
@@ -137,12 +140,6 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
 <% } -%>
       }
 
-      // Set up keyboard input drainer with hash reporting
-      const reportHash = createHashReporter(_runner, {
-        reportInterval: <%= projectName %>Arena.hashReportInterval,
-        reportHashRpc: ReportHash,
-      });
-
       inputProvider.drainInputs((addRPC) => {
         let dx = 0;
         let dy = 0;
@@ -158,11 +155,8 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
           }
           addRPC(MoveInput, { directionX: dx, directionY: dy });
         }
-
-        reportHash(addRPC);
       });
 
-      _runner.Simulation.enableHashTracking(<%= projectName %>Arena.hashReportInterval);
       _runner.start();
 
       if (inputProvider instanceof RelayInputProvider) {
@@ -186,11 +180,6 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
         inputProvider.addRemoteRpc(joinRpc);
       }
 
-      const divergenceSignal = _runner.DIContainer.resolve(DivergenceSignal);
-      divergenceSignal.Predicted.subscribe((e) => {
-        console.warn(`[DIVERGENCE] Players ${e.data.slotA} vs ${e.data.slotB}: hash ${e.data.hashA} != ${e.data.hashB} at tick ${e.data.atTick}`);
-      });
-
       setRunner(_runner);
     })();
 
@@ -198,12 +187,36 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
       disposed = true;
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
+      connectionRef.current = null;
       _connection?.disconnect();
       _runner?.dispose();
     };
   }, [v, navigate]);
 
-  useDevBridge(runner, { hashTrackingInterval: <%= projectName %>Arena.hashReportInterval });
+  // Diagnostics lifecycle: enable/disable hash tracking and hash reporter based on toggle
+  useEffect(() => {
+    if (!runner || !diagnosticsEnabled) {
+      runner?.Simulation.disableHashTracking();
+      hashReporterRef.current?.dispose();
+      hashReporterRef.current = null;
+      return;
+    }
+    runner.Simulation.enableHashTracking(<%= projectName %>Arena.hashReportInterval);
+    const reporter = createHashReporter(runner, {
+      reportInterval: <%= projectName %>Arena.hashReportInterval,
+      send: (data) => connectionRef.current?.sendHashReport(data),
+    });
+    reporter.subscribeDivergence((data) => {
+      console.warn(`[DIVERGENCE] Players ${data.slotA} vs ${data.slotB}: hash ${data.hashA} != ${data.hashB} at tick ${data.atTick}`);
+    });
+    hashReporterRef.current = reporter;
+    return () => {
+      reporter.dispose();
+      hashReporterRef.current = null;
+    };
+  }, [runner, diagnosticsEnabled]);
+
+  useDevBridge(runner, { hashTrackingInterval: <%= projectName %>Arena.hashReportInterval, diagnosticsEnabled });
 
   return !runner ? null : <RunnerContext.Provider value={runner}>{children}</RunnerContext.Provider>;
 };

@@ -5,10 +5,10 @@ Rapier 2D physics integration for the lagless ECS framework. Deterministic stepp
 ## Installation
 
 ```bash
-pnpm add @lagless/physics2d @dimforge/rapier2d-deterministic-compat
+pnpm add @lagless/physics2d @lagless/rapier2d-deterministic-compat
 ```
 
-Peer dependency: `@dimforge/rapier2d-deterministic-compat >= 0.15.0`
+Peer dependency: `@lagless/rapier2d-deterministic-compat >= 0.15.0`
 
 ## Architecture
 
@@ -18,7 +18,7 @@ Peer dependency: `@dimforge/rapier2d-deterministic-compat >= 0.15.0`
         ▼
 @lagless/physics2d       (2D wrappers: PhysicsWorldManager2d, PhysicsStepSync2d, PhysicsRunner2d, ...)
         │
-        └── peer: @dimforge/rapier2d-deterministic-compat
+        └── peer: @lagless/rapier2d-deterministic-compat
 ```
 
 ## ECS Schema (codegen)
@@ -54,7 +54,7 @@ filters:
 ### Runner Setup
 
 ```typescript
-import RAPIER from '@dimforge/rapier2d-deterministic-compat';
+import RAPIER from '@lagless/rapier2d-deterministic-compat';
 import { PhysicsConfig2d } from '@lagless/physics2d';
 import { MyGameRunner } from './code-gen/my-game.runner.js';
 
@@ -159,6 +159,7 @@ class SpawnSystem implements IECSSystem {
 | `gravityY` | `number` | `-9.81` | Gravity Y component |
 | `substeps` | `number` | `1` | Physics substeps per frame |
 | `substepDt` | `number` | (derived) | `frameDt / substeps` |
+| `warmstartCoefficient` | `number` | `0` | Rapier solver warm-start coefficient. `0` disables warm-starting for determinism. |
 
 ## Collision Layers
 

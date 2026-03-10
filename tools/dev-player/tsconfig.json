@@ -14,5 +14,10 @@
     "emitDeclarationOnly": true,
     "outDir": "out-tsc"
   },
-  "include": ["src"]
+  "include": ["src"],
+  "references": [
+    {
+      "path": "../../libs/desync-diagnostics"
+    }
+  ]
 }

@@ -1,0 +1,16 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "files": [],
+  "include": [],
+  "references": [
+    {
+      "path": "../../math"
+    },
+    {
+      "path": "../2d-map-generator"
+    },
+    {
+      "path": "./tsconfig.lib.json"
+    }
+  ]
+}

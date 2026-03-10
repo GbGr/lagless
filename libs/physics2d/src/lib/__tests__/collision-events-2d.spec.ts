@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
-import RAPIER from '@dimforge/rapier2d-deterministic-compat';
+import RAPIER from '@lagless/rapier2d-deterministic-compat';
 import { CollisionEvents2d } from '../collision-events-2d.js';
 import { ColliderEntityMap, CollisionLayers } from '@lagless/physics-shared';
 import type { RapierModule2d, RapierWorld2d } from '../rapier-types-2d.js';

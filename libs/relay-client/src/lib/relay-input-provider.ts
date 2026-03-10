@@ -73,6 +73,10 @@ export class RelayInputProvider extends AbstractInputProvider {
     return this._rollbackCount;
   }
 
+  public get maxReceivedServerTick(): number {
+    return this._maxReceivedServerTick;
+  }
+
   public override get verifiedTick(): number {
     return this._maxReceivedServerTick > 0 ? this._maxReceivedServerTick - 1 : -1;
   }

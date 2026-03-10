@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ECSConfig, PlayerResources, type ECSRunner, type IPlayerResourceConstructor } from '@lagless/core';
+import { useCallback, useEffect, useState } from 'react';
+import type { ECSRunner } from '@lagless/core';
 import { RelayInputProvider } from '@lagless/relay-client';
-import type { NetStats, HashTableEntry } from './types.js';
+import type { NetStats } from './types.js';
 
 const EMPTY_STATS: NetStats = {
   connected: false,
@@ -18,26 +18,13 @@ const EMPTY_STATS: NetStats = {
   fps: 0,
 };
 
-interface HashPlayerResourceProxy {
-  connected: number;
-  lastReportedHash: number;
-  lastReportedHashTick: number;
-}
-
-export function useNetStats(
-  runner: ECSRunner,
-  playerResourceClass?: IPlayerResourceConstructor,
-) {
+export function useNetStats(runner: ECSRunner) {
   const [stats, setStats] = useState<NetStats>(EMPTY_STATS);
-  const [hashTable, setHashTable] = useState<HashTableEntry[]>([]);
 
   const relayProvider =
     runner.InputProviderInstance instanceof RelayInputProvider
       ? runner.InputProviderInstance
       : null;
-
-  const ecsConfig = useMemo(() => runner.DIContainer.resolve(ECSConfig), [runner]);
-  const playerResources = useMemo(() => runner.DIContainer.resolve(PlayerResources), [runner]);
 
   const updateStats = useCallback(() => {
     if (!relayProvider) return;
@@ -60,29 +47,12 @@ export function useNetStats(
       rollbackCount: relayProvider.rollbackCount,
       fps: 1000 / frameLength,
     });
-
-    if (playerResourceClass) {
-      const maxPlayers = ecsConfig.maxPlayers;
-      const table: HashTableEntry[] = [];
-      for (let i = 0; i < maxPlayers; i++) {
-        const pr = playerResources.get(playerResourceClass, i);
-        const safe = pr.safe as unknown as HashPlayerResourceProxy;
-        if (safe.connected || safe.lastReportedHashTick > 0) {
-          table.push({
-            slot: i,
-            hash: safe.lastReportedHash.toString(16).padStart(8, '0'),
-            tick: safe.lastReportedHashTick,
-          });
-        }
-      }
-      setHashTable(table);
-    }
-  }, [relayProvider, runner, playerResourceClass, ecsConfig, playerResources]);
+  }, [relayProvider, runner]);
 
   useEffect(() => {
     if (!relayProvider) return;
     return runner.Simulation.addTickHandler(updateStats);
   }, [relayProvider, runner, updateStats]);
 
-  return { stats, hashTable, relayProvider };
+  return { stats, relayProvider };
 }

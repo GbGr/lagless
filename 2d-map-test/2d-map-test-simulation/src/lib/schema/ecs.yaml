@@ -1,0 +1,35 @@
+# pnpm exec nx g @lagless/codegen:ecs --configPath 2d-map-test/2d-map-test-simulation/src/lib/schema/ecs.yaml
+projectName: MapTest
+simulationType: physics2d
+
+# Transform2d (positionX/Y, rotation, prevPositionX/Y, prevRotation) and PhysicsRefs
+# are auto-prepended by codegen when simulationType is physics2d.
+
+components:
+  PlayerBody:
+    playerSlot: uint8
+    radius: float32
+
+playerResources:
+  PlayerResource:
+    id: uint8[16]
+    entity: uint32
+    connected: uint8
+
+inputs:
+  PlayerJoined:
+    slot: uint8
+    playerId: uint8[16]
+  PlayerLeft:
+    slot: uint8
+    reason: uint8
+  MoveInput:
+    directionX: float32
+    directionY: float32
+
+filters:
+  PlayerFilter:
+    include:
+      - Transform2d
+      - PhysicsRefs
+      - PlayerBody

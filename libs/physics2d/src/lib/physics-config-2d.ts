@@ -2,12 +2,14 @@ export class PhysicsConfig2d {
   public readonly gravityX: number;
   public readonly gravityY: number;
   public readonly substeps: number;
+  public readonly warmstartCoefficient: number;
 
   constructor(
-    options?: Partial<Pick<PhysicsConfig2d, 'gravityX' | 'gravityY' | 'substeps'>>,
+    options?: Partial<Pick<PhysicsConfig2d, 'gravityX' | 'gravityY' | 'substeps' | 'warmstartCoefficient'>>,
   ) {
     this.gravityX = options?.gravityX ?? 0;
     this.gravityY = options?.gravityY ?? -9.81;
     this.substeps = options?.substeps ?? 1;
+    this.warmstartCoefficient = options?.warmstartCoefficient ?? 0;
   }
 }

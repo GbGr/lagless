@@ -1,0 +1,34 @@
+{
+  "name": "@lagless/2d-map-test-server",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch run src/main.ts",
+    "start": "bun run src/main.ts"
+  },
+  "nx": {
+    "name": "map-test-server",
+    "sourceRoot": "2d-map-test/2d-map-test-server/src",
+    "targets": {
+      "serve": {
+        "continuous": true,
+        "dependsOn": ["^build"],
+        "command": "bun run --conditions @lagless/source --watch {projectRoot}/src/main.ts",
+        "options": {
+          "cwd": "{workspaceRoot}"
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "@lagless/relay-game-server": "workspace:*",
+    "@lagless/relay-server": "workspace:*",
+    "@lagless/dev-tools": "workspace:*",
+    "@lagless/misc": "workspace:*",
+    "@lagless/2d-map-test-simulation": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

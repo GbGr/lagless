@@ -8,6 +8,8 @@ const REPORT_EVERY_N_TICKS = 6;
 export interface UseDevBridgeOptions {
   /** Hash tracking interval (same value passed to enableHashTracking). Enables verified hash reporting for the timeline. */
   hashTrackingInterval?: number;
+  /** When false, skips expensive hash computation (mem.getHash(), getHashAtTick). Defaults to true. */
+  diagnosticsEnabled?: boolean;
 }
 
 /**
@@ -17,6 +19,8 @@ export interface UseDevBridgeOptions {
 export function useDevBridge(runner: ECSRunner | null, options?: UseDevBridgeOptions): void {
   const bridgeRef = useRef<DevBridge | null>(null);
   const tickCountRef = useRef(0);
+  const diagnosticsEnabledRef = useRef(options?.diagnosticsEnabled ?? true);
+  diagnosticsEnabledRef.current = options?.diagnosticsEnabled ?? true;
 
   useEffect(() => {
     if (!runner) return;
@@ -39,11 +43,12 @@ export function useDevBridge(runner: ECSRunner | null, options?: UseDevBridgeOpt
 
       const sim = runner.Simulation;
       const frameLength = runner.Config.frameLength;
+      const diagEnabled = diagnosticsEnabledRef.current;
 
-      // Compute verified hash (same logic as createHashReporter)
+      // Compute verified hash only when diagnostics are enabled
       let verifiedHashTick: number | undefined;
       let verifiedHash: number | undefined;
-      if (hashInterval && hashInterval > 0) {
+      if (diagEnabled && hashInterval && hashInterval > 0) {
         const vt = relayProvider ? relayProvider.verifiedTick : sim.tick;
         const latestTick = Math.floor(vt / hashInterval) * hashInterval;
         if (latestTick > 0) {
@@ -55,11 +60,14 @@ export function useDevBridge(runner: ECSRunner | null, options?: UseDevBridgeOpt
         }
       }
 
+      // Skip expensive mem.getHash() when diagnostics are off
+      const hash = diagEnabled ? sim.mem.getHash() : 0;
+
       if (relayProvider) {
         const cs = relayProvider.clockSync;
         bridge.sendStats({
           tick: sim.tick,
-          hash: sim.mem.getHash(),
+          hash,
           rtt: cs.rttEwmaMs,
           jitter: cs.jitterEwmaMs,
           inputDelay: relayProvider.currentInputDelay,
@@ -75,7 +83,7 @@ export function useDevBridge(runner: ECSRunner | null, options?: UseDevBridgeOpt
       } else {
         bridge.sendStats({
           tick: sim.tick,
-          hash: sim.mem.getHash(),
+          hash,
           rtt: 0,
           jitter: 0,
           inputDelay: 0,

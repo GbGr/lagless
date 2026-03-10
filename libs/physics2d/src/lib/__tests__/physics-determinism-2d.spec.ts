@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
-import RAPIER from '@dimforge/rapier2d-deterministic-compat';
+import RAPIER from '@lagless/rapier2d-deterministic-compat';
 import { ECSConfig, LocalInputProvider, InputRegistry } from '@lagless/core';
 import type { ECSDeps, IECSSystem } from '@lagless/core';
 import { PhysicsSimulation2d } from '../physics-simulation-2d.js';

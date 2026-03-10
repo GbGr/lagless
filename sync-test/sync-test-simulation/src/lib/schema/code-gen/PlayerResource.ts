@@ -12,12 +12,6 @@ export class PlayerResource {
     score: Uint32Array,
 
     collectCount: Uint16Array,
-
-    lastReportedHash: Uint32Array,
-
-    lastReportedHashTick: Uint32Array,
-
-    hashMismatchCount: Uint16Array,
   };
 
   public readonly unsafe = {} as {
@@ -30,12 +24,6 @@ export class PlayerResource {
     score: Uint32Array;
 
     collectCount: Uint16Array;
-
-    lastReportedHash: Uint32Array;
-
-    lastReportedHashTick: Uint32Array;
-
-    hashMismatchCount: Uint16Array;
   };
 
   public readonly safe: {
@@ -48,12 +36,6 @@ export class PlayerResource {
     score: number;
 
     collectCount: number;
-
-    lastReportedHash: number;
-
-    lastReportedHashTick: number;
-
-    hashMismatchCount: number;
   };
 
   constructor(buffer: ArrayBuffer, memTracker: MemoryTracker) {
@@ -75,18 +57,6 @@ export class PlayerResource {
 
     // collectCount
     this.unsafe['collectCount'] = new Uint16Array(buffer, memTracker.ptr, 1);
-    memTracker.add(Uint16Array.BYTES_PER_ELEMENT * 1);
-
-    // lastReportedHash
-    this.unsafe['lastReportedHash'] = new Uint32Array(buffer, memTracker.ptr, 1);
-    memTracker.add(Uint32Array.BYTES_PER_ELEMENT * 1);
-
-    // lastReportedHashTick
-    this.unsafe['lastReportedHashTick'] = new Uint32Array(buffer, memTracker.ptr, 1);
-    memTracker.add(Uint32Array.BYTES_PER_ELEMENT * 1);
-
-    // hashMismatchCount
-    this.unsafe['hashMismatchCount'] = new Uint16Array(buffer, memTracker.ptr, 1);
     memTracker.add(Uint16Array.BYTES_PER_ELEMENT * 1);
 
     // eslint-disable-next-line @typescript-eslint/no-this-alias
@@ -124,27 +94,6 @@ export class PlayerResource {
       set collectCount(value: number) {
         self.unsafe['collectCount'][0] = value;
       },
-
-      get lastReportedHash() {
-        return self.unsafe['lastReportedHash'][0];
-      },
-      set lastReportedHash(value: number) {
-        self.unsafe['lastReportedHash'][0] = value;
-      },
-
-      get lastReportedHashTick() {
-        return self.unsafe['lastReportedHashTick'][0];
-      },
-      set lastReportedHashTick(value: number) {
-        self.unsafe['lastReportedHashTick'][0] = value;
-      },
-
-      get hashMismatchCount() {
-        return self.unsafe['hashMismatchCount'][0];
-      },
-      set hashMismatchCount(value: number) {
-        self.unsafe['hashMismatchCount'][0] = value;
-      },
     };
   }
 
@@ -162,15 +111,6 @@ export class PlayerResource {
     memTracker.add(Uint32Array.BYTES_PER_ELEMENT * 1);
 
     // collectCount
-    memTracker.add(Uint16Array.BYTES_PER_ELEMENT * 1);
-
-    // lastReportedHash
-    memTracker.add(Uint32Array.BYTES_PER_ELEMENT * 1);
-
-    // lastReportedHashTick
-    memTracker.add(Uint32Array.BYTES_PER_ELEMENT * 1);
-
-    // hashMismatchCount
     memTracker.add(Uint16Array.BYTES_PER_ELEMENT * 1);
   }
 }

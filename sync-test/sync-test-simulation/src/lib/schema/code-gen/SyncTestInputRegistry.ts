@@ -4,6 +4,5 @@ import { InputRegistry } from '@lagless/core';
 import { PlayerJoined } from './PlayerJoined.js';
 import { PlayerLeft } from './PlayerLeft.js';
 import { MoveInput } from './MoveInput.js';
-import { ReportHash } from './ReportHash.js';
 
-export const SyncTestInputRegistry = new InputRegistry([PlayerJoined, PlayerLeft, MoveInput, ReportHash]);
+export const SyncTestInputRegistry = new InputRegistry([PlayerJoined, PlayerLeft, MoveInput]);

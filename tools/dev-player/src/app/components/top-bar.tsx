@@ -7,11 +7,12 @@ interface TopBarProps {
   state: DevPlayerState;
   onPresetChange: (preset: GamePreset) => void;
   onCountChange: (count: number) => void;
+  onDiagnosticsToggle: (enabled: boolean) => void;
   onStart: () => void;
   onStop: () => void;
 }
 
-export const TopBar: FC<TopBarProps> = ({ state, onPresetChange, onCountChange, onStart, onStop }) => {
+export const TopBar: FC<TopBarProps> = ({ state, onPresetChange, onCountChange, onDiagnosticsToggle, onStart, onStop }) => {
   const { savedPresets, savePreset, loadPreset, deletePreset, saveLastConfig } = useLocalStorage();
   const [presetName, setPresetName] = useState('');
 
@@ -64,6 +65,18 @@ export const TopBar: FC<TopBarProps> = ({ state, onPresetChange, onCountChange, 
           style={styles.numberInput}
           disabled={state.running}
         />
+      </div>
+
+      <div style={styles.section}>
+        <label style={styles.checkboxLabel}>
+          <input
+            type="checkbox"
+            checked={state.diagnosticsEnabled}
+            onChange={(e) => onDiagnosticsToggle(e.target.checked)}
+            style={styles.checkbox}
+          />
+          Diagnostics
+        </label>
       </div>
 
       <div style={styles.section}>
@@ -123,6 +136,19 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '4px 8px',
     fontSize: 13,
     textAlign: 'center' as const,
+  },
+  checkboxLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4,
+    fontSize: 12,
+    color: '#8b949e',
+    cursor: 'pointer',
+    userSelect: 'none' as const,
+  },
+  checkbox: {
+    accentColor: '#238636',
+    cursor: 'pointer',
   },
   startBtn: {
     background: '#238636',

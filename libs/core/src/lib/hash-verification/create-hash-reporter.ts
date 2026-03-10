@@ -1,34 +1,70 @@
 import type { ECSRunner } from '../ecs-runner.js';
-import type { IAbstractInputConstructor, InputData } from '../types/index.js';
-
-type AddRPCFn = <TInputCtor extends IAbstractInputConstructor>(
-  InputCtor: TInputCtor,
-  data: InputData<InstanceType<TInputCtor>>,
-) => void;
 
 export interface HashReporterConfig {
   reportInterval: number;
-  reportHashRpc: IAbstractInputConstructor;
+  send: (data: { hash: number; atTick: number }) => void;
+}
+
+export interface HashMismatchData {
+  slotA: number;
+  slotB: number;
+  hashA: number;
+  hashB: number;
+  atTick: number;
+}
+
+export interface HashReporter {
+  dispose(): void;
+  subscribeDivergence(fn: (data: HashMismatchData) => void): () => void;
+  reportMismatch(data: HashMismatchData): void;
 }
 
 /**
- * Creates a hash reporter function for use in `drainInputs`.
+ * Creates a hash reporter that sends simulation state hashes
+ * via a dedicated protocol channel (not through RPCHistory).
  *
- * The returned function should be called from your `drainInputs` callback.
- * It periodically reports the simulation state hash via the ReportHash RPC.
+ * Hash reports are sent for verified ticks only, ensuring
+ * they reflect finalized simulation state.
  */
-export function createHashReporter(runner: ECSRunner, config: HashReporterConfig): (addRPC: AddRPCFn) => void {
+export function createHashReporter(runner: ECSRunner, config: HashReporterConfig): HashReporter {
   let lastReportedTick = -1;
+  let lastReportedHash = 0;
+  const subscribers: Array<(data: HashMismatchData) => void> = [];
 
-  return (addRPC: AddRPCFn) => {
+  const disposeTickHandler = runner.Simulation.addTickHandler(() => {
     const verifiedTick = runner.Simulation.inputProvider.verifiedTick;
     const latestReportTick = Math.floor(verifiedTick / config.reportInterval) * config.reportInterval;
-    if (latestReportTick > lastReportedTick && latestReportTick > 0) {
-      const hash = runner.Simulation.getHashAtTick(latestReportTick);
-      if (hash !== undefined) {
-        lastReportedTick = latestReportTick;
-        addRPC(config.reportHashRpc, { hash, atTick: latestReportTick });
-      }
+    if (latestReportTick <= 0) return;
+
+    const hash = runner.Simulation.getHashAtTick(latestReportTick);
+    if (hash === undefined) return;
+
+    if (latestReportTick > lastReportedTick ||
+        (latestReportTick === lastReportedTick && hash !== lastReportedHash)) {
+      lastReportedTick = latestReportTick;
+      lastReportedHash = hash;
+      config.send({ hash, atTick: latestReportTick });
     }
+  });
+
+  return {
+    dispose() {
+      disposeTickHandler();
+      subscribers.length = 0;
+    },
+
+    subscribeDivergence(fn: (data: HashMismatchData) => void): () => void {
+      subscribers.push(fn);
+      return () => {
+        const idx = subscribers.indexOf(fn);
+        if (idx >= 0) subscribers.splice(idx, 1);
+      };
+    },
+
+    reportMismatch(data: HashMismatchData): void {
+      for (const fn of subscribers) {
+        fn(data);
+      }
+    },
   };
 }

@@ -8,10 +8,12 @@ import {
   unpackPong,
   unpackStateRequest,
   unpackStateResponse,
+  unpackHashMismatch,
   packTickInputBatch,
   packPing,
   packStateResponse,
   packPlayerFinished,
+  packHashReport,
   type ServerHelloData,
   type FanoutData,
   type CancelInputData,
@@ -19,6 +21,8 @@ import {
   type TickInputData,
   type StateResponseData,
   type PlayerFinishedData,
+  type HashReportData,
+  type HashMismatchData,
 } from '@lagless/net-wire';
 import {
   type RelayConnectionConfig,
@@ -38,6 +42,7 @@ export interface RelayConnectionEvents {
   onPong(data: PongData): void;
   onStateRequest(requestId: number): void;
   onStateResponse(data: StateResponseData): void;
+  onHashMismatch?(data: HashMismatchData): void;
   onConnected(): void;
   onDisconnected(): void;
 }
@@ -133,6 +138,10 @@ export class RelayConnection {
     this.sendBinary(packPlayerFinished(data));
   }
 
+  public sendHashReport(data: HashReportData): void {
+    this.sendBinary(packHashReport(data));
+  }
+
   public sendPing(): void {
     this.sendBinary(packPing(performance.now()));
   }
@@ -167,6 +176,9 @@ export class RelayConnection {
         break;
       case MsgType.StateResponse:
         this._events.onStateResponse(unpackStateResponse(data));
+        break;
+      case MsgType.HashMismatch:
+        this._events.onHashMismatch?.(unpackHashMismatch(data));
         break;
       default:
         log.warn(`Unknown message type: ${header.type}`);

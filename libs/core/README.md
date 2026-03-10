@@ -121,7 +121,7 @@ class ECSConfig {
   readonly maxInputDelayTick: number;           // Max delay (default: 8)
   readonly fps: number;                         // Target FPS (default: 60)
   readonly frameLength: number;                 // Frame duration in ms (1000/fps)
-  readonly snapshotRate: number;                // Save snapshot every N ticks (default: 1)
+  readonly snapshotRate: number;                // Save snapshot every N ticks (default: 5)
   readonly snapshotHistorySize: number;         // Max snapshots stored (default: 100)
   readonly maxNudgePerFrame: number;            // Max time correction per frame (default: frameLength/4)
 

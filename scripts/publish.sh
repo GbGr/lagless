@@ -27,6 +27,8 @@ PACKAGES=(
   "libs/core"
   "libs/net-wire"
   "libs/physics-shared"
+  "libs/2d-map/2d-map-generator"
+  "libs/2d-map/2d-map-renderer"
   "libs/physics2d"
   "libs/physics3d"
   "libs/character-controller-3d"
@@ -38,6 +40,7 @@ PACKAGES=(
   "tools/codegen"
   "tools/dev-player"
   "libs/react"
+  "libs/desync-diagnostics"
   "libs/pixi-react"
   "tools/create"
 )

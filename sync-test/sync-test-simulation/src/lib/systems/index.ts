@@ -8,7 +8,6 @@ import { DampingSystem } from './damping.system.js';
 import { BoundarySystem } from './boundary.system.js';
 import { CollectibleSpawnSystem } from './collectible-spawn.system.js';
 import { CollectionSystem } from './collection.system.js';
-import { HashVerificationSystem } from './hash-verification.system.js';
 
 export const SyncTestSystems: IECSSystemConstructor[] = [
   SavePrevTransformSystem,
@@ -20,5 +19,4 @@ export const SyncTestSystems: IECSSystemConstructor[] = [
   BoundarySystem,
   CollectibleSpawnSystem,
   CollectionSystem,
-  HashVerificationSystem,
 ];

@@ -1,2 +1,2 @@
 export { DebugPanel } from './debug-panel.js';
-export type { DebugPanelProps, NetStats, HashTableEntry, LogEntry } from './types.js';
+export type { DebugPanelProps, NetStats, LogEntry } from './types.js';

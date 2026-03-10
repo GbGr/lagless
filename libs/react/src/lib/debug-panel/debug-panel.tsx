@@ -1,5 +1,4 @@
 import { FC, useEffect, useState } from 'react';
-import { DivergenceSignal } from '@lagless/core';
 import { useNetStats } from './use-net-stats.js';
 import { panelStyles as styles } from './styles.js';
 import type { DebugPanelProps, LogEntry } from './types.js';
@@ -7,17 +6,14 @@ import type { DebugPanelProps, LogEntry } from './types.js';
 export const DebugPanel: FC<DebugPanelProps> = ({
   runner,
   toggleKey = 'F3',
-  hashVerification,
+  onDivergence,
   showConnectionControls = true,
   children,
 }) => {
   const [visible, setVisible] = useState(false);
   const [eventLog, setEventLog] = useState<LogEntry[]>([]);
 
-  const { stats, hashTable, relayProvider } = useNetStats(
-    runner,
-    hashVerification?.playerResourceClass,
-  );
+  const { stats, relayProvider } = useNetStats(runner);
 
   // Toggle visibility
   useEffect(() => {
@@ -33,16 +29,15 @@ export const DebugPanel: FC<DebugPanelProps> = ({
 
   // Log divergence events
   useEffect(() => {
-    if (!hashVerification?.divergenceSignalClass) return;
+    if (!onDivergence) return;
 
-    const signal = runner.DIContainer.resolve(hashVerification.divergenceSignalClass) as DivergenceSignal;
-    return signal.Predicted.subscribe((e) => {
+    return onDivergence((data) => {
       setEventLog((prev) => [
-        { tick: e.tick, message: `DIVERGENCE: P${e.data.slotA} vs P${e.data.slotB}` },
+        { tick: data.atTick, message: `DIVERGENCE: P${data.slotA} (0x${data.hashA.toString(16)}) vs P${data.slotB} (0x${data.hashB.toString(16)})` },
         ...prev.slice(0, 49),
       ]);
     });
-  }, [runner, hashVerification]);
+  }, [onDivergence]);
 
   if (!visible) return null;
 
@@ -82,17 +77,6 @@ export const DebugPanel: FC<DebugPanelProps> = ({
             <span style={styles.label}>FPS  </span>
             {stats.fps.toFixed(0)}
           </div>
-        </div>
-      )}
-
-      {hashTable.length > 0 && (
-        <div style={styles.section}>
-          <div style={styles.sectionTitle}>Hash Table</div>
-          {hashTable.map((h) => (
-            <div key={h.slot}>
-              P{h.slot}: {h.hash} @{h.tick}
-            </div>
-          ))}
         </div>
       )}
 

@@ -1,0 +1,126 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: Game
+      - combobox [disabled] [ref=e7]:
+        - option "Sync Test"
+        - option "Circle Sumo"
+        - option "Roblox-Like"
+        - option "2D Map Test" [selected]
+    - generic [ref=e8]:
+      - generic [ref=e9]: Instances
+      - spinbutton [disabled] [ref=e10]: "2"
+    - button "Stop" [active] [ref=e508] [cursor=pointer]
+    - generic [ref=e13]:
+      - textbox "Preset name" [ref=e14]
+      - button "Save" [disabled] [ref=e15] [cursor=pointer]
+  - generic [ref=e16]:
+    - generic [ref=e17]:
+      - generic [ref=e18]:
+        - generic [ref=e509]:
+          - generic [ref=e510]:
+            - generic [ref=e511]: "#0 P? T:0"
+            - button "↻" [ref=e512] [cursor=pointer]
+          - iframe [ref=e513]:
+            - generic [ref=f3e1]:
+              - generic [ref=f3e2]: 2D Map Test
+              - generic [ref=f3e3]: Multiplayer Map Generation Testbench
+              - generic [ref=f3e4]:
+                - button "Play Local" [disabled] [ref=f3e5] [cursor=pointer]
+                - 'button "In Queue #1..." [ref=f3e6] [cursor=pointer]'
+              - link "Map Generator Demo" [ref=f3e8] [cursor=pointer]:
+                - /url: /map-demo
+              - generic [ref=f3e9]:
+                - generic [ref=f3e10]: Controls
+                - generic [ref=f3e11]: WASD / Arrow Keys — Move
+                - generic [ref=f3e12]: F3 — Debug Panel
+        - generic [ref=e514]:
+          - generic [ref=e515]:
+            - generic [ref=e516]: "#1 P? T:0"
+            - button "↻" [ref=e517] [cursor=pointer]
+          - iframe [ref=e518]:
+            - generic [ref=f4e1]:
+              - generic [ref=f4e2]: 2D Map Test
+              - generic [ref=f4e3]: Multiplayer Map Generation Testbench
+              - generic [ref=f4e4]:
+                - button "Play Local" [disabled] [ref=f4e5] [cursor=pointer]
+                - 'button "In Queue #2..." [ref=f4e6] [cursor=pointer]'
+              - link "Map Generator Demo" [ref=f4e8] [cursor=pointer]:
+                - /url: /map-demo
+              - generic [ref=f4e9]:
+                - generic [ref=f4e10]: Controls
+                - generic [ref=f4e11]: WASD / Arrow Keys — Move
+                - generic [ref=f4e12]: F3 — Debug Panel
+      - generic [ref=e19]:
+        - table [ref=e21]:
+          - rowgroup [ref=e22]:
+            - row "# Slot Tick VfTick Hash RTT Jitter InpDly Rollbacks State" [ref=e23]:
+              - columnheader "#" [ref=e24]
+              - columnheader "Slot" [ref=e25]
+              - columnheader "Tick" [ref=e26]
+              - columnheader "VfTick" [ref=e27]
+              - columnheader "Hash" [ref=e28]
+              - columnheader "RTT" [ref=e29]
+              - columnheader "Jitter" [ref=e30]
+              - columnheader "InpDly" [ref=e31]
+              - columnheader "Rollbacks" [ref=e32]
+              - columnheader "State" [ref=e33]
+          - rowgroup [ref=e55]:
+            - row "0 - 0 - - - - - 0 queuing" [ref=e519]:
+              - cell "0" [ref=e520]
+              - cell "-" [ref=e521]
+              - cell "0" [ref=e522]
+              - cell "-" [ref=e523]
+              - cell "-" [ref=e524]
+              - cell "-" [ref=e525]
+              - cell "-" [ref=e526]
+              - cell "-" [ref=e527]
+              - cell "0" [ref=e528]
+              - cell "queuing" [ref=e529]
+            - row "1 - 0 - - - - - 0 queuing" [ref=e530]:
+              - cell "1" [ref=e531]
+              - cell "-" [ref=e532]
+              - cell "0" [ref=e533]
+              - cell "-" [ref=e534]
+              - cell "-" [ref=e535]
+              - cell "-" [ref=e536]
+              - cell "-" [ref=e537]
+              - cell "-" [ref=e538]
+              - cell "0" [ref=e539]
+              - cell "queuing" [ref=e540]
+        - generic [ref=e107]:
+          - generic [ref=e108]: Hash Comparison
+          - table [ref=e110]:
+            - rowgroup [ref=e111]:
+              - 'row "Tick #0 #1" [ref=e541]':
+                - columnheader "Tick" [ref=e113]
+                - columnheader "#0" [ref=e542]
+                - columnheader "#1" [ref=e543]
+            - rowgroup [ref=e116]:
+              - row "34800 e121 e121" [ref=e544]:
+                - cell "34800" [ref=e489]
+                - cell "e121" [ref=e545]
+                - cell "e121" [ref=e546]
+              - row "34920 8bea 8bea" [ref=e547]:
+                - cell "34920" [ref=e493]
+                - cell "8bea" [ref=e548]
+                - cell "8bea" [ref=e549]
+              - row "35040 4472 4472" [ref=e550]:
+                - cell "35040" [ref=e497]
+                - cell "4472" [ref=e551]
+                - cell "4472" [ref=e552]
+        - generic [ref=e34]:
+          - generic [ref=e35]: Hash Timeline
+          - generic [ref=e37]:
+            - generic [ref=e38]: Match
+            - generic [ref=e40]: Diverge
+            - generic [ref=e42]: Pending
+    - generic [ref=e553]:
+      - generic [ref=e554]: Global Latency
+      - generic [ref=e555]:
+        - generic [ref=e556]: Delay 0ms
+        - slider [ref=e557]: "0"
+      - generic [ref=e558]:
+        - generic [ref=e559]: Jitter 0ms
+        - slider [ref=e560]: "0"
+      - button "Apply Global" [ref=e561] [cursor=pointer]

@@ -7,6 +7,8 @@ packages:
   - 'circle-sumo/*'
   - 'sync-test/*'
   - 'roblox-like/*'
+  - 'libs/2d-map/*'
+  - '2d-map-test/*'
   - '!tools/create/templates/**'
 autoInstallPeers: true
 strictPeerDependencies: false

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
-import RAPIER from '@dimforge/rapier2d-deterministic-compat';
+import RAPIER from '@lagless/rapier2d-deterministic-compat';
 import { PhysicsWorldManager2d } from '../physics-world-manager-2d.js';
 import { PhysicsConfig2d } from '../physics-config-2d.js';
 import type { RapierModule2d } from '../rapier-types-2d.js';
@@ -203,5 +203,23 @@ describe('PhysicsWorldManager2d', () => {
 
     m1.dispose();
     m2.dispose();
+  });
+
+  it('should apply warmstartCoefficient=0 (default) to world on creation', () => {
+    manager = createManager();
+    expect(manager.world.integrationParameters.warmstartCoefficient).toBe(0);
+  });
+
+  it('should apply custom warmstartCoefficient to world on creation', () => {
+    manager = createManager({ warmstartCoefficient: 1 });
+    expect(manager.world.integrationParameters.warmstartCoefficient).toBe(1);
+  });
+
+  it('should preserve warmstartCoefficient after snapshot restore cycle', () => {
+    manager = createManager({ warmstartCoefficient: 0 });
+    manager.createDynamicBody();
+    const snapshot = manager.takeSnapshot();
+    manager.restoreSnapshot(snapshot);
+    expect(manager.world.integrationParameters.warmstartCoefficient).toBe(0);
   });
 });

@@ -12,7 +12,7 @@ import { useTick } from '@pixi/react';
 import { useNavigate } from 'react-router-dom';
 import { ProviderStore } from '../hooks/use-start-match';
 import { RelayInputProvider, RelayConnection } from '@lagless/relay-client';
-import { useDevBridge } from '@lagless/react';
+import { useDevBridge, useDiagnosticsControl } from '@lagless/react';
 import { getMatchInfo } from '../hooks/use-start-multiplayer-match';
 
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -31,6 +31,7 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
   const [runner, setRunner] = useState<CircleSumoRunner>(null!);
   const [v, setV] = useState(0);
   const navigate = useNavigate();
+  const diagnosticsEnabled = useDiagnosticsControl();
 
   useEffect(() => {
     return ProviderStore.onProvider(() => {
@@ -134,7 +135,7 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
     };
   }, [v, navigate]);
 
-  useDevBridge(runner);
+  useDevBridge(runner, { diagnosticsEnabled });
 
   return !runner ? null : <RunnerContext.Provider value={runner}>{children}</RunnerContext.Provider>;
 };

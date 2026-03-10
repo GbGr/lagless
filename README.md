@@ -249,7 +249,7 @@ All components, singletons, filters, player resources, and managers are register
 | `initialInputDelayTick` | 2 | Starting input delay |
 | `minInputDelayTick` | 1 | Lower bound |
 | `maxInputDelayTick` | 8 | Upper bound |
-| `snapshotRate` | 1 | Save snapshot every N ticks |
+| `snapshotRate` | 5 | Save snapshot every N ticks |
 | `snapshotHistorySize` | 100 | Ring buffer size |
 | `maxNudgePerFrame` | frameLength/4 | Max clock correction per frame |
 

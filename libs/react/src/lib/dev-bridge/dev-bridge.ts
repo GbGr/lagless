@@ -5,6 +5,7 @@ export interface DevBridgeParams {
   serverUrl: string;
   scope: string;
   autoMatch: boolean;
+  diagnostics: boolean;
 }
 
 // Cache at module load — before React Router navigation strips query params
@@ -37,6 +38,7 @@ export class DevBridge {
       serverUrl: _initialParams.get('serverUrl') || '',
       scope: _initialParams.get('scope') || '',
       autoMatch: _initialParams.get('autoMatch') === 'true',
+      diagnostics: _initialParams.get('diagnostics') === 'true',
     };
   }
 

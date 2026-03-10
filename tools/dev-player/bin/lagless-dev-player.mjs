@@ -69,7 +69,7 @@ function serveIndex() {
 
 const server = createServer((req, res) => {
   const url = new URL(req.url, `http://localhost:${port}`);
-  let filePath = join(DIST_DIR, url.pathname);
+  const filePath = join(DIST_DIR, url.pathname);
 
   // Try to serve static file
   if (url.pathname !== '/' && existsSync(filePath)) {

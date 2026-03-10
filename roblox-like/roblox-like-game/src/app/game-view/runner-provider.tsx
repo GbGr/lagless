@@ -4,19 +4,18 @@ import {
   RobloxLikeSignals,
   CharacterMove,
   PlayerJoined,
-  ReportHash,
   ROBLOX_LIKE_CONFIG,
   CHARACTER_CONFIG,
   createRobloxLikeCollisionLayers,
   CharacterFilter,
 } from '@lagless/roblox-like-simulation';
 import { CharacterControllerManager } from '@lagless/character-controller-3d';
-import { createContext, FC, ReactNode, useContext, useEffect, useState } from 'react';
+import { createContext, FC, ReactNode, useContext, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ProviderStore } from '../hooks/use-start-match';
-import { ECSConfig, LocalInputProvider, ReplayInputProvider, RPC, createHashReporter, DivergenceSignal, SignalEvent, DivergenceData } from '@lagless/core';
+import { ECSConfig, LocalInputProvider, ReplayInputProvider, RPC, createHashReporter } from '@lagless/core';
 import { RelayInputProvider, RelayConnection } from '@lagless/relay-client';
-import { useDevBridge } from '@lagless/react';
+import { useDevBridge, useDiagnosticsControl } from '@lagless/react';
 import { getMatchInfo } from '../hooks/use-start-multiplayer-match';
 import { UUID } from '@lagless/misc';
 import { PhysicsWorldManager3d, type RapierModule3d } from '@lagless/physics3d';
@@ -44,6 +43,9 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children, cameraYawRef
   const [ctx, setCtx] = useState<RunnerContextValue>(null!);
   const [v, setV] = useState(0);
   const navigate = useNavigate();
+  const diagnosticsEnabled = useDiagnosticsControl();
+  const hashReporterRef = useRef<ReturnType<typeof createHashReporter> | null>(null);
+  const connectionRef = useRef<RelayConnection | null>(null);
 
   useEffect(() => {
     return ProviderStore.onProvider(() => {
@@ -96,10 +98,12 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children, cameraYawRef
               onPong: (data) => inputProvider.handlePong(data),
               onStateRequest: (requestId) => inputProvider.handleStateRequest(requestId),
               onStateResponse: (data) => inputProvider.handleStateResponse(data),
+              onHashMismatch: (data) => hashReporterRef.current?.reportMismatch(data),
               onConnected: () => console.log('[Relay] Connected'),
               onDisconnected: () => console.log('[Relay] Disconnected'),
             },
           );
+          connectionRef.current = _connection;
           inputProvider.setConnection(_connection);
           _connection.connect();
 
@@ -144,16 +148,8 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children, cameraYawRef
         kccManager.recreateFromEntities(charFilter);
       });
 
-      // Enable hash tracking for verified-tick-based hash reporting
-      _runner.Simulation.enableHashTracking(ROBLOX_LIKE_CONFIG.hashReportInterval);
-
       // Set up input drainer
       if (!(inputProvider instanceof ReplayInputProvider)) {
-        const reportHash = createHashReporter(_runner, {
-          reportInterval: ROBLOX_LIKE_CONFIG.hashReportInterval,
-          reportHashRpc: ReportHash,
-        });
-
         inputProvider.drainInputs((addRPC) => {
           let dx = 0;
           let dz = 0;
@@ -179,8 +175,6 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children, cameraYawRef
             jump,
             sprint,
           });
-
-          reportHash(addRPC);
         });
       }
 
@@ -209,12 +203,6 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children, cameraYawRef
         inputProvider.addRemoteRpc(joinRpc);
       }
 
-      // Subscribe to divergence signal
-      const divergenceSignal = _runner.DIContainer.resolve(DivergenceSignal);
-      divergenceSignal.Predicted.subscribe((e: SignalEvent<DivergenceData>) => {
-        console.warn(`[DIVERGENCE] Players ${e.data.slotA} vs ${e.data.slotB} at tick ${e.data.atTick}`);
-      });
-
       setCtx({ runner: _runner, kccManager, worldManager: _runner.PhysicsWorldManager });
     })();
 
@@ -222,12 +210,37 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children, cameraYawRef
       disposed = true;
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
+      connectionRef.current = null;
       _connection?.disconnect();
       _runner?.dispose();
     };
   }, [v, navigate, cameraYawRef]);
 
-  useDevBridge(ctx?.runner ?? null, { hashTrackingInterval: ROBLOX_LIKE_CONFIG.hashReportInterval });
+  // Diagnostics lifecycle: enable/disable hash tracking and hash reporter based on toggle
+  useEffect(() => {
+    const runner = ctx?.runner ?? null;
+    if (!runner || !diagnosticsEnabled) {
+      runner?.Simulation.disableHashTracking();
+      hashReporterRef.current?.dispose();
+      hashReporterRef.current = null;
+      return;
+    }
+    runner.Simulation.enableHashTracking(ROBLOX_LIKE_CONFIG.hashReportInterval);
+    const reporter = createHashReporter(runner, {
+      reportInterval: ROBLOX_LIKE_CONFIG.hashReportInterval,
+      send: (data) => connectionRef.current?.sendHashReport(data),
+    });
+    reporter.subscribeDivergence((data) => {
+      console.warn(`[DIVERGENCE] Players ${data.slotA} vs ${data.slotB} at tick ${data.atTick}`);
+    });
+    hashReporterRef.current = reporter;
+    return () => {
+      reporter.dispose();
+      hashReporterRef.current = null;
+    };
+  }, [ctx?.runner, diagnosticsEnabled]);
+
+  useDevBridge(ctx?.runner ?? null, { hashTrackingInterval: ROBLOX_LIKE_CONFIG.hashReportInterval, diagnosticsEnabled });
 
   return !ctx ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>Loading...</div>
     : <RunnerContext.Provider value={ctx}>{children}</RunnerContext.Provider>;

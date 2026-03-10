@@ -35,9 +35,6 @@ playerResources:
     id: uint8[16]
     entity: uint32
     connected: uint8
-    lastReportedHash: uint32
-    lastReportedHashTick: uint32
-    hashMismatchCount: uint16
 
 inputs:
   PlayerJoined:
@@ -52,9 +49,6 @@ inputs:
     cameraYaw: float32
     jump: uint8
     sprint: uint8
-  ReportHash:
-    hash: uint32
-    atTick: uint32
 
 filters:
   CharacterFilter:

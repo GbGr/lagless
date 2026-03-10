@@ -1,0 +1,39 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: Game
+      - combobox [ref=e7]:
+        - option "Sync Test"
+        - option "Circle Sumo"
+        - option "Roblox-Like"
+        - option "2D Map Test" [selected]
+    - generic [ref=e8]:
+      - generic [ref=e9]: Instances
+      - spinbutton [ref=e10]: "2"
+    - button "Start" [ref=e12] [cursor=pointer]
+    - generic [ref=e13]:
+      - textbox "Preset name" [ref=e14]
+      - button "Save" [disabled] [ref=e15] [cursor=pointer]
+  - generic [ref=e17]:
+    - generic [ref=e18]: Select a game and press Start
+    - generic [ref=e19]:
+      - table [ref=e21]:
+        - rowgroup [ref=e22]:
+          - row "# Slot Tick VfTick Hash RTT Jitter InpDly Rollbacks State" [ref=e23]:
+            - columnheader "#" [ref=e24]
+            - columnheader "Slot" [ref=e25]
+            - columnheader "Tick" [ref=e26]
+            - columnheader "VfTick" [ref=e27]
+            - columnheader "Hash" [ref=e28]
+            - columnheader "RTT" [ref=e29]
+            - columnheader "Jitter" [ref=e30]
+            - columnheader "InpDly" [ref=e31]
+            - columnheader "Rollbacks" [ref=e32]
+            - columnheader "State" [ref=e33]
+        - rowgroup
+      - generic [ref=e34]:
+        - generic [ref=e35]: Hash Timeline
+        - generic [ref=e37]:
+          - generic [ref=e38]: Match
+          - generic [ref=e40]: Diverge
+          - generic [ref=e42]: Pending

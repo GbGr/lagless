@@ -82,7 +82,7 @@ math ────┤
 
 dev-tools ──► relay-server, relay-game-server (dev-only, never in production)
 
-Games: circle-sumo (gameplay), sync-test (determinism/late-join/reconnect testing), roblox-like (3D character controller + BabylonJS)
+Games: circle-sumo (gameplay), sync-test (determinism/late-join/reconnect testing), roblox-like (3D character controller + BabylonJS), 2d-map-test (2D procedural map generation)
 Tools: dev-player (multiplayer testing UI, port 4210)
 ```
 
@@ -340,6 +340,92 @@ Codegen: `simulationType: 'physics3d'` auto-prepends Transform3d (14 fields) + P
 - **[Character Controller Documentation](CHARACTER_CONTROLLER.MD)** — Architecture, best practices, system execution order.
 
 Games: `roblox-like/` (3D character controller test with BabylonJS)
+
+## 2D Map Generation
+
+Deterministic procedural 2D map generation with feature-based architecture and Pixi.js rendering.
+
+- **[@lagless/2d-map-generator](libs/2d-map/2d-map-generator/)** — Map generation: terrain, rivers, lakes, object placement, ground patches. Feature pipeline with automatic dependency resolution.
+- **[@lagless/2d-map-renderer](libs/2d-map/2d-map-renderer/)** — Pixi.js renderers: `MapTerrainRenderer` (terrain layers), `MapObjectRenderer` (ParticleContainer ground+canopy), `MinimapRenderer`.
+
+### Architecture
+
+```
+MapGenerator.generate(prng, collision) → IGeneratedMap
+  ├── BiomeFeature        → BiomeOutput (color palette)
+  ├── ShoreFeature        → ShoreOutput (island polygon)
+  ├── GrassFeature        → GrassOutput (grass polygon)
+  ├── RiverFeature        → RiverOutput (river polygons)
+  ├── LakeFeature         → LakeOutput (lake polygons)
+  ├── BridgeFeature       → BridgeOutput (bridge placements)
+  ├── ObjectPlacementFeature → ObjectPlacementOutput (placed objects)
+  ├── GroundPatchFeature  → GroundPatchOutput (ground patches)
+  └── PlacesFeature       → PlacesOutput (named positions)
+```
+
+Features declare dependencies via `requires` — generator resolves via topological sort. Only add features your game needs.
+
+### Key Types
+
+- `MapObjectDef` — object definition with colliders, visuals, scale range, ground patches, minimap display
+- `MapObjectRegistry` — `ReadonlyMap<number, MapObjectDef>` — maps typeId → definition
+- `PlacedObject` — output: `{ typeId, posX, posY, rotation, scale, terrainZone, children }`
+- `MapPhysicsProvider` — adapter for creating Rapier bodies from placed objects
+- `PlacementKind` — `Location | Fixed | Random | Density`
+- `TerrainZone` — `Grass | Beach | RiverShore | River | Lake | Bridge | WaterEdge`
+- `CanopyZone` — pre-computed zone for canopy transparency distance checks
+
+### Integration Pattern
+
+Map generation happens in the runner constructor, BEFORE `start()`:
+
+```typescript
+// 1. Generate map using ECS PRNG (deterministic)
+const prng = this.DIContainer.resolve(PRNG);
+const generator = createMapGenerator();
+const collision = new SpatialGridCollisionProvider(1024, 1024, 64);
+const map = generator.generate(prng, collision);
+
+// 2. Create physics colliders (skipTags prevents physics for canopy sensors)
+const placement = map.get<ObjectPlacementOutput>(ObjectPlacementFeature);
+createMapColliders(physicsAdapter, placement.objects, registry, { skipTags: [CANOPY_SENSOR_TAG] });
+
+// 3. CRITICAL: re-capture state after creating static bodies
+this.Simulation.capturePreStartState();
+```
+
+`MapData` class registered via `extraRegistrations` makes map accessible through DI in systems and views.
+
+### Rendering
+
+```typescript
+// Terrain (shore, grass, rivers, lakes)
+const terrain = new MapTerrainRenderer();
+viewport.addChild(terrain.buildTerrain(map));
+
+// Objects (two ParticleContainers: ground + canopy)
+const objects = new MapObjectRenderer({ dynamicCanopyAlpha: true });
+objects.build(placement.objects, registry, (key) => Assets.get(key) ?? Texture.EMPTY);
+viewport.addChild(objects.ground);   // under entities
+viewport.addChild(objects.canopy);   // over entities
+
+// Canopy transparency (view-only, per frame)
+const zones = extractCanopyZones(placement.objects, registry);
+for (const zone of zones) {
+  objects.setCanopyAlpha(zone.objectIndex, isInsideCanopyZone(zone, px, py) ? 0.3 : 1.0);
+}
+```
+
+### Collision Providers
+
+- `SpatialGridCollisionProvider` — fast grid-based (recommended)
+- `RapierCollisionProvider` — Rapier-based exact overlap testing
+
+### Determinism
+
+Same seed + same config = identical map. Uses `ISeededRandom` (ECS `PRNG` satisfies) + `MathOps` trig. Generation is pre-start only, never during simulation ticks.
+
+Games: `2d-map-test/` (procedural 2D map with Rapier 2D physics)
 
 ## Dev Tools
 

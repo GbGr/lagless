@@ -45,6 +45,12 @@ export interface DevBridgeResetMessage {
   type: 'dev-bridge:reset';
 }
 
+export interface DevBridgeSetDiagnosticsMessage {
+  type: 'dev-bridge:set-diagnostics';
+  enabled: boolean;
+}
+
 export type DevBridgeParentMessage =
   | DevBridgeStartMatchMessage
-  | DevBridgeResetMessage;
+  | DevBridgeResetMessage
+  | DevBridgeSetDiagnosticsMessage;

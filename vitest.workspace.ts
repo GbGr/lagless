@@ -10,4 +10,9 @@ export default [
   'libs/physics-shared',
   'libs/physics3d',
   'libs/physics2d',
+  'libs/2d-map/2d-map-generator',
+  'libs/2d-map/2d-map-renderer',
+  '2d-map-test/2d-map-test-simulation',
+  'libs/desync-diagnostics',
+  'libs/react',
 ];

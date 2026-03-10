@@ -1,6 +1,6 @@
 /**
  * Minimal type abstractions for Rapier 2D API.
- * Works with both @dimforge/rapier2d-deterministic and @dimforge/rapier2d-deterministic-compat.
+ * Works with @lagless/rapier2d-deterministic-compat.
  * The consumer project injects the actual RAPIER module at runtime.
  */
 
@@ -74,11 +74,22 @@ export interface RapierTempContactForceEvent2d {
   maxForceDirection(): RapierVector2;
 }
 
+export interface DebugRenderBuffers {
+  vertices: Float32Array;
+  colors: Float32Array;
+}
+
+export interface RapierIntegrationParameters {
+  warmstartCoefficient: number;
+}
+
 export interface RapierWorld2d {
   timestep: number;
+  integrationParameters: RapierIntegrationParameters;
   step(eventQueue?: RapierEventQueue): void;
   free(): void;
   takeSnapshot(): Uint8Array;
+  debugRender(): DebugRenderBuffers;
   getRigidBody(handle: number): RapierRigidBody2d;
   getCollider(handle: number): RapierCollider2d;
   createRigidBody(desc: RapierRigidBodyDesc2d): RapierRigidBody2d;
