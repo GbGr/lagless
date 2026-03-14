@@ -289,8 +289,8 @@ importers:
         specifier: workspace:*
         version: link:../../libs/pixi-react
       '@lagless/rapier2d-deterministic-compat':
-        specifier: ^0.19.0
-        version: 0.19.3
+        specifier: ^0.19.4
+        version: 0.19.4
       '@lagless/react':
         specifier: workspace:*
         version: link:../../libs/react
@@ -648,8 +648,8 @@ importers:
         version: 0.5.17
     devDependencies:
       '@lagless/rapier2d-deterministic-compat':
-        specifier: ^0.19.0
-        version: 0.19.3
+        specifier: ^0.19.4
+        version: 0.19.4
       unplugin-swc:
         specifier: ^1.5.7
         version: 1.5.7(@swc/core@1.15.11(@swc/helpers@0.5.17))(rollup@4.52.4)
@@ -2560,6 +2560,9 @@ packages:
 
   '@lagless/rapier2d-deterministic-compat@0.19.3':
     resolution: {integrity: sha512-zcGPfEGz9mUD1Xb7qjnGKvV1FbMmwGuI5+ITi5aNXSQjnjgM3KhcwA8hrCw5rUl6WjTavXqUopFVcSSAGsAikg==}
+
+  '@lagless/rapier2d-deterministic-compat@0.19.4':
+    resolution: {integrity: sha512-P95YINYW8FS8kx0Uf7mIo0aWCD/B3wTBSg0A1eyPqiKwfGUbJkBV/whbdY1fE2JJDVymmRHEfD7JEMR4+wHMPw==}
 
   '@leichtgewicht/ip-codec@2.0.5':
     resolution: {integrity: sha512-Vo+PSpZG2/fmgmiNzYK9qWRh8h/CHrwD0mo1h1DzL4yzHNSfWYujGTYsWGreD000gcgmZ7K4Ys6Tx9TxtsKdDw==}
@@ -11894,6 +11897,8 @@ snapshots:
   '@lagless/deterministic-math@0.1.9': {}
 
   '@lagless/rapier2d-deterministic-compat@0.19.3': {}
+
+  '@lagless/rapier2d-deterministic-compat@0.19.4': {}
 
   '@leichtgewicht/ip-codec@2.0.5': {}
 

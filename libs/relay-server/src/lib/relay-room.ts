@@ -467,16 +467,24 @@ export class RelayRoom {
   private handlePing(conn: PlayerConnection, raw: ArrayBuffer): void {
     const view = new DataView(raw);
     const cSend = view.getFloat64(HeaderSchema.byteLength, LE);
-    const now = performance.now();
+    const sRecv = performance.now();
 
-    const pong = packPong({
-      cSend,
-      sRecv: now,
-      sSend: now,
-      sTick: this._clock.tick,
-    });
+    // Capture sSend and sTick at actual send time (inside closure),
+    // not at ping-receipt time. With LatencySimulator, the pong is delayed
+    // by N ms — capturing sTick before the delay makes it stale by N ms,
+    // causing the client's PhaseNudger to systematically underestimate
+    // the server tick and slow the client clock (visible as jitter + CancelInput).
+    const send = () => {
+      const sSend = performance.now();
+      const pong = packPong({
+        cSend,
+        sRecv,
+        sSend,
+        sTick: this._clock.tick,
+      });
+      conn.send(pong);
+    };
 
-    const send = () => conn.send(pong);
     const sim = this._perPlayerLatency?.get(conn.slot) ?? this._latencySimulator;
     if (sim) {
       sim.apply(send);

@@ -1,15 +1,11 @@
 /**
- * Proof that Rapier warm-starting causes state divergence between linear and
- * rollback simulations, and that setting warmstartCoefficient=0 eliminates it.
+ * Verifies that Rapier snapshot restore is deterministic regardless of
+ * warmstartCoefficient setting and restore cycle frequency.
  *
- * Root cause: Rapier caches solver impulses (warmstart_impulse) in ContactData.
- * A linear client accumulates warm-start cache continuously, while a rollback
- * client's cache gets reset through restore cycles. The different solver starting
- * points produce different convergence paths in float32 arithmetic.
- *
- * warmstartCoefficient=0 makes the solver skip warm-starting entirely
- * (velocity_solver.rs:180), so the solver always starts from zero impulses
- * regardless of rollback history → deterministic results.
+ * Since @lagless/rapier2d-deterministic-compat@0.19.4, BVH optimization state
+ * (rebuild_frame_index, rebuild_start_index) is properly serialized in parry,
+ * eliminating the BroadPhase divergence that previously caused desync.
+ * See: https://github.com/dimforge/rapier/issues/910
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import RAPIER from '@lagless/rapier2d-deterministic-compat';
@@ -79,7 +75,7 @@ function countDifferentBytes(a: Uint8Array, b: Uint8Array): number {
 }
 
 describe('Warm-start divergence', () => {
-  it('should produce divergent solver state with warmstartCoefficient=1 (linear vs restore-cycle)', () => {
+  it('should produce identical snapshots with warmstartCoefficient=1 (linear vs restore-cycle)', () => {
     const TICKS = 500;
 
     // ── Linear: step continuously ──
@@ -109,10 +105,9 @@ describe('Warm-start divergence', () => {
     const diffBytes = countDifferentBytes(linearSnapshot, rcSnapshot);
     console.log(`warmstartCoefficient=1: ${diffBytes} bytes differ out of ${linearSnapshot.byteLength}`);
 
-    // Snapshot bytes must differ — proves warm-start cache accumulates differently
-    // between linear and restore-cycle simulations
-    expect(snapshotsIdentical(linearSnapshot, rcSnapshot)).toBe(false);
-    expect(diffBytes).toBeGreaterThan(0);
+    // With BVH fix (parry#403), snapshots are byte-identical regardless of restore cycles
+    expect(snapshotsIdentical(linearSnapshot, rcSnapshot)).toBe(true);
+    expect(diffBytes).toBe(0);
 
     linearWorld.free();
     rcWorld.free();

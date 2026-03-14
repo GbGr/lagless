@@ -12,6 +12,7 @@ import { createGroundPatchLayer } from '../layers/ground-patch-layer.js';
 
 export interface MapTerrainRendererOptions {
   canvasMode?: boolean;
+  showGrid?: boolean;
 }
 
 export class MapTerrainRenderer {
@@ -62,7 +63,9 @@ export class MapTerrainRenderer {
     }
 
     // Grid
-    container.addChild(createGridLayer(width, height, map.gridSize));
+    if (options?.showGrid !== false) {
+      container.addChild(createGridLayer(width, height, map.gridSize));
+    }
 
     // Patches order=1 (over grid)
     if (patchOutput) {

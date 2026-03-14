@@ -6,7 +6,7 @@ import {
   PlayerJoined,
   <%= projectName %>Arena,
 } from '<%= packageName %>-simulation';
-import { createContext, FC, ReactNode, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, FC, ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useTick } from '@pixi/react';
 import { useNavigate } from 'react-router-dom';
 import { ProviderStore } from '../hooks/use-start-match';
@@ -15,6 +15,10 @@ import { RelayInputProvider, RelayConnection } from '@lagless/relay-client';
 import { getMatchInfo } from '../hooks/use-start-multiplayer-match';
 import { UUID } from '@lagless/misc';
 import { useDevBridge, useDiagnosticsControl } from '@lagless/react';
+import { useDesyncDiagnostics } from '@lagless/desync-diagnostics';
+<% if (simulationType !== 'raw') { -%>
+import { getFastHash } from '@lagless/binary';
+<% } -%>
 <% if (simulationType === 'physics2d') { -%>
 import { PhysicsWorldManager2d, type RapierModule2d } from '@lagless/physics2d';
 <% } else if (simulationType === 'physics3d') { -%>
@@ -217,6 +221,36 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
   }, [runner, diagnosticsEnabled]);
 
   useDevBridge(runner, { hashTrackingInterval: <%= projectName %>Arena.hashReportInterval, diagnosticsEnabled });
+
+<% if (simulationType === 'physics2d') { -%>
+  const diagnosticsOptions = useMemo(() => {
+    if (!runner) return undefined;
+    const wm = runner.PhysicsWorldManager;
+    return {
+      physicsHashFn: () => {
+        const snap = wm.takeSnapshot();
+        return getFastHash(snap.buffer);
+      },
+    };
+  }, [runner]);
+
+  useDesyncDiagnostics(runner, { ...diagnosticsOptions, enabled: diagnosticsEnabled });
+<% } else if (simulationType === 'physics3d') { -%>
+  const diagnosticsOptions = useMemo(() => {
+    if (!runner) return undefined;
+    const wm = runner.PhysicsWorldManager;
+    return {
+      physicsHashFn: () => {
+        const snap = wm.takeSnapshot();
+        return getFastHash(snap.buffer);
+      },
+    };
+  }, [runner]);
+
+  useDesyncDiagnostics(runner, { ...diagnosticsOptions, enabled: diagnosticsEnabled });
+<% } else { -%>
+  useDesyncDiagnostics(runner, { enabled: diagnosticsEnabled });
+<% } -%>
 
   return !runner ? null : <RunnerContext.Provider value={runner}>{children}</RunnerContext.Provider>;
 };

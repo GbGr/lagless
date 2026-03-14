@@ -162,13 +162,13 @@ export class RelayInputProvider extends AbstractInputProvider {
       }
     }
 
-    // Update PhaseNudger with server's authoritative tick
-    if (this._simulation) {
-      this._simulation.clock.phaseNudger.onServerTickHint(
-        data.serverTick,
-        this._simulation.tick,
-      );
-    }
+    // NOTE: We intentionally do NOT feed PhaseNudger from fanout's serverTick.
+    // The fanout serverTick is captured before any LatencySimulator delay,
+    // making it stale by the full server→client latency. This creates a
+    // systematic underestimate that conflicts with the more accurate Pong-based
+    // hint (which has RTT measurement), causing periodic ~1Hz clock oscillation
+    // visible as visual jitter. Pong-only nudging is sufficient — it fires
+    // every 1s and converges within 3-5 samples.
   }
 
   /**

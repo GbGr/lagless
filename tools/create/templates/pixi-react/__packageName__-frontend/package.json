@@ -17,10 +17,12 @@
     "@lagless/net-wire": "^<%= laglessVersion %>",
     "@lagless/react": "^<%= laglessVersion %>",
     "@lagless/pixi-react": "^<%= laglessVersion %>",
+    "@lagless/desync-diagnostics": "^<%= laglessVersion %>",
+    "@lagless/binary": "^<%= laglessVersion %>",
 <% if (simulationType === 'physics2d') { -%>
     "@lagless/physics2d": "^<%= laglessVersion %>",
     "@lagless/physics-shared": "^<%= laglessVersion %>",
-    "@lagless/rapier2d-deterministic-compat": "^0.19.0",
+    "@lagless/rapier2d-deterministic-compat": "^0.19.4",
 <% } else if (simulationType === 'physics3d') { -%>
     "@lagless/physics3d": "^<%= laglessVersion %>",
     "@lagless/physics-shared": "^<%= laglessVersion %>",
