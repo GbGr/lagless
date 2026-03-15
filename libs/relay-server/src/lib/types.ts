@@ -15,6 +15,8 @@ export interface RoomTypeConfig {
   readonly lateJoinEnabled: boolean;
   readonly reconnectTimeoutMs: number;
   readonly stateTransferTimeoutMs: number;
+  /** When true, all broadcast inputs (client + server) are stored for replay export. Default: false. */
+  readonly inputRecordingEnabled?: boolean;
 }
 
 // ─── Player ─────────────────────────────────────────────────
@@ -85,6 +87,11 @@ export interface RoomContext {
   broadcast(message: Uint8Array): void;
 
   endMatch(): void;
+
+  /** Export recorded inputs as RPCHistory binary format. Returns null if recording is disabled. */
+  exportRecordedInputs(): ArrayBuffer | null;
+  /** Export full replay (seed + maxPlayers + fps + RPCHistory). Returns null if recording is disabled. */
+  exportReplay(): ArrayBuffer | null;
 }
 
 // ─── Match Creation ────────────────────────────────────────

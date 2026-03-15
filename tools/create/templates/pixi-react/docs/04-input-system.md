@@ -199,6 +199,51 @@ for (const rpc of rpcs) {
 
 The key difference: server events have `rpc.meta.playerSlot === SERVER_SLOT` (255).
 
+## String Data in RPCs
+
+RPCs use numeric fields (`uint8`, `float32`, etc.), but sometimes you need to send string data (e.g., username in `PlayerJoined`). Use `encodeStringToUint8` / `decodeStringFromUint8` from `@lagless/binary` with `uint8[N]` array fields.
+
+**Encoding:** BMP-only UTF-16, fixed 2 bytes per character. Supports Latin, Cyrillic, CJK, Arabic, Greek. Emoji (non-BMP) are replaced with `?`.
+
+### Schema
+
+```yaml
+inputs:
+  PlayerJoined:
+    slot: uint8
+    username: uint8[64]   # 64 bytes = 32 characters max
+```
+
+### Sending (server hook)
+
+```typescript
+import { encodeStringToUint8 } from '@lagless/binary';
+
+onPlayerJoin(ctx, player) {
+  const { buffer } = encodeStringToUint8(player.username, 64);
+  ctx.emitServerEvent(PlayerJoined, { slot: player.slot, username: buffer });
+}
+```
+
+### Reading (system)
+
+```typescript
+import { decodeStringFromUint8 } from '@lagless/binary';
+
+const rpcs = this._input.collectTickRPCs(tick, PlayerJoined);
+for (const rpc of rpcs) {
+  const username = decodeStringFromUint8(rpc.data.username as Uint8Array);
+  // username is a JS string, e.g. "Игрок_123"
+}
+```
+
+### Key Points
+
+- `maxBytes` must be even (2 bytes per character). `maxBytes / 2` = max characters.
+- `encodeStringToUint8` returns `{ buffer: Uint8Array, truncated: boolean }`.
+- Truncation never splits a character — always clean cut.
+- Buffer is zero-padded; `decodeStringFromUint8` stops at first null (`0x0000`) or end of buffer.
+
 ## Adding a New Input Type
 
 1. **Schema** — Add to `ecs.yaml`:

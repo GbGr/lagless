@@ -46,7 +46,11 @@ const hooks: RoomHooks<MatchResult> = {
     // input: { tick, playerSlot, seq, payload (Uint8Array) }
     // Decode payload: InputBinarySchema.unpackBatch(registry, input.payload.buffer)
   },
-  onMatchEnd(ctx, results) { /* persist results */ },
+  onMatchEnd(ctx, results) {
+    // Export replay for persistence
+    const replay = ctx.exportReplay();
+    if (replay) saveToDb(ctx.matchId, replay);
+  },
 };
 ```
 
@@ -55,6 +59,27 @@ const hooks: RoomHooks<MatchResult> = {
 - `ctx.endMatch(result)` — ends match, triggers `onMatchEnd`
 - `onInput` — sync hook, called per validated input before broadcast. Return `false` → sends `CancelInput(Rejected)` to sender, input is NOT broadcast or stored
 - `onInputDeclined(ctx, player, tick, seq, reason)` — fires when any input is rejected (validation failure or `onInput` returning `false`). reason: 0=TooOld, 1=TooFarFuture, 2=InvalidSlot, 3=Rejected
+
+## Input Recording & Replay Export
+
+Enable `inputRecordingEnabled: true` in `RoomTypeConfig` to record all broadcast inputs (client + server events).
+
+```typescript
+const config: RoomTypeConfig = {
+  maxPlayers: 4,
+  tickRateHz: 60,
+  inputRecordingEnabled: true, // enables recording
+  // ...
+};
+```
+
+**Export methods on `RoomContext`:**
+- `ctx.exportRecordedInputs()` → `ArrayBuffer | null` — RPCHistory binary format (compatible with `RPCHistory.import()`)
+- `ctx.exportReplay()` → `ArrayBuffer | null` — full replay binary (seed[16] + maxPlayers[u8] + fps[u8] + RPCHistory), compatible with `ReplayInputProvider.createFromReplay()`
+
+Both return `null` when recording is disabled. Typical usage: call in `onMatchEnd` to persist replay data.
+
+**What gets recorded:** ALL inputs that reach clients — accepted client inputs AND server events (PlayerJoined, etc.). Rejected/cancelled inputs are NOT recorded. Server events are essential — without them replay breaks.
 
 ## RelayConnection (client)
 

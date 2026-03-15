@@ -100,6 +100,39 @@ Tags have no fields — they only occupy a bitmask bit (zero memory per entity).
    }
    ```
 
+## Send String Data in RPCs (e.g. Username)
+
+RPCs only support numeric fields. To send strings, use `uint8[N]` array fields with `encodeStringToUint8` / `decodeStringFromUint8`.
+
+1. Edit `ecs.yaml`:
+   ```yaml
+   inputs:
+     PlayerJoined:
+       slot: uint8
+       username: uint8[64]   # 64 bytes = 32 characters max
+   ```
+2. Run `pnpm codegen`
+3. Encode on send (server hook):
+   ```typescript
+   import { encodeStringToUint8 } from '@lagless/binary';
+
+   onPlayerJoin(ctx, player) {
+     const { buffer } = encodeStringToUint8(player.username, 64);
+     ctx.emitServerEvent(PlayerJoined, { slot: player.slot, username: buffer });
+   }
+   ```
+4. Decode in system:
+   ```typescript
+   import { decodeStringFromUint8 } from '@lagless/binary';
+
+   const rpcs = this._input.collectTickRPCs(tick, PlayerJoined);
+   for (const rpc of rpcs) {
+     const username = decodeStringFromUint8(rpc.data.username as Uint8Array);
+   }
+   ```
+
+**Supports:** Latin, Cyrillic, CJK, Arabic, Greek. **No emoji** — replaced with `?`.
+
 ## Add a New Entity Type
 
 1. Define components and filter in `ecs.yaml`:

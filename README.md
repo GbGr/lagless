@@ -315,6 +315,8 @@ Hooks receive `RoomContext` — a safe API for interacting with the room:
 - `getPlayers()`, `getConnectedPlayerCount()`, `isPlayerConnected(slot)`
 - `sendTo(slot, message)`, `broadcast(message)`
 - `endMatch()`
+- `exportRecordedInputs()` — RPCHistory binary (requires `inputRecordingEnabled: true` in config)
+- `exportReplay()` — full replay binary (seed + maxPlayers + fps + RPCHistory), compatible with `ReplayInputProvider.createFromReplay()`
 
 **Key components:**
 - `ServerClock` — authoritative tick based on `performance.now()`
@@ -326,6 +328,8 @@ Hooks receive `RoomContext` — a safe API for interacting with the room:
 - `LatencySimulator` — artificial delay/jitter/packet-loss for testing
 
 **Input validation rule:** `input.tick < serverTick` → reject (TooOld). `input.tick > serverTick + maxFutureTicks` → reject (TooFarFuture). `onInput` returns `false` → reject (Rejected).
+
+**Input recording:** Enable via `inputRecordingEnabled: true` in `RoomTypeConfig`. Records all broadcast inputs (client + server events) for replay export. Call `ctx.exportReplay()` in `onMatchEnd` to get binary compatible with `ReplayInputProvider.createFromReplay()`.
 
 ### @lagless/relay-client
 

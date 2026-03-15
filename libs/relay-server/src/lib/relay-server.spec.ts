@@ -1845,3 +1845,322 @@ describe('RoomHooks.onInputDeclined', () => {
     await room.dispose();
   });
 });
+
+// ─── Input Recording ───────────────────────────────────────────
+
+describe('Input Recording', () => {
+  function buildRawBatch(inputs: Array<{
+    tick: number;
+    slot: number;
+    seq: number;
+    kind?: number;
+    payload?: Uint8Array;
+  }>): ArrayBuffer {
+    let size = 2 + 1;
+    for (const i of inputs) {
+      const pl = i.payload ?? new Uint8Array([1, 2]);
+      size += 4 + 1 + 4 + 1 + 2 + pl.byteLength;
+    }
+
+    const buf = new ArrayBuffer(size);
+    const view = new DataView(buf);
+    const uint8 = new Uint8Array(buf);
+    let offset = 0;
+
+    view.setUint8(offset++, 1); // version
+    view.setUint8(offset++, 9); // MsgType.TickInputBatch
+
+    view.setUint8(offset++, inputs.length);
+
+    for (const i of inputs) {
+      const payload = i.payload ?? new Uint8Array([1, 2]);
+      view.setUint32(offset, i.tick, LE); offset += 4;
+      view.setUint8(offset++, i.slot);
+      view.setUint32(offset, i.seq, LE); offset += 4;
+      view.setUint8(offset++, i.kind ?? 0);
+      view.setUint16(offset, payload.byteLength, LE); offset += 2;
+      uint8.set(payload, offset); offset += payload.byteLength;
+    }
+
+    return buf;
+  }
+
+  /**
+   * Parse RPCHistory binary format manually (mirrors rpc-history.ts layout).
+   * Returns structured data for assertions without depending on @lagless/core.
+   */
+  function parseRPCHistoryBinary(buffer: ArrayBuffer) {
+    const view = new DataView(buffer);
+    let offset = 0;
+
+    const version = view.getUint8(offset); offset += 1;
+    const tickCount = view.getUint32(offset, true); offset += 4;
+
+    const ticks: Array<{
+      tick: number;
+      rpcs: Array<{ seq: number; playerSlot: number; data: Uint8Array }>;
+    }> = [];
+
+    for (let i = 0; i < tickCount; i++) {
+      const tick = view.getUint32(offset, true); offset += 4;
+      const rpcCount = view.getUint16(offset, true); offset += 2;
+
+      const rpcs: Array<{ seq: number; playerSlot: number; data: Uint8Array }> = [];
+      for (let j = 0; j < rpcCount; j++) {
+        const seq = view.getUint32(offset, true); offset += 4;
+        const playerSlot = view.getUint8(offset); offset += 1;
+        const dataLength = view.getUint16(offset, true); offset += 2;
+        const data = new Uint8Array(buffer.slice(offset, offset + dataLength));
+        offset += dataLength;
+        rpcs.push({ seq, playerSlot, data });
+      }
+
+      ticks.push({ tick, rpcs });
+    }
+
+    return { version, tickCount, ticks, totalBytes: offset };
+  }
+
+  it('should return null when recording is disabled (default)', async () => {
+    const room = await createTestRoom();
+    expect(room.context.exportRecordedInputs()).toBeNull();
+    expect(room.context.exportReplay()).toBeNull();
+    await room.dispose();
+  });
+
+  it('should record accepted client inputs', async () => {
+    const room = await createTestRoom({ inputRecordingEnabled: true });
+
+    const ws = createMockWs();
+    await room.handlePlayerConnect('player-0', ws);
+
+    room.handleMessage('player-0', buildRawBatch([
+      { tick: 5, slot: 0, seq: 1, payload: new Uint8Array([10, 20]) },
+      { tick: 6, slot: 0, seq: 2, payload: new Uint8Array([30, 40]) },
+    ]));
+
+    const exported = room.context.exportRecordedInputs();
+    expect(exported).not.toBeNull();
+
+    const parsed = parseRPCHistoryBinary(exported!);
+    expect(parsed.version).toBe(1);
+    // Server events from onPlayerJoin may also be recorded — check client inputs are present
+    const clientTicks = parsed.ticks.filter(t => t.rpcs.some(r => r.playerSlot === 0));
+    expect(clientTicks.length).toBe(2);
+    expect(clientTicks[0].rpcs[0].data).toEqual(new Uint8Array([10, 20]));
+    expect(clientTicks[1].rpcs[0].data).toEqual(new Uint8Array([30, 40]));
+
+    await room.dispose();
+  });
+
+  it('should record server events', async () => {
+    const onPlayerJoin = vi.fn((ctx: { emitServerEvent: (id: number, data: Record<string, number>) => void }) => {
+      ctx.emitServerEvent(99, { slot: 0 });
+    });
+    const room = await createTestRoom({ inputRecordingEnabled: true }, { onPlayerJoin });
+
+    const ws = createMockWs();
+    await room.handlePlayerConnect('player-0', ws);
+
+    const exported = room.context.exportRecordedInputs();
+    expect(exported).not.toBeNull();
+
+    const parsed = parseRPCHistoryBinary(exported!);
+    // Find server event (playerSlot=255)
+    const serverRpcs = parsed.ticks.flatMap(t => t.rpcs).filter(r => r.playerSlot === 255);
+    expect(serverRpcs.length).toBeGreaterThanOrEqual(1);
+
+    await room.dispose();
+  });
+
+  it('should NOT record rejected inputs', async () => {
+    const onInput = vi.fn(() => false);
+    const room = await createTestRoom({ inputRecordingEnabled: true }, { onInput });
+
+    const ws = createMockWs();
+    await room.handlePlayerConnect('player-0', ws);
+
+    room.handleMessage('player-0', buildRawBatch([{ tick: 5, slot: 0, seq: 1 }]));
+
+    const exported = room.context.exportRecordedInputs();
+    expect(exported).not.toBeNull();
+
+    const parsed = parseRPCHistoryBinary(exported!);
+    // No client inputs recorded (all rejected)
+    const clientRpcs = parsed.ticks.flatMap(t => t.rpcs).filter(r => r.playerSlot !== 255);
+    expect(clientRpcs.length).toBe(0);
+
+    await room.dispose();
+  });
+
+  it('should NOT record validation-failed inputs', async () => {
+    const room = await createTestRoom({ inputRecordingEnabled: true });
+
+    const ws = createMockWs();
+    await room.handlePlayerConnect('player-0', ws);
+
+    // Wrong slot — validation rejects
+    room.handleMessage('player-0', buildRawBatch([{ tick: 5, slot: 1, seq: 1 }]));
+
+    const exported = room.context.exportRecordedInputs();
+    expect(exported).not.toBeNull();
+
+    const parsed = parseRPCHistoryBinary(exported!);
+    const clientRpcs = parsed.ticks.flatMap(t => t.rpcs).filter(r => r.playerSlot !== 255);
+    expect(clientRpcs.length).toBe(0);
+
+    await room.dispose();
+  });
+
+  it('should produce deterministic output (same inputs → identical binary)', async () => {
+    async function runRoom() {
+      const room = await createTestRoom({ inputRecordingEnabled: true });
+      const ws = createMockWs();
+      await room.handlePlayerConnect('player-0', ws);
+
+      room.handleMessage('player-0', buildRawBatch([
+        { tick: 5, slot: 0, seq: 1, payload: new Uint8Array([1, 2, 3]) },
+        { tick: 7, slot: 0, seq: 2, payload: new Uint8Array([4, 5]) },
+        { tick: 5, slot: 0, seq: 3, payload: new Uint8Array([6]) },
+      ]));
+
+      const exported = room.context.exportRecordedInputs();
+      await room.dispose();
+      return exported;
+    }
+
+    const buf1 = await runRoom();
+    const buf2 = await runRoom();
+
+    expect(buf1).not.toBeNull();
+    expect(buf2).not.toBeNull();
+    expect(new Uint8Array(buf1!)).toEqual(new Uint8Array(buf2!));
+  });
+
+  it('should produce ticks sorted ascending in export', async () => {
+    const room = await createTestRoom({ inputRecordingEnabled: true });
+
+    const ws = createMockWs();
+    await room.handlePlayerConnect('player-0', ws);
+
+    // Send inputs out of tick order
+    room.handleMessage('player-0', buildRawBatch([
+      { tick: 10, slot: 0, seq: 1, payload: new Uint8Array([1]) },
+    ]));
+    room.handleMessage('player-0', buildRawBatch([
+      { tick: 3, slot: 0, seq: 2, payload: new Uint8Array([2]) },
+    ]));
+    room.handleMessage('player-0', buildRawBatch([
+      { tick: 7, slot: 0, seq: 3, payload: new Uint8Array([3]) },
+    ]));
+
+    const exported = room.context.exportRecordedInputs();
+    const parsed = parseRPCHistoryBinary(exported!);
+
+    const tickValues = parsed.ticks.map(t => t.tick);
+    const sorted = [...tickValues].sort((a, b) => a - b);
+    expect(tickValues).toEqual(sorted);
+
+    await room.dispose();
+  });
+
+  it('should export valid RPCHistory binary format', async () => {
+    const room = await createTestRoom({ inputRecordingEnabled: true });
+
+    const ws = createMockWs();
+    await room.handlePlayerConnect('player-0', ws);
+
+    room.handleMessage('player-0', buildRawBatch([
+      { tick: 5, slot: 0, seq: 1, payload: new Uint8Array([10, 20, 30]) },
+    ]));
+
+    const exported = room.context.exportRecordedInputs();
+    expect(exported).not.toBeNull();
+
+    const parsed = parseRPCHistoryBinary(exported!);
+    // Verify all bytes consumed (no trailing garbage)
+    expect(parsed.totalBytes).toBe(exported!.byteLength);
+    expect(parsed.version).toBe(1);
+    expect(parsed.tickCount).toBe(parsed.ticks.length);
+
+    await room.dispose();
+  });
+
+  it('should produce valid replay format (seed + maxPlayers + fps + RPCHistory)', async () => {
+    const seed = new Uint8Array(16);
+    for (let i = 0; i < 16; i++) seed[i] = i + 1; // non-zero seed
+
+    const config = { ...DEFAULT_CONFIG, inputRecordingEnabled: true, maxPlayers: 4, tickRateHz: 60 };
+    const players = [{ playerId: 'p0', isBot: false, metadata: {} }];
+
+    const room = new RelayRoom('replay-test', 'test-game', config, {}, MOCK_INPUT_REGISTRY, players, seed);
+    await room.init();
+
+    const ws = createMockWs();
+    await room.handlePlayerConnect('p0', ws);
+
+    room.handleMessage('p0', buildRawBatch([
+      { tick: 5, slot: 0, seq: 1, payload: new Uint8Array([42]) },
+    ]));
+
+    const replay = room.context.exportReplay();
+    expect(replay).not.toBeNull();
+
+    // Verify replay header
+    const replayUint8 = new Uint8Array(replay!);
+    const replayView = new DataView(replay!);
+
+    // First 16 bytes = seed
+    expect(replayUint8.slice(0, 16)).toEqual(seed);
+    // Byte 16 = maxPlayers
+    expect(replayView.getUint8(16)).toBe(4);
+    // Byte 17 = fps (tickRateHz)
+    expect(replayView.getUint8(17)).toBe(60);
+
+    // Remaining bytes = exportRecordedInputs output
+    const rpcData = room.context.exportRecordedInputs();
+    expect(replayUint8.slice(18)).toEqual(new Uint8Array(rpcData!));
+
+    await room.dispose();
+  });
+
+  it('should be accessible from onMatchEnd hook', async () => {
+    let capturedReplay: ArrayBuffer | null = null;
+
+    const onMatchEnd = vi.fn((ctx: { exportReplay: () => ArrayBuffer | null }) => {
+      capturedReplay = ctx.exportReplay();
+    });
+
+    const room = await createTestRoom({ inputRecordingEnabled: true }, { onMatchEnd });
+
+    const ws = createMockWs();
+    await room.handlePlayerConnect('player-0', ws);
+
+    room.handleMessage('player-0', buildRawBatch([
+      { tick: 5, slot: 0, seq: 1, payload: new Uint8Array([1, 2]) },
+    ]));
+
+    // Disconnect all players → triggers match end
+    await room.handlePlayerDisconnect('player-0');
+
+    expect(onMatchEnd).toHaveBeenCalledOnce();
+    expect(capturedReplay).not.toBeNull();
+    expect(capturedReplay!.byteLength).toBeGreaterThan(18); // header + at least some data
+  });
+
+  it('should return empty RPCHistory when no inputs recorded', async () => {
+    const room = await createTestRoom({ inputRecordingEnabled: true });
+
+    const exported = room.context.exportRecordedInputs();
+    expect(exported).not.toBeNull();
+
+    const parsed = parseRPCHistoryBinary(exported!);
+    expect(parsed.version).toBe(1);
+    expect(parsed.tickCount).toBe(0);
+    expect(parsed.ticks).toHaveLength(0);
+    // Header only: 5 bytes (version u8 + tickCount u32)
+    expect(exported!.byteLength).toBe(5);
+
+    await room.dispose();
+  });
+});

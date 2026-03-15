@@ -82,6 +82,22 @@ for (const rpc of rpcs) {
 const buffer = inputProvider.getFrameRPCBuffer(tick);
 ```
 
+## String Encoding (for RPCs)
+
+```typescript
+import { encodeStringToUint8, decodeStringFromUint8 } from '@lagless/binary';
+
+// Encode string into fixed-size buffer (BMP UTF-16, 2 bytes/char)
+const { buffer, truncated } = encodeStringToUint8('Игрок', 64); // 32 chars max
+
+// Decode buffer back to string
+const str = decodeStringFromUint8(buffer); // 'Игрок'
+
+// Use with uint8[N] RPC fields:
+addRPC(PlayerJoined, { slot: 0, username: buffer });
+const name = decodeStringFromUint8(rpc.data.username as Uint8Array);
+```
+
 ## Signals
 
 ```typescript

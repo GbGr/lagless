@@ -85,6 +85,7 @@ const server = new RelayGameServer({
     config: {
       maxPlayers: 4,
       reconnectTimeoutMs: 15_000,
+      inputRecordingEnabled: true, // enable replay export
     },
     hooks,
     inputRegistry: MyInputRegistry,
@@ -200,6 +201,23 @@ ctx.emitServerEvent(InputClass, data);  // Send server-originated RPC
 ctx.getPlayers();                        // Get all player info
 ctx.endMatch(results);                   // End the match
 ctx.roomId;                              // Room identifier
+ctx.exportRecordedInputs();              // RPCHistory binary (requires inputRecordingEnabled)
+ctx.exportReplay();                      // Full replay binary (seed + maxPlayers + fps + RPCHistory)
+```
+
+### Replay Export
+
+Enable `inputRecordingEnabled: true` in server config. All broadcast inputs (client + server events) are stored. Export in `onMatchEnd`:
+
+```typescript
+onMatchEnd: async (ctx, results) => {
+  const replay = ctx.exportReplay();
+  if (replay) {
+    // replay is ArrayBuffer — save to DB, file, or cloud storage
+    // Load later via ReplayInputProvider.createFromReplay(replay, inputRegistry)
+    await saveReplay(ctx.matchId, replay);
+  }
+},
 ```
 
 ## Server Events via emitServerEvent

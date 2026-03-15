@@ -58,6 +58,8 @@ export class RelayRoom {
   private readonly _scopeJson: string;
   private readonly _inputRegistry: InputRegistry;
 
+  private readonly _recordedInputs: ValidatedInput[] | null;
+
   private _disposed = false;
   private _reconnectTimer: ReturnType<typeof setInterval> | null = null;
   private _serverSeq = 1;
@@ -86,6 +88,7 @@ export class RelayRoom {
     this._clock = new ServerClock(_config.tickRateHz);
     this._inputHandler = new InputHandler(this._clock, _config);
     this._stateTransfer = new StateTransfer(_config.stateTransferTimeoutMs);
+    this._recordedInputs = _config.inputRecordingEnabled ? [] : null;
     this._context = new RoomContextImpl(this);
 
     // Initialize player slots
@@ -421,6 +424,7 @@ export class RelayRoom {
     };
 
     this._serverEventJournal.push(input);
+    this._recordedInputs?.push(input);
     this._inputHandler.broadcastInput(input, this._connections);
   }
 
@@ -451,6 +455,7 @@ export class RelayRoom {
       // Store for state transfer replay — joining players need inputs they missed
       for (const input of accepted) {
         this._recentClientInputs.push(input);
+        this._recordedInputs?.push(input);
       }
       this.pruneRecentClientInputs();
 
@@ -657,6 +662,91 @@ export class RelayRoom {
     });
     conn.send(msg);
   }
+
+  // ─── Input Recording Export ─────────────────────────────
+
+  /** @internal */
+  public _exportRecordedInputs(): ArrayBuffer | null {
+    if (!this._recordedInputs) return null;
+
+    // Group by tick
+    const byTick = new Map<number, ValidatedInput[]>();
+    for (const input of this._recordedInputs) {
+      let arr = byTick.get(input.tick);
+      if (!arr) { arr = []; byTick.set(input.tick, arr); }
+      arr.push(input);
+    }
+
+    // Sort ticks; within each tick sort by (playerSlot, seq) for determinism
+    const sortedTicks = Array.from(byTick.keys()).sort((a, b) => a - b);
+    for (const arr of byTick.values()) {
+      arr.sort((a, b) => a.playerSlot - b.playerSlot || a.seq - b.seq);
+    }
+
+    // RPCHistory binary format constants (must match @lagless/core rpc-history.ts)
+    const FORMAT_VERSION = 1;
+    const HEADER_SIZE = 5;       // version(u8) + tickCount(u32)
+    const TICK_HEADER_SIZE = 6;  // tick(u32) + rpcCount(u16)
+    const RPC_HEADER_SIZE = 7;   // seq(u32) + playerSlot(u8) + dataLength(u16)
+
+    // Calculate total size
+    let totalSize = HEADER_SIZE;
+    for (const tick of sortedTicks) {
+      const tickInputs = byTick.get(tick);
+      if (!tickInputs) continue;
+      totalSize += TICK_HEADER_SIZE;
+      for (const input of tickInputs) {
+        totalSize += RPC_HEADER_SIZE + input.payload.byteLength;
+      }
+    }
+
+    // Write binary
+    const buffer = new ArrayBuffer(totalSize);
+    const view = new DataView(buffer);
+    const uint8 = new Uint8Array(buffer);
+    let offset = 0;
+
+    // Header
+    view.setUint8(offset, FORMAT_VERSION); offset += 1;
+    view.setUint32(offset, sortedTicks.length, LE); offset += 4;
+
+    // Tick blocks
+    for (const tick of sortedTicks) {
+      const inputs = byTick.get(tick);
+      if (!inputs) continue;
+      view.setUint32(offset, tick, LE); offset += 4;
+      view.setUint16(offset, inputs.length, LE); offset += 2;
+
+      for (const input of inputs) {
+        view.setUint32(offset, input.seq, LE); offset += 4;
+        view.setUint8(offset, input.playerSlot); offset += 1;
+        view.setUint16(offset, input.payload.byteLength, LE); offset += 2;
+        uint8.set(input.payload, offset); offset += input.payload.byteLength;
+      }
+    }
+
+    return buffer;
+  }
+
+  /** @internal */
+  public _exportReplay(): ArrayBuffer | null {
+    const rpcData = this._exportRecordedInputs();
+    if (!rpcData) return null;
+
+    // Replay format: seed[16] + maxPlayers[u8] + fps[u8] + RPCHistory binary
+    const SEED_LENGTH = 16;
+    const REPLAY_HEADER = SEED_LENGTH + 1 + 1; // 18 bytes
+    const replay = new ArrayBuffer(REPLAY_HEADER + rpcData.byteLength);
+    const uint8 = new Uint8Array(replay);
+    const replayView = new DataView(replay);
+
+    uint8.set(this._seed, 0);
+    replayView.setUint8(SEED_LENGTH, this._config.maxPlayers);
+    replayView.setUint8(SEED_LENGTH + 1, this._config.tickRateHz);
+    uint8.set(new Uint8Array(rpcData), REPLAY_HEADER);
+
+    return replay;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -711,5 +801,13 @@ class RoomContextImpl implements RoomContext {
 
   endMatch(): void {
     this._room.requestEndMatch();
+  }
+
+  exportRecordedInputs(): ArrayBuffer | null {
+    return this._room._exportRecordedInputs();
+  }
+
+  exportReplay(): ArrayBuffer | null {
+    return this._room._exportReplay();
   }
 }
