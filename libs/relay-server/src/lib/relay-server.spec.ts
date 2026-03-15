@@ -11,6 +11,7 @@ import {
   LeaveReason,
 } from './types.js';
 import { LE } from '@lagless/binary';
+import { unpackCancelInput } from '@lagless/net-wire';
 
 // ─── Test helpers ───────────────────────────────────────────
 
@@ -1477,6 +1478,369 @@ describe('handlePlayerConnect — state transfer + journal filtering', () => {
     const batch2 = sendBatchSpy.mock.calls[0][0] as ValidatedInput[];
     expect(batch2).toHaveLength(1);
     expect(batch2[0].tick).toBe(10);
+
+    await room.dispose();
+  });
+});
+
+// ─── onInput hook ──────────────────────────────────────────────
+
+describe('RoomHooks.onInput', () => {
+  /**
+   * Build a raw TickInputBatch ArrayBuffer.
+   * Duplicated from InputHandler tests since it's scoped inside that describe.
+   */
+  function buildRawBatch(inputs: Array<{
+    tick: number;
+    slot: number;
+    seq: number;
+    kind?: number;
+    payload?: Uint8Array;
+  }>): ArrayBuffer {
+    let size = 2 + 1;
+    for (const i of inputs) {
+      const pl = i.payload ?? new Uint8Array([1, 2]);
+      size += 4 + 1 + 4 + 1 + 2 + pl.byteLength;
+    }
+
+    const buf = new ArrayBuffer(size);
+    const view = new DataView(buf);
+    const uint8 = new Uint8Array(buf);
+    let offset = 0;
+
+    view.setUint8(offset++, 1); // version
+    view.setUint8(offset++, 9); // MsgType.TickInputBatch
+
+    view.setUint8(offset++, inputs.length);
+
+    for (const i of inputs) {
+      const payload = i.payload ?? new Uint8Array([1, 2]);
+      view.setUint32(offset, i.tick, LE); offset += 4;
+      view.setUint8(offset++, i.slot);
+      view.setUint32(offset, i.seq, LE); offset += 4;
+      view.setUint8(offset++, i.kind ?? 0);
+      view.setUint16(offset, payload.byteLength, LE); offset += 2;
+      uint8.set(payload, offset); offset += payload.byteLength;
+    }
+
+    return buf;
+  }
+
+  it('should call onInput for each validated input', async () => {
+    const onInput = vi.fn();
+    const room = await createTestRoom({}, { onInput });
+
+    const ws = createMockWs();
+    await room.handlePlayerConnect('player-0', ws);
+
+    const batch = buildRawBatch([
+      { tick: 5, slot: 0, seq: 1 },
+      { tick: 6, slot: 0, seq: 2 },
+    ]);
+    room.handleMessage('player-0', batch);
+
+    expect(onInput).toHaveBeenCalledTimes(2);
+    expect(onInput.mock.calls[0][1].slot).toBe(0);
+    expect(onInput.mock.calls[0][2].tick).toBe(5);
+    expect(onInput.mock.calls[0][2].seq).toBe(1);
+    expect(onInput.mock.calls[1][2].tick).toBe(6);
+    expect(onInput.mock.calls[1][2].seq).toBe(2);
+
+    await room.dispose();
+  });
+
+  it('should reject input when onInput returns false', async () => {
+    const onInput = vi.fn(() => false);
+    const room = await createTestRoom({}, { onInput });
+
+    const ws0 = createMockWs();
+    const ws1 = createMockWs();
+    await room.handlePlayerConnect('player-0', ws0);
+    await room.handlePlayerConnect('player-1', ws1);
+
+    // Clear ServerHello messages
+    ws0.sent.length = 0;
+    ws1.sent.length = 0;
+
+    const batch = buildRawBatch([{ tick: 5, slot: 0, seq: 1 }]);
+    room.handleMessage('player-0', batch);
+
+    // Sender should receive CancelInput with Rejected reason
+    expect(ws0.sent.length).toBe(1);
+    const cancel = unpackCancelInput(ws0.sent[0].buffer as ArrayBuffer);
+    expect(cancel.tick).toBe(5);
+    expect(cancel.seq).toBe(1);
+    expect(cancel.reason).toBe(3 /* CancelReason.Rejected */);
+
+    // Other player should NOT receive the fanout
+    expect(ws1.sent.length).toBe(0);
+
+    await room.dispose();
+  });
+
+  it('should accept input when onInput returns true', async () => {
+    const onInput = vi.fn(() => true);
+    const room = await createTestRoom({}, { onInput });
+
+    const ws0 = createMockWs();
+    const ws1 = createMockWs();
+    await room.handlePlayerConnect('player-0', ws0);
+    await room.handlePlayerConnect('player-1', ws1);
+
+    ws0.sent.length = 0;
+    ws1.sent.length = 0;
+
+    const batch = buildRawBatch([{ tick: 5, slot: 0, seq: 1 }]);
+    room.handleMessage('player-0', batch);
+
+    // Both players should receive the fanout (no CancelInput)
+    expect(ws0.sent.length).toBe(1);
+    expect(ws1.sent.length).toBe(1);
+
+    await room.dispose();
+  });
+
+  it('should accept input when onInput returns undefined', async () => {
+    const onInput = vi.fn(() => undefined);
+    const room = await createTestRoom({}, { onInput });
+
+    const ws0 = createMockWs();
+    const ws1 = createMockWs();
+    await room.handlePlayerConnect('player-0', ws0);
+    await room.handlePlayerConnect('player-1', ws1);
+
+    ws0.sent.length = 0;
+    ws1.sent.length = 0;
+
+    const batch = buildRawBatch([{ tick: 5, slot: 0, seq: 1 }]);
+    room.handleMessage('player-0', batch);
+
+    expect(ws0.sent.length).toBe(1);
+    expect(ws1.sent.length).toBe(1);
+
+    await room.dispose();
+  });
+
+  it('should selectively reject inputs in a batch', async () => {
+    // Reject only the second input (seq=2)
+    const onInput = vi.fn((_ctx: unknown, _player: unknown, input: { seq: number }) => {
+      return input.seq !== 2;
+    });
+    const room = await createTestRoom({}, { onInput });
+
+    const ws0 = createMockWs();
+    const ws1 = createMockWs();
+    await room.handlePlayerConnect('player-0', ws0);
+    await room.handlePlayerConnect('player-1', ws1);
+
+    ws0.sent.length = 0;
+    ws1.sent.length = 0;
+
+    const batch = buildRawBatch([
+      { tick: 5, slot: 0, seq: 1 },
+      { tick: 6, slot: 0, seq: 2 },
+      { tick: 7, slot: 0, seq: 3 },
+    ]);
+    room.handleMessage('player-0', batch);
+
+    // ws0 should receive: CancelInput for seq=2 + fanout for seq=1,3
+    expect(ws0.sent.length).toBe(2); // 1 cancel + 1 fanout (batch)
+    // ws1 should receive: fanout only (seq=1,3)
+    expect(ws1.sent.length).toBe(1);
+
+    // Verify the cancel is for seq=2
+    const cancelMsg = ws0.sent.find(msg => {
+      const view = new DataView(msg.buffer as ArrayBuffer);
+      return view.getUint8(1) === 3; // MsgType.CancelInput
+    });
+    expect(cancelMsg).toBeDefined();
+    const cancel = unpackCancelInput(cancelMsg!.buffer as ArrayBuffer);
+    expect(cancel.seq).toBe(2);
+    expect(cancel.reason).toBe(3 /* CancelReason.Rejected */);
+
+    await room.dispose();
+  });
+
+  it('should not be called for already-rejected inputs (validation failures)', async () => {
+    const onInput = vi.fn();
+    const room = await createTestRoom({}, { onInput });
+
+    const ws = createMockWs();
+    await room.handlePlayerConnect('player-0', ws);
+
+    // Send input with wrong slot — should be rejected by validation, not reaching onInput
+    const batch = buildRawBatch([{ tick: 5, slot: 1, seq: 1 }]);
+    room.handleMessage('player-0', batch);
+
+    expect(onInput).not.toHaveBeenCalled();
+
+    await room.dispose();
+  });
+
+  it('should provide correct player info', async () => {
+    const onInput = vi.fn();
+    const room = await createTestRoom({}, { onInput });
+
+    const ws = createMockWs();
+    await room.handlePlayerConnect('player-0', ws);
+
+    const batch = buildRawBatch([{ tick: 5, slot: 0, seq: 1 }]);
+    room.handleMessage('player-0', batch);
+
+    expect(onInput).toHaveBeenCalledTimes(1);
+    const [ctx, player, input] = onInput.mock.calls[0];
+    expect(ctx.matchId).toBe('test-match-id');
+    expect(player.playerId).toBe('player-0');
+    expect(player.slot).toBe(0);
+    expect(input.payload).toBeInstanceOf(Uint8Array);
+
+    await room.dispose();
+  });
+
+  it('should not store rejected inputs in recentClientInputs', async () => {
+    const onInput = vi.fn(() => false);
+    const room = await createTestRoom(
+      { lateJoinEnabled: true, maxPlayers: 4 },
+      { onInput },
+    );
+
+    const ws0 = createMockWs();
+    await room.handlePlayerConnect('player-0', ws0);
+
+    const batch = buildRawBatch([{ tick: 5, slot: 0, seq: 1 }]);
+    room.handleMessage('player-0', batch);
+
+    // Access private _recentClientInputs to verify rejected input was not stored
+    const recentInputs = (room as any)._recentClientInputs as ValidatedInput[];
+    expect(recentInputs).toHaveLength(0);
+
+    await room.dispose();
+  });
+});
+
+// ─── onInputDeclined hook ──────────────────────────────────────
+
+describe('RoomHooks.onInputDeclined', () => {
+  function buildRawBatch(inputs: Array<{
+    tick: number;
+    slot: number;
+    seq: number;
+    kind?: number;
+    payload?: Uint8Array;
+  }>): ArrayBuffer {
+    let size = 2 + 1;
+    for (const i of inputs) {
+      const pl = i.payload ?? new Uint8Array([1, 2]);
+      size += 4 + 1 + 4 + 1 + 2 + pl.byteLength;
+    }
+
+    const buf = new ArrayBuffer(size);
+    const view = new DataView(buf);
+    const uint8 = new Uint8Array(buf);
+    let offset = 0;
+
+    view.setUint8(offset++, 1); // version
+    view.setUint8(offset++, 9); // MsgType.TickInputBatch
+
+    view.setUint8(offset++, inputs.length);
+
+    for (const i of inputs) {
+      const payload = i.payload ?? new Uint8Array([1, 2]);
+      view.setUint32(offset, i.tick, LE); offset += 4;
+      view.setUint8(offset++, i.slot);
+      view.setUint32(offset, i.seq, LE); offset += 4;
+      view.setUint8(offset++, i.kind ?? 0);
+      view.setUint16(offset, payload.byteLength, LE); offset += 2;
+      uint8.set(payload, offset); offset += payload.byteLength;
+    }
+
+    return buf;
+  }
+
+  it('should call onInputDeclined when validation rejects (wrong slot)', async () => {
+    const onInputDeclined = vi.fn();
+    const room = await createTestRoom({}, { onInputDeclined });
+
+    const ws = createMockWs();
+    await room.handlePlayerConnect('player-0', ws);
+
+    // Send input with wrong slot — validation rejects with InvalidSlot
+    const batch = buildRawBatch([{ tick: 5, slot: 1, seq: 1 }]);
+    room.handleMessage('player-0', batch);
+
+    expect(onInputDeclined).toHaveBeenCalledTimes(1);
+    const [ctx, player, tick, seq, reason] = onInputDeclined.mock.calls[0];
+    expect(ctx.matchId).toBe('test-match-id');
+    expect(player.slot).toBe(0);
+    expect(tick).toBe(5);
+    expect(seq).toBe(1);
+    expect(reason).toBe(2 /* CancelReason.InvalidSlot */);
+
+    await room.dispose();
+  });
+
+  it('should call onInputDeclined when onInput rejects', async () => {
+    const onInput = vi.fn(() => false);
+    const onInputDeclined = vi.fn();
+    const room = await createTestRoom({}, { onInput, onInputDeclined });
+
+    const ws = createMockWs();
+    await room.handlePlayerConnect('player-0', ws);
+
+    const batch = buildRawBatch([{ tick: 5, slot: 0, seq: 1 }]);
+    room.handleMessage('player-0', batch);
+
+    expect(onInputDeclined).toHaveBeenCalledTimes(1);
+    const [, , tick, seq, reason] = onInputDeclined.mock.calls[0];
+    expect(tick).toBe(5);
+    expect(seq).toBe(1);
+    expect(reason).toBe(3 /* CancelReason.Rejected */);
+
+    await room.dispose();
+  });
+
+  it('should not call onInputDeclined for accepted inputs', async () => {
+    const onInputDeclined = vi.fn();
+    const room = await createTestRoom({}, { onInputDeclined });
+
+    const ws = createMockWs();
+    await room.handlePlayerConnect('player-0', ws);
+
+    const batch = buildRawBatch([{ tick: 5, slot: 0, seq: 1 }]);
+    room.handleMessage('player-0', batch);
+
+    expect(onInputDeclined).not.toHaveBeenCalled();
+
+    await room.dispose();
+  });
+
+  it('should call onInputDeclined for each declined input in a batch', async () => {
+    // Reject only seq=2 via onInput, seq=3 has wrong slot (validation reject)
+    const onInput = vi.fn((_ctx: unknown, _player: unknown, input: { seq: number }) => {
+      return input.seq !== 2;
+    });
+    const onInputDeclined = vi.fn();
+    const room = await createTestRoom({}, { onInput, onInputDeclined });
+
+    const ws = createMockWs();
+    await room.handlePlayerConnect('player-0', ws);
+
+    const batch = buildRawBatch([
+      { tick: 5, slot: 0, seq: 1 },  // accepted
+      { tick: 6, slot: 0, seq: 2 },  // rejected by onInput
+      { tick: 7, slot: 1, seq: 3 },  // rejected by validation (wrong slot)
+    ]);
+    room.handleMessage('player-0', batch);
+
+    expect(onInputDeclined).toHaveBeenCalledTimes(2);
+
+    // seq=2: Rejected by onInput
+    expect(onInputDeclined.mock.calls[0][3]).toBe(2); // seq
+    expect(onInputDeclined.mock.calls[0][4]).toBe(3 /* CancelReason.Rejected */);
+
+    // seq=3: InvalidSlot by validation
+    expect(onInputDeclined.mock.calls[1][3]).toBe(3); // seq
+    expect(onInputDeclined.mock.calls[1][4]).toBe(2 /* CancelReason.InvalidSlot */);
 
     await room.dispose();
   });

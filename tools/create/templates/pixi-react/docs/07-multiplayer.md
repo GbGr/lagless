@@ -170,6 +170,20 @@ export const hooks: RoomHooks = {
     // Persist results to database, etc.
   },
 
+  // Inspect or reject client inputs before broadcast (sync, called per input)
+  onInput: (ctx, player, input) => {
+    // input: { tick, playerSlot, seq, payload (Uint8Array) }
+    // Decode payload: InputBinarySchema.unpackBatch(registry, input.payload.buffer)
+    // Return false to reject (sends CancelInput with Rejected reason)
+    // Return void/true to accept
+  },
+
+  // Called when input is rejected (by validation or onInput returning false)
+  onInputDeclined: (ctx, player, tick, seq, reason) => {
+    // reason: 0=TooOld, 1=TooFarFuture, 2=InvalidSlot, 3=Rejected
+    // Use for logging, rate-limit tracking, anti-cheat analytics
+  },
+
   // Room is being disposed
   onRoomDisposed: (ctx) => {
     console.log('Room disposed:', ctx.roomId);

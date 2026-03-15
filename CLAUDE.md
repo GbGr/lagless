@@ -154,7 +154,7 @@ Three event streams: **Predicted** (instant feedback), **Verified** (survived al
 
 ### Relay Multiplayer Architecture
 
-**Server side (relay-server):** `RelayRoom` is sealed — game behavior injected via `RoomHooks<TResult>` callbacks (`onPlayerJoin`, `onPlayerLeave`, `onPlayerFinished`, `onMatchEnd`, etc.). Hooks receive `RoomContext` for safe room interaction (`emitServerEvent`, `getPlayers`, `endMatch`).
+**Server side (relay-server):** `RelayRoom` is sealed — game behavior injected via `RoomHooks<TResult>` callbacks (`onPlayerJoin`, `onPlayerLeave`, `onInput`, `onPlayerFinished`, `onMatchEnd`, etc.). Hooks receive `RoomContext` for safe room interaction (`emitServerEvent`, `getPlayers`, `endMatch`). `onInput` is called per validated client input before broadcast — return `false` to reject (sends `CancelInput` with `Rejected` reason). `onInputDeclined` fires when any input is rejected (validation failure or `onInput` returning `false`).
 
 **Client side (relay-client):** `RelayInputProvider` handles local prediction, remote input injection from `TickInputFanout`, rollback on `CancelInput`, clock sync via Pong, adaptive input delay via `InputDelayController`.
 
@@ -284,7 +284,7 @@ Create three packages: `my-game/my-game-simulation/`, `my-game/my-game-client/`,
    });
    server.start();
    ```
-   Implement `RoomHooks` for game-specific logic (player join/leave events, match results, DB persistence). Add `customRoutes` for game-specific HTTP endpoints. Call `setupDevTools(server)` from `@lagless/dev-tools` for dev-player support.
+   Implement `RoomHooks` for game-specific logic (player join/leave events, input filtering via `onInput`, match results, DB persistence). Add `customRoutes` for game-specific HTTP endpoints. Call `setupDevTools(server)` from `@lagless/dev-tools` for dev-player support.
 
 ## Code Conventions
 

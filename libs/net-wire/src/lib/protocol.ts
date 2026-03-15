@@ -36,6 +36,7 @@ export const enum CancelReason {
   TooOld        = 0,
   TooFarFuture  = 1,
   InvalidSlot   = 2,
+  Rejected      = 3,
 }
 
 // ─────────────────────────────────────────────────────────────

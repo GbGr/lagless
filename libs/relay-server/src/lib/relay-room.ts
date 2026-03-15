@@ -432,9 +432,18 @@ export class RelayRoom {
     const accepted: ValidatedInput[] = [];
     for (const result of results) {
       if (result.accepted) {
+        if (this._hooks.onInput) {
+          const allow = this._hooks.onInput(this._context, conn.info, result.input);
+          if (allow === false) {
+            this._inputHandler.sendCancel(conn, result.input.tick, result.input.seq, 3 /* CancelReason.Rejected */);
+            this._hooks.onInputDeclined?.(this._context, conn.info, result.input.tick, result.input.seq, 3 /* CancelReason.Rejected */);
+            continue;
+          }
+        }
         accepted.push(result.input);
       } else {
         this._inputHandler.sendCancel(conn, result.tick, result.seq, result.reason);
+        this._hooks.onInputDeclined?.(this._context, conn.info, result.tick, result.seq, result.reason);
       }
     }
 

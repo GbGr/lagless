@@ -39,6 +39,15 @@ export enum ConnectionState {
   Gone,
 }
 
+// ─── Received Input (passed to onInput hook) ────────────────
+
+export interface ReceivedInput {
+  readonly tick: number;
+  readonly playerSlot: PlayerSlot;
+  readonly seq: number;
+  readonly payload: Uint8Array;
+}
+
 // ─── Room Hooks (implement per game) ───────────────────────
 
 export interface RoomHooks<TMatchResult = unknown> {
@@ -51,6 +60,10 @@ export interface RoomHooks<TMatchResult = unknown> {
   onRoomDisposed?(ctx: RoomContext): void | Promise<void>;
   shouldAcceptReconnect?(ctx: RoomContext, playerId: PlayerId): boolean;
   shouldAcceptLateJoin?(ctx: RoomContext, playerId: PlayerId, metadata: Readonly<Record<string, unknown>>): boolean;
+  /** Called for each validated client input before broadcast. Return false to reject (sends CancelInput). */
+  onInput?(ctx: RoomContext, player: PlayerInfo, input: ReceivedInput): boolean | void;
+  /** Called when a client input is rejected (validation failure or onInput returned false). reason: 0=TooOld, 1=TooFarFuture, 2=InvalidSlot, 3=Rejected. */
+  onInputDeclined?(ctx: RoomContext, player: PlayerInfo, tick: number, seq: number, reason: number): void;
 }
 
 // ─── Room Context (safe API for hooks) ─────────────────────

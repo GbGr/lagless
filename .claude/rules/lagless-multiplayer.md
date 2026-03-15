@@ -41,6 +41,11 @@ const hooks: RoomHooks<MatchResult> = {
   onPlayerLeave(ctx, player) {
     ctx.emitServerEvent(PlayerLeft, { slot: player.slot }, player.tick + 1);
   },
+  onInput(ctx, player, input) {
+    // Called per validated client input before broadcast. Return false to reject.
+    // input: { tick, playerSlot, seq, payload (Uint8Array) }
+    // Decode payload: InputBinarySchema.unpackBatch(registry, input.payload.buffer)
+  },
   onMatchEnd(ctx, results) { /* persist results */ },
 };
 ```
@@ -48,6 +53,8 @@ const hooks: RoomHooks<MatchResult> = {
 - `emitServerEvent(RpcClass, data, tick)` — schedules RPC at given tick for all clients
 - `ctx.getPlayers()` — list connected players
 - `ctx.endMatch(result)` — ends match, triggers `onMatchEnd`
+- `onInput` — sync hook, called per validated input before broadcast. Return `false` → sends `CancelInput(Rejected)` to sender, input is NOT broadcast or stored
+- `onInputDeclined(ctx, player, tick, seq, reason)` — fires when any input is rejected (validation failure or `onInput` returning `false`). reason: 0=TooOld, 1=TooFarFuture, 2=InvalidSlot, 3=Rejected
 
 ## RelayConnection (client)
 

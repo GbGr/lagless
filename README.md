@@ -302,6 +302,11 @@ interface RoomHooks<TResult> {
   onMatchEnd?(ctx: RoomContext, results: ReadonlyMap<PlayerSlot, TResult>): void | Promise<void>;
   onRoomDisposed?(ctx: RoomContext): void | Promise<void>;
   shouldAcceptReconnect?(ctx: RoomContext, playerId: PlayerId): boolean;
+  shouldAcceptLateJoin?(ctx: RoomContext, playerId: PlayerId, metadata: Readonly<Record<string, unknown>>): boolean;
+  /** Called per validated client input before broadcast. Return false to reject. */
+  onInput?(ctx: RoomContext, player: PlayerInfo, input: ReceivedInput): boolean | void;
+  /** Called when input is rejected (validation or onInput). reason: 0=TooOld, 1=TooFarFuture, 2=InvalidSlot, 3=Rejected. */
+  onInputDeclined?(ctx: RoomContext, player: PlayerInfo, tick: number, seq: number, reason: number): void;
 }
 ```
 
@@ -320,7 +325,7 @@ Hooks receive `RoomContext` — a safe API for interacting with the room:
 - `RoomRegistry` — manages room types + active rooms, periodic cleanup of disposed rooms
 - `LatencySimulator` — artificial delay/jitter/packet-loss for testing
 
-**Input validation rule:** `input.tick < serverTick` → reject (TooOld). `input.tick > serverTick + maxFutureTicks` → reject (TooFarFuture).
+**Input validation rule:** `input.tick < serverTick` → reject (TooOld). `input.tick > serverTick + maxFutureTicks` → reject (TooFarFuture). `onInput` returns `false` → reject (Rejected).
 
 ### @lagless/relay-client
 

@@ -176,7 +176,7 @@ export class RelayInputProvider extends AbstractInputProvider {
    * Removes the rejected input and triggers rollback.
    */
   public handleCancelInput(data: CancelInputData): void {
-    const reasonNames = ['TooOld', 'TooFarFuture', 'InvalidSlot'];
+    const reasonNames = ['TooOld', 'TooFarFuture', 'InvalidSlot', 'Rejected'];
     log.warn(
       `CANCEL received: tick=${data.tick} seq=${data.seq} slot=${data.playerSlot} reason=${reasonNames[data.reason] ?? data.reason}`
     );

@@ -173,6 +173,15 @@ const hooks: RoomHooks = {
       reason,
     });
   },
+  // Inspect or reject client inputs before broadcast:
+  onInput: (ctx, player, input) => {
+    // input: { tick, playerSlot, seq, payload }
+    // Return false to reject (sends CancelInput to sender)
+  },
+  // Called when input is rejected (validation or onInput):
+  onInputDeclined: (ctx, player, tick, seq, reason) => {
+    // reason: 0=TooOld, 1=TooFarFuture, 2=InvalidSlot, 3=Rejected
+  },
 };
 ```
 
