@@ -209,7 +209,7 @@ export class ECSSimulation {
         this._hashHistory.set(currentTick, this.mem.getHash());
       }
 
-      this._signalsRegistry.onTick(this._inputProvider.verifiedTick);
+      this._signalsRegistry.onTick(Math.min(this._inputProvider.verifiedTick, currentTick));
       this.storeSnapshotIfNeeded(currentTick);
       for (const handler of this._onTickHandlers) handler(currentTick);
     }
