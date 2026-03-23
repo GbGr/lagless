@@ -1,6 +1,6 @@
 /**
  * Minimal type abstractions for Rapier 3D API.
- * Works with both @dimforge/rapier3d-deterministic and @dimforge/rapier3d-deterministic-compat.
+ * Works with both @lagless/rapier3d-deterministic and @lagless/rapier3d-deterministic-compat.
  * The consumer project injects the actual RAPIER module at runtime.
  */
 

@@ -20,7 +20,7 @@ let rapier: RapierModule3d;
 
 beforeAll(async () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const R = (await import('@dimforge/rapier3d-deterministic-compat')).default as any;
+  const R = (await import('@lagless/rapier3d-deterministic-compat')).default as any;
   await R.init();
   rapier = R as unknown as RapierModule3d;
   await MathOps.init();

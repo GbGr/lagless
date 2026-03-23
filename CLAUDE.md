@@ -341,8 +341,10 @@ const cameraYaw = finite(rpc.data.cameraYaw);
 ## Physics Libraries
 
 - **[@lagless/physics-shared](libs/physics-shared/)** — Shared code: BodyType, ColliderEntityMap, CollisionLayers, CollisionEventsBase, PhysicsSimulationBase. No Rapier dependency.
-- **[@lagless/physics3d](libs/physics3d/)** — Rapier 3D integration. [Documentation](libs/physics3d/README.md)
-- **[@lagless/physics2d](libs/physics2d/)** — Rapier 2D integration. [Documentation](libs/physics2d/README.md)
+- **[@lagless/physics3d](libs/physics3d/)** — Rapier 3D integration. Peer dep: `@lagless/rapier3d-deterministic-compat`. [Documentation](libs/physics3d/README.md)
+- **[@lagless/physics2d](libs/physics2d/)** — Rapier 2D integration. Peer dep: `@lagless/rapier2d-deterministic-compat`. [Documentation](libs/physics2d/README.md)
+
+Both `@lagless/rapier2d-deterministic-compat` and `@lagless/rapier3d-deterministic-compat` are custom builds of Rapier with a BVH snapshot determinism fix (parry#403). The original `@dimforge` packages have a bug where BVH incremental optimization state is not serialized in snapshots, causing rollback divergence. **Always use the `@lagless` packages, never `@dimforge`.**
 
 Codegen: `simulationType: 'physics3d'` auto-prepends Transform3d (14 fields) + PhysicsRefs. `simulationType: 'physics2d'` auto-prepends Transform2d (6 fields) + PhysicsRefs.
 

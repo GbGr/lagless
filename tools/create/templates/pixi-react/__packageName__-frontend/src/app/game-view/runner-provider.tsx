@@ -88,7 +88,7 @@ export const RunnerProvider: FC<RunnerProviderProps> = ({ children }) => {
 <% } else if (simulationType === 'physics3d') { -%>
       // Load Rapier 3D WASM
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const RAPIER = (await import('@dimforge/rapier3d-deterministic-compat')).default as any;
+      const RAPIER = (await import('@lagless/rapier3d-deterministic-compat')).default as any;
       await RAPIER.init();
       const rapier = RAPIER as unknown as RapierModule3d;
       if (disposed) { inputProvider.dispose(); return; }

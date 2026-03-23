@@ -1,6 +1,6 @@
 {
   "name": "@lagless/physics3d",
-  "version": "0.0.59",
+  "version": "0.0.60",
   "license": "CC-BY-NC-4.0",
   "repository": {
     "type": "git",
@@ -44,10 +44,10 @@
     "@swc/helpers": "~0.5.11"
   },
   "peerDependencies": {
-    "@dimforge/rapier3d-deterministic-compat": ">=0.15.0"
+    "@lagless/rapier3d-deterministic-compat": ">=0.15.0"
   },
   "devDependencies": {
-    "@dimforge/rapier3d-deterministic-compat": "^0.19.0",
+    "@lagless/rapier3d-deterministic-compat": "^0.19.4",
     "unplugin-swc": "^1.5.7"
   },
   "files": [

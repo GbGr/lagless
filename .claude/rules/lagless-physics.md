@@ -5,8 +5,10 @@
 ## Libraries
 
 - `@lagless/physics2d` — Rapier 2D (`@lagless/rapier2d-deterministic-compat`), zero gravity default, warm-starting disabled
-- `@lagless/physics3d` — Rapier 3D, CharacterController3D
+- `@lagless/physics3d` — Rapier 3D (`@lagless/rapier3d-deterministic-compat`), CharacterController3D
 - `@lagless/physics-shared` — shared base: `PhysicsSimulationBase`, `ColliderEntityMap`, `CollisionEventsBase`
+
+**Always use `@lagless/rapier*-deterministic-compat` packages, never `@dimforge`.** The `@lagless` packages include a BVH snapshot determinism fix (parry#403) — without it, rollback causes BVH optimization state divergence.
 
 ## Pre-Start Body Creation (CRITICAL for rollback)
 
