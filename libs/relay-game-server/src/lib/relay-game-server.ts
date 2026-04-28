@@ -135,13 +135,14 @@ export class RelayGameServer {
 
     matchmaking.start();
 
-    const wsRouter = createWsRouter(roomRegistry, matchmaking, validateToken);
+    const wsRouter = createWsRouter(roomRegistry, matchmaking, validateToken, config.matchmaking.authenticatePlayer);
 
     Bun.serve({
       port: config.port,
+      reusePort: config.reusePort ?? false,
 
       async fetch(req, server) {
-        const wsResp = wsRouter.handleUpgrade(req, server);
+        const wsResp = await wsRouter.handleUpgrade(req, server);
         if (wsResp !== undefined) return wsResp;
 
         const url = new URL(req.url);

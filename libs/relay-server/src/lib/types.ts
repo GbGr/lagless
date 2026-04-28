@@ -17,6 +17,8 @@ export interface RoomTypeConfig {
   readonly stateTransferTimeoutMs: number;
   /** When true, all broadcast inputs (client + server) are stored for replay export. Default: false. */
   readonly inputRecordingEnabled?: boolean;
+  /** When false, skip tick-based input validation (TooOld, TooFarFuture). Slot and kind checks still apply. Default: true. */
+  readonly inputTimingValidationEnabled?: boolean;
 }
 
 // ─── Player ─────────────────────────────────────────────────

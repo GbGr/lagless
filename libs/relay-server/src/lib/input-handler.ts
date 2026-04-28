@@ -87,18 +87,20 @@ export class InputHandler {
 
       const serverTick = this._clock.tick;
 
-      if (tick < serverTick) {
-        log.warn(`REJECT TooOld: slot=${senderSlot} inputTick=${tick} serverTick=${serverTick} delta=${tick - serverTick} seq=${seq}`);
-        results.push({ accepted: false, reason: CancelReason.TooOld, tick, seq });
-        offset += payloadLength;
-        continue;
-      }
+      if (this._config.inputTimingValidationEnabled !== false) {
+        if (tick < serverTick) {
+          log.warn(`REJECT TooOld: slot=${senderSlot} inputTick=${tick} serverTick=${serverTick} delta=${tick - serverTick} seq=${seq}`);
+          results.push({ accepted: false, reason: CancelReason.TooOld, tick, seq });
+          offset += payloadLength;
+          continue;
+        }
 
-      if (tick > serverTick + this._config.maxFutureTicks) {
-        log.warn(`REJECT TooFarFuture: slot=${senderSlot} inputTick=${tick} serverTick=${serverTick} delta=${tick - serverTick} maxFuture=${this._config.maxFutureTicks} seq=${seq}`);
-        results.push({ accepted: false, reason: CancelReason.TooFarFuture, tick, seq });
-        offset += payloadLength;
-        continue;
+        if (tick > serverTick + this._config.maxFutureTicks) {
+          log.warn(`REJECT TooFarFuture: slot=${senderSlot} inputTick=${tick} serverTick=${serverTick} delta=${tick - serverTick} maxFuture=${this._config.maxFutureTicks} seq=${seq}`);
+          results.push({ accepted: false, reason: CancelReason.TooFarFuture, tick, seq });
+          offset += payloadLength;
+          continue;
+        }
       }
 
       const payload = new Uint8Array(raw.slice(offset, offset + payloadLength));

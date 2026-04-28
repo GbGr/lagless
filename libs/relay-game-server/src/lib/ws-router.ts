@@ -2,13 +2,14 @@ import type { ServerWebSocket } from 'bun';
 import { createLogger } from '@lagless/misc';
 import type { RoomRegistry } from '@lagless/relay-server';
 import type { MatchmakingService } from '@lagless/matchmaking';
+import type { MatchmakingAuthResult } from './types.js';
 
 const log = createLogger('WsRouter');
 
 // ─── Connection Data ────────────────────────────────────────
 
 export type WsData =
-  | { readonly type: 'matchmaking'; playerId: string; scope: string | null }
+  | { readonly type: 'matchmaking'; playerId: string; scope: string | null; authMetadata?: Readonly<Record<string, unknown>> }
   | { readonly type: 'match'; matchId: string; playerId: string; playerSlot: number };
 
 // ─── Token Validation ───────────────────────────────────────
@@ -27,31 +28,48 @@ export type ValidateMatchToken = (token: string) => MatchTokenPayload | null;
  * Creates Bun WebSocket handlers that multiplex between
  * matchmaking and relay connections based on ws.data.type.
  */
+export type AuthenticatePlayer = (req: Request) => MatchmakingAuthResult | Promise<MatchmakingAuthResult | null> | null;
+
 export function createWsRouter(
   roomRegistry: RoomRegistry,
   matchmaking: MatchmakingService,
   validateMatchToken: ValidateMatchToken,
+  authenticatePlayer?: AuthenticatePlayer,
 ) {
   return {
     /**
      * Handle HTTP upgrade requests for WebSocket connections.
      * Returns Response if handled, undefined if not a WS route.
      */
-    handleUpgrade(
+    async handleUpgrade(
       req: Request,
       server: { upgrade: (req: Request, opts: { data: WsData }) => boolean }
-    ): Response | undefined {
+    ): Promise<Response | undefined> {
       const url = new URL(req.url);
 
-      // Matchmaking WebSocket: /matchmaking?playerId=...
+      // Matchmaking WebSocket
       if (url.pathname === '/matchmaking') {
-        const playerId = url.searchParams.get('playerId');
-        if (!playerId) {
-          return new Response('Missing playerId', { status: 400 });
+        let playerId: string;
+        let authMetadata: Readonly<Record<string, unknown>> | undefined;
+
+        if (authenticatePlayer) {
+          const result = await authenticatePlayer(req);
+          if (!result) {
+            return new Response('Unauthorized', { status: 401 });
+          }
+          playerId = result.playerId;
+          authMetadata = result.metadata;
+        } else {
+          // Fallback: trust ?playerId= query param (dev / no-auth mode)
+          const qsPlayerId = url.searchParams.get('playerId');
+          if (!qsPlayerId) {
+            return new Response('Missing playerId', { status: 400 });
+          }
+          playerId = qsPlayerId;
         }
 
         const upgraded = server.upgrade(req, {
-          data: { type: 'matchmaking', playerId, scope: null },
+          data: { type: 'matchmaking', playerId, scope: null, authMetadata },
         });
 
         return upgraded ? undefined : new Response('Upgrade failed', { status: 500 });
@@ -195,11 +213,16 @@ function handleMatchmakingMessage(
   if (msg.type === 'join') {
     data.scope = msg.scope;
 
+    // Auth metadata (server-verified) takes precedence over client join metadata
+    const metadata = data.authMetadata
+      ? { ...(msg.metadata ?? {}), ...data.authMetadata }
+      : (msg.metadata ?? {});
+
     matchmaking.addPlayer(
       data.playerId,
       msg.scope,
       msg.mmr ?? 1000,
-      msg.metadata ?? {},
+      metadata,
       (notification) => {
         ws.send(JSON.stringify(notification));
       },
